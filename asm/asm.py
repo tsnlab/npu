@@ -1,11 +1,13 @@
 import sys
+import struct
 
 
 class Opcode:
-    def __init__(self, code, name, params):
+    def __init__(self, code, name, params, compiler=None):
         self.code = code
         self.name = name
         self.params = params
+        self.compiler = compiler
 
     def get_code(self):
         return self.code
@@ -13,30 +15,17 @@ class Opcode:
     def get_name(self):
         return self.name
 
-    def get_param_count(self):
-        return len(self.params)
-
     def get_reg(self, token):
-        if len(token) != 2:
-            raise Exception('Illegal register name: {token}')
-
-        if token[0] != '%':
-            raise Exception('Illegal register name: {token}')
-
-        if token[1] == 'm' or token[1] == '1':
+        if token == '%a' or token == '%A' or token == '%1':
             return 1
-        elif token[1] == 's' or token[1] == '2':
+        elif token == '%b' or token == '%B' or token == '%2':
             return 2
-        elif token[1] == 'a' or token[1] == '3':
+        elif token == '%c' or token == '%C' or token == '%3':
             return 3
-        elif token[1] == 'b' or token[1] == '4':
+        elif token == '%d' or token == '%D' or token == '%4':
             return 4
-        elif token[1] == 'c' or token[1] == '5':
-            return 5
-        elif token[1] == 'd' or token[1] == '6':
-            return 6
         else:
-            raise Exception('Illegal register name: {token}')
+            raise Exception(f'Illegal register name: {token}')
 
     def get_value(self, bits, token):
         maximum = 2 ** bits
@@ -46,77 +35,107 @@ class Opcode:
         else:
             return value
 
-    def compile(self, tokens):
-        if len(self.params) != len(tokens):
-            raise Exception(f'Illegal parameters: {tokens}, exptected: {self.params}')
+    def compile(self, target, target_file, tokens):
+        if self.compiler is not None:
+            return self.compiler(target, target_file, tokens)
 
-        print(self.code, self.name, end=' ')
+        packed = 0
+
+        # Check parameter counts
+        if len(self.params) != len(tokens):
+            raise Exception(f'Illegal tokens: {tokens}, expected: {self.params}')
+
+        # Write opcode
+        target_file.write(struct.pack('B', self.code))
+        packed += 1
+
+        # Write params
         for kind, token in zip(self.params, tokens):
             if kind == 'r':
                 reg = self.get_reg(token)
-                print(f'%{reg}', end=' ')
+                target_file.write(struct.pack('B', reg))
+                packed += 1
             elif kind == 'b':
                 value = elf.get_value(8, token)
-                print(f'{value}', end=' ')
+                target_file.write(struct.pack('B', value))
+                packed += 1
             elif kind == 's':
                 value = self.get_value(16, token)
-                print(f'{value}', end=' ')
+                target_file.write(struct.pack('H', value))
+                packed += 2
             else:
                 raise Exception(f'Illegal parameter type: {kind}')
 
-        print()
+        while packed % 4 != 0:
+            target_file.write(struct.pack('B', 0))
+            packed += 1
 
+
+def compile_data_f32(target, target_file, tokens):
+    addr = int(tokens[0], 0)
+
+    data = eval(' '.join(tokens[1:]))
+    if not isinstance(data, list) and not isinstance(data, tuple):
+        raise Exception(f'Illegal data type: {type(data)}')
+
+    with open(target + '.' + hex(addr)[2:] + '.data', 'wb') as f:
+        for i in range(len(data)):
+            f.write(struct.pack('f', data[i]))
+
+    
 opcodes = [
     Opcode(0, 'nop', ''),
-    Opcode(1, 'set_low', 'rs'),
-    Opcode(2, 'set_high', 'rs'),
+    Opcode(1, 'set_high', 'rs'),
+    Opcode(2, 'set_low', 'rs'),
     Opcode(3, 'load', 's'),
     Opcode(4, 'store', 's'),
     Opcode(5, 'add.f32', 's'),
     Opcode(6, 'sub.f32', 's'),
     Opcode(7, 'mul.f32', 's'),
     Opcode(8, 'div.f32', 's'),
-    Opcode(9, 'return', '')
+    Opcode(9, 'return', ''),
+    Opcode(255, 'data.f32', 'd', compiler=compile_data_f32)
 ]
 
 
 def get_opcode(tokens):
     for opcode in opcodes:
-        if opcode.get_name() == tokens[0] and len(tokens) - 1 == opcode.get_param_count():
+        if opcode.get_name() == tokens[0]:
             return opcode
 
     raise Exception(f'There is no such opcode for the code: {tokens}')
 
 
-def compile(path):
-    with open(path, 'r') as f:
-        while True:
-            line = f.readline();
+def compile(source, target):
+    with open(source, 'r') as source_file:
+        with open(target + '.bin', 'wb') as target_file:
+            while True:
+                line = source_file.readline();
 
-            if not line:
-                break
+                if not line:
+                    break
 
-            pos = line.find('#')
-            if pos >= 0:
-                line = line[:pos]
+                pos = line.find('#')
+                if pos >= 0:
+                    line = line[:pos]
 
-            line = line.strip()
+                line = line.strip()
 
-            if len(line) == 0:
-                continue
+                if len(line) == 0:
+                    continue
 
-            tokens = line.split(' ')
+                tokens = line.split(' ')
 
-            if len(tokens) < 1:
-                raise Exception(f'Illegal opcode: {line}')
+                if len(tokens) < 1:
+                    raise Exception(f'Illegal opcode: {line}')
 
-            opcode = get_opcode(tokens)
+                opcode = get_opcode(tokens)
 
-            opcode.compile(tokens[1:])
+                opcode.compile(target, target_file, tokens[1:])
 
 
-if len(sys.argv) < 2:
-    print(f'Usage: python {sys.argv[0]} [input file]')
+if len(sys.argv) < 4 or sys.argv[2] != '-o':
+    print(f'Usage: python {sys.argv[0]} [input file] -o [target]')
     sys.exit(0)
 
-compile(sys.argv[1])
+compile(sys.argv[1], sys.argv[3])

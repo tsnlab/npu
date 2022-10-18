@@ -19,21 +19,35 @@ kernel {
 }
 
 Interpreter {
-    m: uint32  // reg1 main memory
-    s: uint32  // reg2 sram memory
-    a: uint32  // reg3 a
-    b: uint32  // reg4 b
-    c: uint32  // reg5 c
-    d: uint32  // reg6 d
+    a: uint32  // reg1 a
+    b: uint32  // reg2 b
+    c: uint32  // reg3 c
+    d: uint32  // reg4 d
 }
 ```
 
 ## Opcode
-모든 opcode는 32bit이며 padding은 32bit를 맞추기 위한 0 값입니다.
+모든 opcode는 32bit 단위로 zero padding 되어있음
+모든 opcode는 little endian으로 표기됨
 
 ### nop - no operator
 syntax
     nop
+
+parameters
+    nop: uint8 = 0x00
+
+### set\_high - register의 상위 16 bits를 설정함
+syntax
+    set_high %reg %value
+
+parameters
+    set_high: uint8 = 0x01
+    %reg: uint8 // register 번호
+    %value: uint16 // register의 high에 입력할 값
+
+pseudo code
+    reg[%reg] = (%value << 16) | (reg[%reg] & 0xffff)
 
 ### set\_low - register의 상위 16 bits를 설정함
 syntax
@@ -45,53 +59,37 @@ parameters
     %value: uint16 // register의 low에 입력할 값
 
 pseudo code
-    reg[%reg] = (reg[%reg] & 0xff) | (%value << 16)
+    reg[%reg] = (reg[%reg] & 0xffff0000) | (%value & 0xffff)
 
-### set\_high - register의 상위 16 bits를 설정함
+### load - Host memory로부터 local memory로 데이터 복사
 syntax
-    set_high %reg %value
-
-parameters
-    set_high: uint8 = 0x02
-    %reg: uint8 // register 번호
-    %value: uint16 // register의 high에 입력할 값
-
-pseudo code
-    reg[%reg] = (reg[%reg] & 0xff) | (%value << 16)
-
-### load - DRAM에서 SRAM으로 데이터를 저장함
-syntax
-    load %count padding
+    load %count
 
 parameters
     load: uint8 = 0x03
     %count: uint16
 
 pseudo code
-    DRAM_address = Interpreter.m * 4
-    SRAM_address = Interpreter.s * 4
     size = %count * 4
 
-    memcpy(DRAM_address, SRAM_address, size)
+    memcpy(B, A, size)
 
-### store - SRAM에서 DRAM으로 데이터를 저장함
+### store - local memory로부터 host memory로 데이터 복사
 syntax
-    store %count padding
+    store %count
 
 parameters
     store: uint8 = 0x04
     %count: uint16
 
 pseudo code
-    DRAM_address = Interpreter.m * 4
-    SRAM_address = Interpreter.s * 4
     size = %count * 4
 
-    memcpy(SRAM_address, DRAM_address, size)
+    memcpy(A, B, size)
 
 ### add.f32
 syntax
-    add.f32 %count padding
+    add.f32 %count
 
 parameters
     add.f32: uint8 = 0x05
@@ -107,7 +105,7 @@ pseudo code
 
 ### sub.f32
 syntax
-    sub.f32 %count padding
+    sub.f32 %count
 
 parameters
     sub.f32: uint8 = 0x06
@@ -123,7 +121,7 @@ pseudo code
 
 ### mul.f32
 syntax
-    mul.f32 %count padding
+    mul.f32 %count
 
 parameters
     mul.f32: uint8 = 0x07
@@ -139,7 +137,7 @@ pseudo code
 
 ### div.f32
 syntax
-    div.f32 %count padding
+    div.f32 %count
 
 parameters
     div.f32: uint8 = 0x08
@@ -158,8 +156,22 @@ syntax
     return
 
 parameters
-    return: uint8 = 0xff
+    return: uint8 = 0x09
 
 pseudo code
     CPU에 Interrupt를 보냄
 
+## Assembler
+```bash
+$ python asm/asm.py example1.asm -o a
+```
+
+ - a.bin - kernel
+ - a.200000.data - data for main memory at 0x200000
+ - a.200800.data - data for main memory at 0x200800
+ - a.201000.data - data for main memory at 0x201000
+
+## Interpreter
+```bash
+$ python asm/interpreter.py a
+```

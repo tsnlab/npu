@@ -1,9 +1,36 @@
-set_low %m 0x0000
-set_high %m 0x0020
-set_low %s 0x0000
-set_high %s 0x0000
+data.f32 0x200000 [v + 0.1 for v in range(512)]
+data.f32 0x200800 [v + 0.2 for v in range(512)]
+data.f32 0x201000 [0 for v in range(512)]
 
+# Load from 0x0020 0000 to 0x0000 0000
+set_high %a 0x0020
+set_low %a 0x0000
+set_high %b 0x0000
+set_low %b 0x0000
 load 512
+
+# Load from 0x0020 0800 to 0x0000 0800
+set_high %a 0x0020
+set_low %a 0x0800
+set_high %b 0x0000
+set_low %b 0x0800
+load 512
+
+# A = 0x0000 0000 B = 0x0000 0800 C = 0x0000 1000
+set_high %a 0x0000
+set_low %a 0x0000
+set_high %b 0x0000
+set_low %b 0x0800
+set_high %c 0x0000
+set_low %c 0x1000
 add.f32 512
+
+# Store to 0x0020 1000 from 0x0000 1000
+set_high %a 0x0020
+set_low %a 0x1000
+set_high %b 0x0000
+set_low %b 0x1000
 store 512
+
+# Interrupt to CPU
 return
