@@ -2,16 +2,11 @@
 ## Data Structure
 
 ```C
-load message {
-    offset: uint64 // Main memory에서 kernel의 위치
+load_and_start message {
+    offset: uint32 // Main memory에서 kernel의 위치
     size: uint32  // kernel의 크기 (4 bytes로 정렬된 bytes 수)
     core_id: uint16 // kernel을 실행할 Core ID
-    interrupt_id: uint16 // 실행 완료 시 보낼 인터럽트 번호
-}
-
-start message {
-    core_id: uint16 // kernel을 실행할 Core ID
-    interrupt_id: uint16 // 실행 완료 시 보낼 인터럽트 번호
+    status: 4 bits // core의 상태 0: idle, 1: busy
 }
 
 kernel {
