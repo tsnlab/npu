@@ -88,9 +88,50 @@ class Interpreter:
                 self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
 
             return True
+        elif op[0] == 0x06:  # sub.f32
+            count = struct.unpack('H', op[1:3])[0]
+
+            A = self.reg[1]
+            B = self.reg[2]
+            C = self.reg[3]
+
+            for i in range(count):
+                A_i = struct.unpack('f', self.memory[A + i * 4: A + i * 4 + 4])[0]
+                B_i = struct.unpack('f', self.memory[B + i * 4: B + i * 4 + 4])[0]
+                C_i = A_i - B_i
+                self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
+
+            return True
+        elif op[0] == 0x07:  # mul.f32
+            count = struct.unpack('H', op[1:3])[0]
+
+            A = self.reg[1]
+            B = self.reg[2]
+            C = self.reg[3]
+
+            for i in range(count):
+                A_i = struct.unpack('f', self.memory[A + i * 4: A + i * 4 + 4])[0]
+                B_i = struct.unpack('f', self.memory[B + i * 4: B + i * 4 + 4])[0]
+                C_i = A_i * B_i
+                self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
+
+            return True
+        elif op[0] == 0x08:  # div.f32
+            count = struct.unpack('H', op[1:3])[0]
+
+            A = self.reg[1]
+            B = self.reg[2]
+            C = self.reg[3]
+
+            for i in range(count):
+                A_i = struct.unpack('f', self.memory[A + i * 4: A + i * 4 + 4])[0]
+                B_i = struct.unpack('f', self.memory[B + i * 4: B + i * 4 + 4])[0]
+                C_i = A_i / B_i
+                self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
+
+            return True
         elif op[0] == 0x09:
             return False
-
         else:
             raise Exception(f'Not supported opcode: 0x{op[0]}')
             
