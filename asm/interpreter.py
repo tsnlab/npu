@@ -136,7 +136,7 @@ class Interpreter:
             raise Exception(f'Not supported opcode: 0x{op[0]}')
             
 
-    def run(self):
+    def run(self, out='stdout'):
         with open(self.target + '.bin', 'rb') as f:
             while True:
                 op = f.read(4)
@@ -155,13 +155,21 @@ class Interpreter:
 
 
         print('# Dump data')
+        if out == 'stdout' or out == '-':
+            for addr, _ in self.updated.items():
+                data = self.data[addr]
 
-        for addr, _ in self.updated.items():
-            data = self.data[addr]
-
-            for i in range(len(data) // 4):
-                value = struct.unpack('f', data[i * 4:i * 4 + 4])[0]
-                print(f'[{i}] = {value}')
+                for i in range(len(data) // 4):
+                    value = struct.unpack('f', data[i * 4:i * 4 + 4])[0]
+                    print(f'[{i}] = {value}')
+        else:
+            for addr, _ in self.updated.items():
+                data = self.data[addr]
+                
+                name = f'{out}.{hex(addr)[2:]}.out'
+                print(f'    to {name}')
+                with open(name, 'wb') as f:
+                    f.write(data)
 
 
 if len(sys.argv) < 2:
@@ -171,4 +179,10 @@ if len(sys.argv) < 2:
 
 inter = Interpreter()
 inter.load(sys.argv[1])
-inter.run()
+
+kwargs = {}
+
+if len(sys.argv) >= 4 and sys.argv[2] == '-o':
+    kwargs['out'] = sys.argv[3]
+
+inter.run(**kwargs)

@@ -3,6 +3,15 @@ import struct
 
 
 class Opcode:
+    opcodes = []
+
+    def get_opcode(tokens):
+        for opcode in Opcode.opcodes:
+            if opcode.get_name() == tokens[0]:
+                return opcode
+
+        raise Exception(f'There is no such opcode for the code: {tokens}')
+
     def __init__(self, code, name, params, compiler=None):
         self.code = code
         self.name = name
@@ -83,7 +92,7 @@ def compile_data_f32(target, target_file, tokens):
             f.write(struct.pack('f', data[i]))
 
     
-opcodes = [
+Opcode.opcodes = [
     Opcode(0, 'nop', ''),
     Opcode(1, 'set_high', 'rs'),
     Opcode(2, 'set_low', 'rs'),
@@ -97,13 +106,6 @@ opcodes = [
     Opcode(255, 'data.f32', 'd', compiler=compile_data_f32)
 ]
 
-
-def get_opcode(tokens):
-    for opcode in opcodes:
-        if opcode.get_name() == tokens[0]:
-            return opcode
-
-    raise Exception(f'There is no such opcode for the code: {tokens}')
 
 
 def compile(source, target):
@@ -129,7 +131,7 @@ def compile(source, target):
                 if len(tokens) < 1:
                     raise Exception(f'Illegal opcode: {line}')
 
-                opcode = get_opcode(tokens)
+                opcode = Opcode.get_opcode(tokens)
 
                 opcode.compile(target, target_file, tokens[1:])
 

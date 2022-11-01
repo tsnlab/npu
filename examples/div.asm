@@ -1,6 +1,6 @@
 data.f32 0x200000 [v * 1.1 for v in range(512)]
 data.f32 0x200800 [v * 1.2 + 1 for v in range(512)]
-data.f32 0x201000 [(v * 1.1) / (v * 1.2 + 1) for v in range(512)]
+data.f32 0x201000 [0 for v in range(512)]
 
 # Load from 0x0020 0000 to 0x0000 0000
 set_high %a 0x0020
