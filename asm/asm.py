@@ -4,6 +4,7 @@ import struct
 
 class Opcode:
     opcodes = []
+    rewrites = []
 
     def get_opcode(tokens):
         for opcode in Opcode.opcodes:
@@ -12,11 +13,19 @@ class Opcode:
 
         raise Exception(f'There is no such opcode for the code: {tokens}')
 
-    def __init__(self, code, name, params, compiler=None):
+    def get_rewrite(tokens):
+        for opcode in Opcode.rewrites:
+            if opcode.get_name() == tokens[0]:
+                return opcode
+
+        return None
+
+    def __init__(self, code, name, params, compiler=None, rewriter=None):
         self.code = code
         self.name = name
         self.params = params
         self.compiler = compiler
+        self.rewriter = rewriter
 
     def get_code(self):
         return self.code
@@ -46,7 +55,7 @@ class Opcode:
 
     def compile(self, target, target_file, tokens):
         if self.compiler is not None:
-            return self.compiler(target, target_file, tokens)
+            return self.compiler(self, target, target_file, tokens)
 
         packed = 0
 
@@ -79,8 +88,14 @@ class Opcode:
             target_file.write(struct.pack('B', 0))
             packed += 1
 
+    def rewrite(self, tokens):
+        if self.rewriter is None:
+            return tokens
+        else:
+            return self.rewriter(self, tokens)
 
-def compile_data_f32(target, target_file, tokens):
+
+def compile_data_f32(self, target, target_file, tokens):
     addr = int(tokens[0], 0)
 
     data = eval(' '.join(tokens[1:]))
@@ -91,7 +106,15 @@ def compile_data_f32(target, target_file, tokens):
         for i in range(len(data)):
             f.write(struct.pack('f', data[i]))
 
-    
+
+def rewriter_set(self, tokens):
+    value = self.get_value(32, tokens[2])
+
+    return [
+        ['set_high', tokens[1], hex((value >> 16) & 0xffff)],
+        ['set_low', tokens[1], hex(value & 0xffff)],
+    ]
+
 Opcode.opcodes = [
     Opcode(0, 'nop', ''),
     Opcode(1, 'set_high', 'rs'),
@@ -106,7 +129,9 @@ Opcode.opcodes = [
     Opcode(255, 'data.f32', 'd', compiler=compile_data_f32)
 ]
 
-
+Opcode.rewrites = {
+    Opcode(0, 'set', '', rewriter=rewriter_set)
+}
 
 def compile(source, target):
     with open(source, 'r') as source_file:
@@ -131,9 +156,15 @@ def compile(source, target):
                 if len(tokens) < 1:
                     raise Exception(f'Illegal opcode: {line}')
 
-                opcode = Opcode.get_opcode(tokens)
+                opcode = Opcode.get_rewrite(tokens)
+                if opcode is not None:
+                    tokens_list = opcode.rewrite(tokens)
+                else:
+                    tokens_list = [tokens]
 
-                opcode.compile(target, target_file, tokens[1:])
+                for tokens in tokens_list:
+                    opcode = Opcode.get_opcode(tokens)
+                    opcode.compile(target, target_file, tokens[1:])
 
 
 if len(sys.argv) < 4 or sys.argv[2] != '-o':

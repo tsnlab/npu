@@ -1,6 +1,7 @@
 import sys
 import glob
 import struct
+import numpy as np
 
 
 class Interpreter:
