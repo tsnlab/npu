@@ -1,0 +1,1 @@
+call C:\\Programs\\Xilinx\\Vivado\\2022.1\\bin\\vivado.bat -mode batch -source npu.tcl
