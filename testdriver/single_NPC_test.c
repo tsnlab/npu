@@ -8,7 +8,7 @@
 #define DATA_SIZE 2048      // Data Size
 #define END_SIZE 2048       // Count Size for Test
 #define TESTOPTYPE "add"    // Op Type for Test, Use "add", "sub", "mul", "div"
-#define TESTCOREID 0        // Core Id for Test
+#define TESTCOREID 1        // Core Id for Test
 
 // Convert Op Type ad Op Code
 static void kernel_op_change(uint8_t* kernel, char* op) {
@@ -76,14 +76,14 @@ int main() {
 	memcpy((float*)0x202000, input_B, sizeof(float) * DATA_SIZE);
     
     // PS Add
-    psCalculate(output_Ps, input_A, input_B, TESTOPTYPE);
+    ps_calculate(output_Ps, input_A, input_B, TESTOPTYPE);
 
 
     // Kernel: DATA_SIZE 0, add OP	
 	uint8_t kernel[] = {0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x02, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x20, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x01, 0x03, 0x00, 0x00, 0x02, 0x03, 0x00, 0x42, 0x05, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x40, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x42, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00};
     
     // Change Kernel's Opcode by 
-    kernelOpChange(kernel, TESTOPTYPE);
+    kernel_op_change(kernel, TESTOPTYPE);
 
     // Seperate Count Bytes Low and High
     uint8_t byte_low;
@@ -112,7 +112,7 @@ int main() {
         // Kernel Cache Flush
         Xil_DCacheFlushRange(kernel, sizeof(kernel));
 
-        //printf("Started npu operation\n");
+        // NPU Set
         uint32_t *npu_base = (uint32_t*)0x43C00000; // kernel offset
         npu_base[0] = (uint32_t)kernel;// the address of kernel in main memory
         npu_base[1] = sizeof(kernel); // the size of kernel
@@ -121,15 +121,14 @@ int main() {
         XTime tStart, tEnd;
         XTime_GetTime(&tStart);
 
+        // Start NPU operation
         npu_base[2] = TESTCOREID; // core id = 0
         while(npu_base[3] & (1 << TESTCOREID)) {
             Xil_DCacheInvalidateRange(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
         }; // wait until operation is done (not busy)
 
         XTime_GetTime(&tEnd);
-        //printf("Finished npu operation\n");
         
-
         // Output's Memory Cache Invalidate
         Xil_DCacheInvalidateRange(0x204000, (uint32_t)sizeof(float) * count); //
         
@@ -137,7 +136,7 @@ int main() {
         memcpy(output_Pl, (float*)0x204000, sizeof(float) * count);
 
         // Check PS's Outpus & PL's Outputs Are Same
-        int check = comparePsAndPl(output_Ps, output_Pl, count);
+        int check = compare_ps_and_pl(output_Ps, output_Pl, count);
 
         // If All Pass, Print
         if (check == count) {
