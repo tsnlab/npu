@@ -8,10 +8,10 @@
 #define DATA_SIZE 2048      // Data Size
 #define END_SIZE 2048       // Count Size for Test
 #define TESTOPTYPE "add"    // Op Type for Test, Use "add", "sub", "mul", "div"
-#define TESTCOREID 1        // Core Id for Test
+#define TESTCOREID 0        // Core Id for Test
 
 // Convert Op Type ad Op Code
-static void kernelOpChange(uint8_t* kernel, char* op) {
+static void kernel_op_change(uint8_t* kernel, char* op) {
     uint8_t opcode;
     if (op == "add") {
         opcode = 0x05;
@@ -28,7 +28,7 @@ static void kernelOpChange(uint8_t* kernel, char* op) {
 }
 
 // Calculate by Op Type
-static void psCalculate(float* output, float* input_A, float* input_B, char* op) {
+static void ps_calculate(float* output, float* input_A, float* input_B, char* op) {
     for (int i = 0; i < DATA_SIZE; i++) {
         if (op == "add") {
             output[i] = input_A[i] + input_B[i];
@@ -43,7 +43,7 @@ static void psCalculate(float* output, float* input_A, float* input_B, char* op)
 }
 
 // Compare PS Output and PL Output
-static int comparePsAndPl(float* output_Ps, float* output_Pl, int count) {
+static int compare_ps_and_pl(float* output_Ps, float* output_Pl, int count) {
     // Check How Many Are Correct
     int check = 0;
     for (int i = 0; i < count; i++) {
@@ -56,9 +56,9 @@ static int comparePsAndPl(float* output_Ps, float* output_Pl, int count) {
     return check;
 }
 
-int main(){
+int main() {
 	printf("========Init========\n\n");
-
+	printf("#%d Core %s Test\n\n", TESTCOREID, TESTOPTYPE);
 	// 8192 Size Input data
 	float input_A[DATA_SIZE];
 	float input_B[DATA_SIZE];
@@ -116,12 +116,12 @@ int main(){
         uint32_t *npu_base = (uint32_t*)0x43C00000; // kernel offset
         npu_base[0] = (uint32_t)kernel;// the address of kernel in main memory
         npu_base[1] = sizeof(kernel); // the size of kernel
-        npu_base[2] = TESTCOREID; // core id = 0
         
+        // To Get PS's time
         XTime tStart, tEnd;
-        
         XTime_GetTime(&tStart);
-        
+
+        npu_base[2] = TESTCOREID; // core id = 0
         while(npu_base[3] & (1 << TESTCOREID)) {
             Xil_DCacheInvalidateRange(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
         }; // wait until operation is done (not busy)
