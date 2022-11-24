@@ -145,7 +145,7 @@ wire		bend;
 
 //----| npc length offset calculation |-----------------------------------------
 reg	[31:0]	npc_adr, npc_adr_nxt;
-reg	[31:0]	npc_len, npc_len_nxt;
+(* mark_debug = "true" *)reg	[31:0]	npc_len, npc_len_nxt;
 wire	[31:0]	npc_len_ofs	= npc_len >= 256 ? 256 : npc_len;
 
 //----| npc r/w, anpcess, length |----------------------------------------------
@@ -154,16 +154,17 @@ always @(negedge rstn or posedge clk) npc_rwn <= !rstn ? 0 : win0 ? npc0_rwn : w
 always @(negedge rstn or posedge clk) npc_adr_nxt <= !rstn ? 0 : npc_adr + npc_len_ofs * 4; // 16;
 always @(negedge rstn or posedge clk) npc_adr <= !rstn ? 0 : win0 ? npc0_adr : win1 ? npc1_adr : win2 ? npc2_adr : win3 ? npc3_adr : bend ? npc_adr_nxt : npc_adr;
 always @(negedge rstn or posedge clk) npc_len_nxt <= !rstn ? 0 : npc_len - npc_len_ofs;
-always @(negedge rstn or posedge clk) npc_len <= !rstn ? 0 : win0 ? npc0_len : win1 ? npc1_len : win2 ? npc2_len : win3 ? npc3_len : bend ? npc_len_nxt : npc_len;
+wire		upd_len;
+always @(negedge rstn or posedge clk) npc_len <= !rstn ? 0 : win0 ? npc0_len : win1 ? npc1_len : win2 ? npc2_len : win3 ? npc3_len : upd_len ? npc_len_nxt : npc_len;
 wire		last_area	= npc_len >= 1 && npc_len <= 256;
 
 //------------------------------------------------------------------------------
 //----| npc operation |---------------------------------------------------------
-reg	[3:0]	sta;
-wire		sta_dat		= sta[1] & (~npc_rwn & m_axi_awvalid & m_axi_awready | npc_rwn & m_axi_arvalid & m_axi_arready);
-wire		sta_rsp		= sta[2] & ~npc_rwn & m_axi_wvalid & m_axi_wready & m_axi_wlast;
-wire		sta_don		= sta[2] & npc_rwn & m_axi_rvalid & m_axi_rready & m_axi_rlast | sta[3] & ~npc_rwn & m_axi_bvalid & m_axi_bready;
-wire		sta_adr		= sta[0] && stt || sta_don && npc_len_nxt != 0;
+(* mark_debug = "true" *)reg	[3:0]	sta;
+(* mark_debug = "true" *)wire		sta_dat		= sta[1] & (~npc_rwn & m_axi_awvalid & m_axi_awready | npc_rwn & m_axi_arvalid & m_axi_arready);
+(* mark_debug = "true" *)wire		sta_rsp		= sta[2] & ~npc_rwn & m_axi_wvalid & m_axi_wready & m_axi_wlast;
+(* mark_debug = "true" *)wire		sta_don		= sta[2] & npc_rwn & m_axi_rvalid & m_axi_rready & m_axi_rlast | sta[3] & ~npc_rwn & m_axi_bvalid & m_axi_bready;
+(* mark_debug = "true" *)wire		sta_adr		= sta[0] && stt || sta_don && npc_len_nxt != 0;
 always @(negedge rstn or posedge clk) sta <= !rstn ? 1 : sta_adr ? 2 : sta_dat ? 4 : sta_rsp ? 8 : sta_don ? 1 : sta;
 wire		adr_area	= sta[1];
 wire		dat_area	= sta[2];
@@ -174,7 +175,7 @@ wire		dack		= dat_area & (npc_rwn ? m_axi_rvalid & m_axi_rready : m_axi_wvalid &
 
 //----| npc finish condition |--------------------------------------------------
 reg	[1:0]	npc_fin_dly;
-wire		npc_fin		= dack & bend & last_area;
+wire		npc_fin		= npc_rwn ? dack & bend & last_area : sta_don & last_area;
 always @(negedge rstn or posedge clk) npc_fin_dly <= !rstn ? 0 : {npc_fin_dly[0], npc_fin};	// room for write latency
 assign		fin		= npc_fin_dly[1];
 
@@ -182,6 +183,7 @@ assign		fin		= npc_fin_dly[1];
 reg	[7:0]	bcnt;
 always @(negedge rstn or posedge clk) bcnt <= !rstn ? 0 : sta_dat ? 0 : dack ? bcnt + 1 : bcnt;
 assign		bend		= dack && bcnt == npc_len_ofs - 1;
+assign		upd_len		= npc_rwn ? bend : sta_don;
 
 //----| axi master signal generation |------------------------------------------
 assign		m_axi_awid	= 0;
