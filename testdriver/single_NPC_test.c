@@ -11,7 +11,7 @@
 #define TESTCOREID 1        // Core Id for Test
 
 // Convert Op Type ad Op Code
-static void kernelOpChange(uint8_t* kernel, char* op){
+static void kernelOpChange(uint8_t* kernel, char* op) {
     uint8_t opcode;
     if (op == "add") {
         opcode = 0x05;
@@ -28,7 +28,7 @@ static void kernelOpChange(uint8_t* kernel, char* op){
 }
 
 // Calculate by Op Type
-static void psCalculate(float* output, float* input_A, float* input_B, char* op){
+static void psCalculate(float* output, float* input_A, float* input_B, char* op) {
     for (int i = 0; i < DATA_SIZE; i++) {
         if (op == "add") {
             output[i] = input_A[i] + input_B[i];
@@ -43,8 +43,8 @@ static void psCalculate(float* output, float* input_A, float* input_B, char* op)
 }
 
 // Compare PS Output and PL Output
-static int comparePsAndPl(float* output_Ps, float* output_Pl, int count){
-    // Check How Many Are Correct 
+static int comparePsAndPl(float* output_Ps, float* output_Pl, int count) {
+    // Check How Many Are Correct
     int check = 0;
     for (int i = 0; i < count; i++) {
             if (output_Ps[i] != output_Pl[i]) {
@@ -122,7 +122,7 @@ int main(){
         
         XTime_GetTime(&tStart);
         
-        while(npu_base[3] & (1 << TESTCOREID)){
+        while(npu_base[3] & (1 << TESTCOREID)) {
             Xil_DCacheInvalidateRange(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
         }; // wait until operation is done (not busy)
 
@@ -140,7 +140,7 @@ int main(){
         int check = comparePsAndPl(output_Ps, output_Pl, count);
 
         // If All Pass, Print
-        if (check == count){
+        if (check == count) {
             printf("[Test Case %d] All Pass\n", count);
         }
 
