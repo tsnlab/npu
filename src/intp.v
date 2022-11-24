@@ -44,7 +44,7 @@ module intp	(
 		//----| npc interface
 		output	reg	[1:0]	fpu_opc,	// fpu opcode
 		output	reg	[31:0]	fpu_a,		// fpu a
-		output	wire	[31:0]	fpu_b,		// fpu b
+		output	reg	[31:0]	fpu_b,		// fpu b
 		input	wire	[31:0]	fpu_y,		// fpu result
 		output	reg		fpu_iv,		// fpu in valid
 		output	reg		fpu_or,		// fpu out ready
@@ -76,7 +76,8 @@ localparam S_STORE_DATA	= 1 << 9;
 localparam S_FPU1	= 1 << 10;
 localparam S_FPU2	= 1 << 11;
 localparam S_FOP	= 1 << 12;
-localparam S_RETURN	= 1 << 13;
+localparam S_FIN	= 1 << 13;
+localparam S_RETURN	= 1 << 14;
 
 //---- opcode
 localparam OPC_NOP	= 4'd0;
@@ -91,21 +92,23 @@ localparam OPC_DIV	= 4'd8;
 localparam OPC_RETURN	= 4'd9;
 
 //----| state machine |---------------------------------------------------------
-reg	[13:0]	state;
-reg	[15:0]	scnt;
+(* mark_debug = "true" *)reg	[14:0]	state;
+(* mark_debug = "true" *)reg	[15:0]	scnt;
 reg	[31:0]	ra, rb, rc, rd;
 reg	[31:0]	ra_radr, rb_radr, rc_wadr;
 reg	[31:0]	opc_radr;	
 reg	[7:0]	opc_cmd;
 wire		opc_div		= opc_cmd == OPC_DIV;
-reg		lm_wren;
-reg	[14:0]	lm_wadr;
-reg	[31:0]	lm_wdat;
-reg		lm_rden;
-reg	[14:0]	lm_radr;
-wire	[31:0]	lm_rdat		= sram_doutb;
+(* mark_debug = "true" *)reg		lm_wren;
+(* mark_debug = "true" *)reg	[14:0]	lm_wadr;
+(* mark_debug = "true" *)reg	[31:0]	lm_wdat;
+(* mark_debug = "true" *)reg		lm_rden;
+(* mark_debug = "true" *)reg	[14:0]	lm_radr;
+(* mark_debug = "true" *)wire	[31:0]	lm_rdat		= sram_doutb;
 reg	[15:0]	fpu_cnt;
-assign		fpu_b		= lm_rdat;
+reg		fpu_alat;
+reg		fpu_blat;
+reg		fpu_ylat;
 wire	[31:0]	opcode		= lm_rdat;
 wire	[7:0]	opc		= opcode[00+:8];
 wire	[7:0]	rno		= opcode[08+:8];
@@ -141,6 +144,9 @@ begin
 		rb_radr		<= 0;
 		rc_wadr		<= 0;
 		opc_radr	<= 0;
+		fpu_alat	<= 0;
+		fpu_blat	<= 0;
+		fpu_ylat	<= 0;
 	end
 	else
 	begin
@@ -257,33 +263,51 @@ begin
 			lm_radr		<= rb_radr;
 			ra_radr		<= ra_radr + 1;
 			lm_wadr		<= rc / 4;
+			fpu_alat	<= 1;
 		end
 
 		S_FPU2:
 		begin
 			state		<= !opc_div || fpu_ir ? S_FOP : state;
 			lm_rden		<= fpu_cnt > 1;
-			fpu_a		<= lm_rdat;
+			fpu_a		<= fpu_alat ? lm_rdat : fpu_a;
 			lm_radr		<= ra_radr;
 			rb_radr		<= !opc_div || fpu_ir ? rb_radr + 1 : rb_radr;
-			lm_wren		<= 0;
-			lm_wadr		<= lm_wren ? lm_wadr + 1 : lm_wadr;
-			fpu_iv		<= opc_div & fpu_ir;
+			lm_wren		<= fpu_ylat;
+			lm_wdat		<= fpu_ylat ? fpu_y : lm_wdat;
+			fpu_alat	<= 0;
+			fpu_blat	<= 1;
+			fpu_ylat	<= 0;
 		end
 
 		S_FOP:
 		begin
-			state		<= (opc_div ? fpu_ov : !scnt) ? (fpu_cnt == 1 ? S_OPC_READ : S_FPU2) : state;
-			scnt		<= (opc_div ? fpu_ov : !scnt) ? 0 : scnt + 1;
-			fpu_cnt		<= (opc_div ? fpu_ov : !scnt) ? fpu_cnt - 1 : fpu_cnt;
-			lm_rden		<= (opc_div ? fpu_ov : !scnt);
+			state		<= (opc_div ? fpu_ov : scnt == 1) ? (fpu_cnt == 1 ? S_FIN : S_FPU2) : state;
+			scnt		<= (opc_div ? fpu_ov : scnt == 1) ? 0 : scnt + 1;
+			fpu_cnt		<= (opc_div ? fpu_ov : scnt == 1) ? fpu_cnt - 1 : fpu_cnt;
+			lm_rden		<= (opc_div ? fpu_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
 
-			lm_radr		<= (opc_div ? fpu_ov : !scnt) ? (fpu_cnt == 1 ? opc_radr : rb_radr) : lm_radr;
-			lm_wren		<= (opc_div ? fpu_ov : !scnt);
-			lm_wdat		<= fpu_y;
-			ra_radr		<= (opc_div ? fpu_ov : !scnt) ? ra_radr + 1 : ra_radr;
-			fpu_iv		<= 0;
+			lm_wadr		<= lm_wren ? lm_wadr + 1 : lm_wadr;
+			lm_radr		<= (opc_div ? fpu_ov : scnt == 1) ? rb_radr : lm_radr;
+			lm_wren		<= 0;
+			ra_radr		<= (opc_div ? fpu_ov : scnt == 1) ? ra_radr + 1 : ra_radr;
+			fpu_iv		<= opc_div && scnt == 1;
 			fpu_or		<= 1; // opc_div && fpu_ov;
+			fpu_alat	<= (opc_div ? fpu_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
+			fpu_blat	<= 0;
+			fpu_b		<= fpu_blat ? lm_rdat : fpu_b;
+			fpu_ylat	<= (opc_div ? fpu_ov : scnt == 1);
+		end
+
+		S_FIN:
+		begin
+			state		<= S_OPC_READ;
+			fpu_ylat	<= 0;
+			lm_wren		<= fpu_ylat;
+			lm_wdat		<= fpu_ylat ? fpu_y : lm_wdat;
+			lm_rden		<= 1;
+			lm_radr		<= opc_radr;
+			fpu_iv		<= 0;
 		end
 
 		S_RETURN:
