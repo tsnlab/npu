@@ -57,12 +57,12 @@ static int compare_ps_and_pl(float* output_ps, float* output_pl, int count) {
 }
 
 int main() {
-	printf("========Init========\n\n");
-	printf("#%d Core %s Test\n\n", TEST_CORE_ID, TEST_OP_TYPE);
-	// 8192 Size Input data
-	float input_A[DATA_SIZE];
-	float input_B[DATA_SIZE];
-	float output_ps[DATA_SIZE] = {0, }; // PS Output
+    printf("========Init========\n\n");
+    printf("#%d Core %s Test\n\n", TEST_CORE_ID, TEST_OP_TYPE);
+    // 8192 Size Input data
+    float input_A[DATA_SIZE];
+    float input_B[DATA_SIZE];
+    float output_ps[DATA_SIZE] = {0, }; // PS Output
     float output_pl[DATA_SIZE] = {0, }; // PL Output
 
     // Random Data Input
@@ -72,8 +72,8 @@ int main() {
     }
 
     // Memory Input
-	memcpy((float*)0x200000, input_A, sizeof(float) * DATA_SIZE);
-	memcpy((float*)0x202000, input_B, sizeof(float) * DATA_SIZE);
+    memcpy((float*)0x200000, input_A, sizeof(float) * DATA_SIZE);
+    memcpy((float*)0x202000, input_B, sizeof(float) * DATA_SIZE);
     
     // PS Add
     ps_calculate(output_ps, input_A, input_B, TEST_OP_TYPE);
