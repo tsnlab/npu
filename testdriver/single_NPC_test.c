@@ -7,8 +7,8 @@
 
 #define DATA_SIZE 2048      // Data Size
 #define END_SIZE 2048       // Count Size for Test
-#define TESTOPTYPE "add"    // Op Type for Test, Use "add", "sub", "mul", "div"
-#define TESTCOREID 1        // Core Id for Test
+#define TEST_OP_TYPE "add"    // Op Type for Test, Use "add", "sub", "mul", "div"
+#define TEST_CORE_ID 0        // Core Id for Test, 0 to 3
 
 // Convert Op Type ad Op Code
 static void kernel_op_change(uint8_t* kernel, char* op) {
@@ -43,12 +43,12 @@ static void ps_calculate(float* output, float* input_A, float* input_B, char* op
 }
 
 // Compare PS Output and PL Output
-static int compare_ps_and_pl(float* output_Ps, float* output_Pl, int count) {
+static int compare_ps_and_pl(float* output_ps, float* output_pl, int count) {
     // Check How Many Are Correct
     int check = 0;
     for (int i = 0; i < count; i++) {
-            if (output_Ps[i] != output_Pl[i]) {
-                printf("[Test Case %d] FAIL\nPS data[%d]: %f\nPL data[%d]: %f\nPS data[%d] - PL data[%d] = %f\n", count, i, output_Ps[i], i, output_Pl[i], i, i, output_Ps[i] - output_Pl[i]);
+            if (output_ps[i] != output_pl[i]) {
+                printf("[Test Case %d] FAIL\nPS data[%d]: %f\nPL data[%d]: %f\nPS data[%d] - PL data[%d] = %f\n", count, i, output_ps[i], i, output_pl[i], i, i, output_ps[i] - output_pl[i]);
             } else {
                 check += 1;
             }
@@ -58,12 +58,12 @@ static int compare_ps_and_pl(float* output_Ps, float* output_Pl, int count) {
 
 int main() {
 	printf("========Init========\n\n");
-	printf("#%d Core %s Test\n\n", TESTCOREID, TESTOPTYPE);
+	printf("#%d Core %s Test\n\n", TEST_CORE_ID, TEST_OP_TYPE);
 	// 8192 Size Input data
 	float input_A[DATA_SIZE];
 	float input_B[DATA_SIZE];
-	float output_Ps[DATA_SIZE] = {0, }; // PS Output
-    float output_Pl[DATA_SIZE] = {0, }; // PL Output
+	float output_ps[DATA_SIZE] = {0, }; // PS Output
+    float output_pl[DATA_SIZE] = {0, }; // PL Output
 
     // Random Data Input
     for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++){
@@ -76,14 +76,13 @@ int main() {
 	memcpy((float*)0x202000, input_B, sizeof(float) * DATA_SIZE);
     
     // PS Add
-    ps_calculate(output_Ps, input_A, input_B, TESTOPTYPE);
-
+    ps_calculate(output_ps, input_A, input_B, TEST_OP_TYPE);
 
     // Kernel: DATA_SIZE 0, add OP	
-	uint8_t kernel[] = {0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x02, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x20, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x01, 0x03, 0x00, 0x00, 0x02, 0x03, 0x00, 0x42, 0x05, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x40, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x42, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00};
+    uint8_t kernel[] = {0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x02, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x20, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x01, 0x03, 0x00, 0x00, 0x02, 0x03, 0x00, 0x42, 0x05, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x40, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x42, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00};
     
     // Change Kernel's Opcode by 
-    kernel_op_change(kernel, TESTOPTYPE);
+    kernel_op_change(kernel, TEST_OP_TYPE);
 
     // Seperate Count Bytes Low and High
     uint8_t byte_low;
@@ -118,25 +117,25 @@ int main() {
         npu_base[1] = sizeof(kernel); // the size of kernel
         
         // To Get PS's time
-        XTime tStart, tEnd;
-        XTime_GetTime(&tStart);
+        XTime time_start, time_end;
+        XTime_GetTime(&time_start);
 
         // Start NPU operation
-        npu_base[2] = TESTCOREID; // core id = 0
-        while(npu_base[3] & (1 << TESTCOREID)) {
+        npu_base[2] = TEST_CORE_ID; // Core Id
+        while(npu_base[3] & (1 << TEST_CORE_ID)) {
             Xil_DCacheInvalidateRange(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
         }; // wait until operation is done (not busy)
 
-        XTime_GetTime(&tEnd);
+        XTime_GetTime(&time_end);
         
         // Output's Memory Cache Invalidate
         Xil_DCacheInvalidateRange(0x204000, (uint32_t)sizeof(float) * count); //
         
         // Memory Output
-        memcpy(output_Pl, (float*)0x204000, sizeof(float) * count);
+        memcpy(output_pl, (float*)0x204000, sizeof(float) * count);
 
         // Check PS's Outpus & PL's Outputs Are Same
-        int check = compare_ps_and_pl(output_Ps, output_Pl, count);
+        int check = compare_ps_and_pl(output_ps, output_pl, count);
 
         // If All Pass, Print
         if (check == count) {
@@ -144,10 +143,10 @@ int main() {
         }
 
         // NPU Times, XTime Counter increases by one at every two processor cycles, PS: 667MHz
-        printf("Time: %.3f us.\n", 2.0 * (tEnd - tStart) * (1.0 / 677.0));
+        printf("Time: %.3f us.\n", 2.0 * (time_end - time_start) * (1.0 / 677.0));
 
         // Test Case N's Total Cycles, PL: 100MHz
-        printf("Total cycles: %d\tConvert Times: %.3fus\n\n", npu_base[4 + TESTCOREID], npu_base[4 + TESTCOREID] / 100.00);
+        printf("Total cycles: %d\tConvert Times: %.3fus\n\n", npu_base[4 + TEST_CORE_ID], npu_base[4 + TEST_CORE_ID] / 100.00);
     }
     printf("========Finish========\n");
     
