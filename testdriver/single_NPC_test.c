@@ -47,12 +47,12 @@ static int compare_ps_and_pl(float* output_ps, float* output_pl, int count) {
     // Check How Many Are Correct
     int check = 0;
     for (int i = 0; i < count; i++) {
-            if (output_ps[i] != output_pl[i]) {
-                printf("[Test Case %d] FAIL\nPS data[%d]: %f\nPL data[%d]: %f\nPS data[%d] - PL data[%d] = %f\n", count, i, output_ps[i], i, output_pl[i], i, i, output_ps[i] - output_pl[i]);
-            } else {
-                check += 1;
-            }
+        if (output_ps[i] != output_pl[i]) {
+            printf("[Test Case %d] FAIL\nPS data[%d]: %f\nPL data[%d]: %f\nPS data[%d] - PL data[%d] = %f\n", count, i, output_ps[i], i, output_pl[i], i, i, output_ps[i] - output_pl[i]);
+        } else {
+            check += 1;
         }
+    }
     return check;
 }
 
