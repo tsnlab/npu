@@ -143,7 +143,7 @@ int main() {
         }
 
         // NPU Times, XTime Counter increases by one at every two processor cycles, PS: 667MHz
-        printf("Time: %.3f us.\n", 2.0 * (time_end - time_start) * (1.0 / 677.0));
+        printf("Time: %.3f us.\n", 2.0 * (time_end - time_start) * (1.0 / 667.0));
 
         // Test Case N's Total Cycles, PL: 100MHz
         printf("Total cycles: %d\tConvert Times: %.3fus\n\n", npu_base[4 + TEST_CORE_ID], npu_base[4 + TEST_CORE_ID] / 100.00);
