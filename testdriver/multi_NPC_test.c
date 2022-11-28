@@ -9,53 +9,7 @@
 #define TEST_OP_TYPE "add"  // Op Type for Test, Use "add", "sub", "mul", "div"
 #define NUMBER_OF_CORES 4   // Number f Cores used at the same time
 
-// Convert Op Type ad Op Code
-static void kernel_op_change(uint8_t* kernel, char* op) {
-    uint8_t opcode;
-    if (op == "add") {
-        opcode = 0x05;
-    } else if (op == "sub") {
-        opcode = 0x06;
-    } else if (op == "mul"){
-        opcode = 0x07;
-    } else if (op == "div") {
-        opcode = 0x08;
-    } else {
-        printf("Wrong OP!!!\n");
-    }
-    kernel[64] = opcode;
-}
-
-// Calculate by Op Type
-static void ps_calculate(float* output, float* input_A, float* input_B, char* op, int size) {
-    for (int i = 0; i < size; i++) {
-        if (op == "add") {
-            output[i] = input_A[i] + input_B[i];
-        } else if (op == "sub") {
-            output[i] = input_A[i] - input_B[i];
-        } else if (op == "mul"){
-            output[i] = input_A[i] * input_B[i];
-        } else if (op == "div") {
-            output[i] = input_A[i] / input_B[i];
-        }
-    }
-}
-
-// Compare PS Output and PL Output
-static int compare_ps_and_pl(float* output_ps, float* output_pl, int count) {
-    // Check How Many Are Correct
-    int check = 0;
-    for (int i = 0; i < count; i++) {
-        if (output_ps[i] != output_pl[i]) {
-            printf("[Test Case %d] FAIL\nPS data[%d]: %f\nPL data[%d]: %f\nPS data[%d] - PL data[%d] = %f\n", count, i, output_ps[i], i, output_pl[i], i, i, output_ps[i] - output_pl[i]);
-        } else {
-            check += 1;
-        }
-    }
-    return check;
-}
-
-static void resize_kernel(uint8_t* kernel, int size){
+static void resize_kernel(uint8_t* kernel, int size) {
     // Seperate Size Bytes Low and High
     uint8_t byte_low;
     uint8_t byte_high;
@@ -73,6 +27,49 @@ static void resize_kernel(uint8_t* kernel, int size){
     kernel[66] = byte_high;
     kernel[85] = byte_low;
     kernel[86] = byte_high;
+}
+
+static void kernel_op_change(uint8_t* kernel, char* op) {
+    uint8_t opcode;
+    if (op == "add") {
+        opcode = 0x05;
+    } else if (op == "sub") {
+        opcode = 0x06;
+    } else if (op == "mul"){
+        opcode = 0x07;
+    } else if (op == "div") {
+        opcode = 0x08;
+    } else {
+        printf("Wrong OP!!!\n");
+    }
+    kernel[64] = opcode;
+}
+
+static void ps_calculate(float* output, float* input_A, float* input_B, char* op, int size) {
+    for (int i = 0; i < size; i++) {
+        if (op == "add") {
+            output[i] = input_A[i] + input_B[i];
+        } else if (op == "sub") {
+            output[i] = input_A[i] - input_B[i];
+        } else if (op == "mul"){
+            output[i] = input_A[i] * input_B[i];
+        } else if (op == "div") {
+            output[i] = input_A[i] / input_B[i];
+        }
+    }
+}
+
+static int compare_ps_and_pl(float* output_ps, float* output_pl, int count) {
+    // Check How Many Are Correct
+    int check = 0;
+    for (int i = 0; i < count; i++) {
+        if (output_ps[i] != output_pl[i]) {
+            printf("[Test Case %d] FAIL\nPS data[%d]: %f\nPL data[%d]: %f\nPS data[%d] - PL data[%d] = %f\n", count, i, output_ps[i], i, output_pl[i], i, i, output_ps[i] - output_pl[i]);
+        } else {
+            check += 1;
+        }
+    }
+    return check;
 }
 
 int main() {
@@ -94,17 +91,21 @@ int main() {
     float output_core_3[DATA_SIZE] = {0, }; // PL core 3 Output
 
     // Random Data Input
-    for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++){
+    for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++) {
         input_A[temp_count] = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
         input_B[temp_count] = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
     }
+
+    ps_calculate(output_ps_add, input_A, input_B, "add", DATA_SIZE);
+    ps_calculate(output_ps_sub, input_A, input_B, "sub", DATA_SIZE);
+    ps_calculate(output_ps_mul, input_A, input_B, "mul", DATA_SIZE);
+    ps_calculate(output_ps_div, input_A, input_B, "div", DATA_SIZE);
 
     // Memory Input
     memcpy((float*)0x200000, input_A, sizeof(float) * DATA_SIZE);
     memcpy((float*)0x202000, input_B, sizeof(float) * DATA_SIZE);
 
     // Kernel: DATA_SIZE 0, add OP	
-    uint8_t base_kernel[] = {0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x02, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x20, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x01, 0x03, 0x00, 0x00, 0x02, 0x03, 0x00, 0x42, 0x05, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x40, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x42, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00};
     uint8_t kernel_0[] = {0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x02, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x20, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x01, 0x03, 0x00, 0x00, 0x02, 0x03, 0x00, 0x42, 0x05, 0x00, 0x00, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x40, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x42, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00};
     uint8_t kernel_1[] = {0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x02, 0x03, 0x00, 0x02, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x20, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x03, 0x00, 0x02, 0x00, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x01, 0x03, 0x00, 0x00, 0x02, 0x03, 0x00, 0x42, 0x05, 0x00, 0x02, 0x00, 0x01, 0x01, 0x30, 0x00, 0x02, 0x01, 0x00, 0x40, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x42, 0x04, 0x00, 0x02, 0x00, 0x09, 0x00, 0x00, 0x00};
     uint8_t kernel_2[] = {0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x02, 0x03, 0x00, 0x02, 0x00, 0x01, 0x01, 0x20, 0x00, 0x02, 0x01, 0x00, 0x20, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x03, 0x00, 0x02, 0x00, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x22, 0x01, 0x03, 0x00, 0x00, 0x02, 0x03, 0x00, 0x42, 0x05, 0x00, 0x02, 0x00, 0x01, 0x01, 0x40, 0x00, 0x02, 0x01, 0x00, 0x40, 0x01, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x42, 0x04, 0x00, 0x02, 0x00, 0x09, 0x00, 0x00, 0x00};
@@ -170,28 +171,29 @@ int main() {
     memcpy(output_core_1, (float*)0x304000, sizeof(float) * DATA_SIZE);
     memcpy(output_core_2, (float*)0x404000, sizeof(float) * DATA_SIZE);
     memcpy(output_core_3, (float*)0x504000, sizeof(float) * DATA_SIZE);
-/*
+
     // Check PS's Outpus & PL's Outputs Are Same, Input PS's OP Output Array in 1st Parameter
+    // If Operator is not "add", should replace output_ps_add with output_ps_{other operator}
     int check0 = compare_ps_and_pl(output_ps_add, output_core_0, DATA_SIZE);
     int check1 = compare_ps_and_pl(output_ps_add, output_core_1, DATA_SIZE);
     int check2 = compare_ps_and_pl(output_ps_add, output_core_2, DATA_SIZE);
     int check3 = compare_ps_and_pl(output_ps_add, output_core_3, DATA_SIZE);
     // If All Pass, Print
     if (check0 == DATA_SIZE) {
-        printf("[Test Case %d] All Pass\n", DATA_SIZE);
+        printf("[Core 0 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
     if (check1 == DATA_SIZE) {
-        printf("[Test Case %d] All Pass\n", DATA_SIZE);
+        printf("[Core 1 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
     if (check2 == DATA_SIZE) {
-        printf("[Test Case %d] All Pass\n", DATA_SIZE);
+        printf("[Core 2 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
     if (check3 == DATA_SIZE) {
-        printf("[Test Case %d] All Pass\n", DATA_SIZE);
+        printf("[Core 3 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
-*/
+
     // NPU Times, XTime Counter increases by one at every two processor cycles, PS: 667MHz
-    printf("Time: %.3f us.\n", 2.0 * (time_end - time_start) * (1.0 / 667.0));
+    printf("\nPS Time: %.3f us.\n", 2.0 * (time_end - time_start) / (XPAR_CPU_CORTEXA9_CORE_CLOCK_FREQ_HZ / 1000000));
 
     // Test Case N's Total Cycles, PL: 100MHz
     printf("[#0 Core] Total cycles: %d\tConvert Times: %.3fus\n", npu_base[4 + 0], npu_base[4 + 0] / 100.00);
