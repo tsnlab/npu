@@ -66,7 +66,7 @@ int main() {
     float output_pl[DATA_SIZE] = {0, }; // PL Output
 
     // Random Data Input
-    for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++){
+    for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++) {
         input_A[temp_count] = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
         input_B[temp_count] = (float)rand() / RAND_MAX * 2000.0 - 1000.0; //
     }
@@ -143,7 +143,7 @@ int main() {
         }
 
         // NPU Times, XTime Counter increases by one at every two processor cycles, PS: 667MHz
-        printf("Time: %.3f us.\n", 2.0 * (time_end - time_start) * (1.0 / 677.0));
+        printf("Time: %.3f us.\n", 2.0 * (time_end - time_start) / (XPAR_CPU_CORTEXA9_CORE_CLOCK_FREQ_HZ / 1000000));
 
         // Test Case N's Total Cycles, PL: 100MHz
         printf("Total cycles: %d\tConvert Times: %.3fus\n\n", npu_base[4 + TEST_CORE_ID], npu_base[4 + TEST_CORE_ID] / 100.00);
