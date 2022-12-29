@@ -196,8 +196,10 @@ set_property -dict { PACKAGE_PIN D18   IOSTANDARD LVCMOS33 } [get_ports { led[3]
 
 
 # user constraints
-set_false_path  -from [get_pins {npt/genblk1[*].npc/intp/fpu_opc_reg[*]/C}] -to [get_pins {npt/genblk1[*].npc/intp/lm_wdat_reg[*]/D}]
-set_multicycle_path 2 -setup -from [get_pins {npt/genblk1[*].npc/intp/fpu_a_reg[*]/C}] -to [get_pins {npt/genblk1[*].npc/intp/lm_wdat_reg[*]/D}]
-set_multicycle_path 1 -hold  -from [get_pins {npt/genblk1[*].npc/intp/fpu_a_reg[*]/C}] -to [get_pins {npt/genblk1[*].npc/intp/lm_wdat_reg[*]/D}]
-set_multicycle_path 2 -setup -from [get_pins {npt/genblk1[*].npc/intp/fpu_b_reg[*]/C}] -to [get_pins {npt/genblk1[*].npc/intp/lm_wdat_reg[*]/D}]
-set_multicycle_path 1 -hold  -from [get_pins {npt/genblk1[*].npc/intp/fpu_b_reg[*]/C}] -to [get_pins {npt/genblk1[*].npc/intp/lm_wdat_reg[*]/D}]
+set_false_path  -from [get_pins {npt/npc*/intp/fpu_opc_reg[*]/C}] -to [get_pins {npt/npc*/intp/lh_wdat_reg[*]/D}]
+set_multicycle_path 3 -setup -from [get_pins {npt/npc*/intp/fpu_a_reg[*]/C}] -to [get_pins {npt/npc*/intp/lh_wdat_reg[*]/D}]
+set_multicycle_path 2 -hold  -from [get_pins {npt/npc*/intp/fpu_a_reg[*]/C}] -to [get_pins {npt/npc*/intp/lh_wdat_reg[*]/D}]
+set_multicycle_path 3 -setup -from [get_pins {npt/npc*/intp/fpu_b_reg[*]/C}] -to [get_pins {npt/npc*/intp/lh_wdat_reg[*]/D}]
+set_multicycle_path 2 -hold  -from [get_pins {npt/npc*/intp/fpu_b_reg[*]/C}] -to [get_pins {npt/npc*/intp/lh_wdat_reg[*]/D}]
+
+
