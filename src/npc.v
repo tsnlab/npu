@@ -37,8 +37,8 @@ module npc	(
 		output	wire		npc_rwn,
 		output	wire	[31:0]	npc_adr,
 		output	wire	[31:0]	npc_len,
-		output	wire	[31:0]	npc_wdt,
-		input	wire	[31:0]	npc_rdt,
+		output	wire	[63:0]	npc_wdt,
+		input	wire	[63:0]	npc_rdt,
 		input	wire		npc_ack
 		);
 //==============================================================================
@@ -57,11 +57,11 @@ wire	[31:0]	fpu_b;
 wire	[31:0]	fpu_y;
 wire		sram_ena;
 wire		sram_wea;
-wire	[14:0]	sram_addra;
-wire	[31:0]	sram_dina;
+wire	[13:0]	sram_addra;
+wire	[63:0]	sram_dina;
 wire		sram_enb;
-wire	[14:0]	sram_addrb;
-wire	[31:0]	sram_doutb;
+wire	[13:0]	sram_addrb;
+wire	[63:0]	sram_doutb;
 intp		intp		(
 		//----| system interface
 		.rstn		( rstn		),
@@ -124,7 +124,7 @@ fpu		fpu		(
 		);
 
 //----| sram |------------------------------------------------------------------
-sram_32kx32	sram		(
+sram_16kx64	sram		(
 		//----| write signals
 		.clka		( clk		),
 		.ena		( sram_ena	),
