@@ -174,10 +174,10 @@ int main() {
 
     // Check PS's Outpus & PL's Outputs Are Same, Input PS's OP Output Array in 1st Parameter
     // If Operator is not "add", should replace output_ps_add with output_ps_{other operator}
-    int check0 = compare_ps_and_pl(output_ps_div, output_core_0, DATA_SIZE);
-    int check1 = compare_ps_and_pl(output_ps_div, output_core_1, DATA_SIZE);
-    int check2 = compare_ps_and_pl(output_ps_div, output_core_2, DATA_SIZE);
-    int check3 = compare_ps_and_pl(output_ps_div, output_core_3, DATA_SIZE);
+    int check0 = compare_ps_and_pl(output_ps_add, output_core_0, DATA_SIZE);
+    int check1 = compare_ps_and_pl(output_ps_add, output_core_1, DATA_SIZE);
+    int check2 = compare_ps_and_pl(output_ps_add, output_core_2, DATA_SIZE);
+    int check3 = compare_ps_and_pl(output_ps_add, output_core_3, DATA_SIZE);
 
     // If All Pass, Print
     if (check0 == DATA_SIZE) {
