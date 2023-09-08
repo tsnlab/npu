@@ -105,7 +105,7 @@ int main() {
     // Test loop
     for (int count = 2; count <= DATA_SIZE; count += 2) {
         
-        resize_kernel(kernel, count)
+        resize_kernel(kernel, count);
 
         // Input's Memory Cache Flush
         Xil_DCacheFlushRange(0x200000, (uint32_t)sizeof(float) * count);
