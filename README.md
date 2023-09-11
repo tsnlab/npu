@@ -168,17 +168,5 @@ parameters
 pseudo code
     CPU에 Interrupt를 보냄
 
-## Assembler
-```bash
-$ python asm/asm.py example1.asm -o a
-```
-
- - a.bin - kernel
- - a.200000.data - data for main memory at 0x200000
- - a.200800.data - data for main memory at 0x200800
- - a.201000.data - data for main memory at 0x201000
-
-## Interpreter
-```bash
-$ python asm/interpreter.py a
-```
+## CONNX NPU Python implementation
+[README.md](asm/README.md)
