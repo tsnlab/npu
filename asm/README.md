@@ -9,7 +9,7 @@ asm$ poetry install
 
 ## Assembler
 ```bash
-asm$ poetry python run asm.py ../examples/add.asm -o add
+asm$ poetry run python asm.py ../examples/add.asm -o add
 ```
 
  - add.bin - kernel
