@@ -2,30 +2,23 @@ import sys
 import struct
 
 
-class Opcode:
-    opcodes = []
-    rewrites = []
+is_debug = True
 
-    def get_opcode(tokens):
-        for opcode in Opcode.opcodes:
-            if opcode.get_name() == tokens[0]:
-                return opcode
+class Instruction:
+    instructions = []
 
-        raise Exception(f'There is no such opcode for the code: {tokens}')
+    def get_instruction(tokens):
+        for instruction in Instruction.instructions:
+            if instruction.get_name() == tokens[0]:
+                return instruction
 
-    def get_rewrite(tokens):
-        for opcode in Opcode.rewrites:
-            if opcode.get_name() == tokens[0]:
-                return opcode
+        raise Exception(f'There is no such instruction for the code: {tokens}')
 
-        return None
-
-    def __init__(self, code, name, params, compiler=None, rewriter=None):
+    def __init__(self, code, name, params, compiler=None):
         self.code = code
         self.name = name
-        self.params = params
+        self.params = params.split(' ') if len(params) != 0 else []
         self.compiler = compiler
-        self.rewriter = rewriter
 
     def get_code(self):
         return self.code
@@ -33,19 +26,31 @@ class Opcode:
     def get_name(self):
         return self.name
 
-    def get_reg(self, token):
-        if token == '%a' or token == '%A' or token == '%1':
+    def parse_reg(self, token):
+        if token == '%zero' or token == '%0':
+            return 0
+        elif token == '%a' or token == '%1':
             return 1
-        elif token == '%b' or token == '%B' or token == '%2':
+        elif token == '%b' or token == '%2':
             return 2
-        elif token == '%c' or token == '%C' or token == '%3':
+        elif token == '%c' or token == '%3':
             return 3
-        elif token == '%d' or token == '%D' or token == '%4':
+        elif token == '%d' or token == '%4':
             return 4
+        elif token == '%e' or token == '%5':
+            return 5
+        elif token == '%f' or token == '%6':
+            return 6
+        elif token == '%g' or token == '%7':
+            return 7
+        elif token == '%ip' or token == '%14':
+            return 14
+        elif token == '%csr' or token == '%15':
+            return 15
         else:
             raise Exception(f'Illegal register name: {token}')
 
-    def get_value(self, bits, token):
+    def parse_uint(self, bits, token):
         maximum = 2 ** bits
         value = int(token, 0)
         if value < 0 or value > maximum:
@@ -53,49 +58,88 @@ class Opcode:
         else:
             return value
 
+    def parse_int(self, bits, token):
+        maximum = 2 ** bits / 2 - 1
+        minimum = -2 ** bits / 2
+        value = int(token, 0)
+        if value < minimum or value > maximum:
+            raise Exception(f'Out of integer bounds: {token}, expected: -2^{bits} / 2 ~ 2^{bits} / 2 - 1')
+        else:
+            return value
+
     def compile(self, target, target_file, tokens):
+        # Add padding to tokens
+        for i, kind in enumerate(self.params):
+            if kind[0] == 'p':
+                tokens.insert(i, 0)
+
         if self.compiler is not None:
             return self.compiler(self, target, target_file, tokens)
 
-        packed = 0
+        opcode = 0
+        offset = 32
+
+        if is_debug:
+            print(f'{self.name}', end=' ')
+
+        def write(token, value, bits):
+            nonlocal opcode
+            nonlocal offset
+
+            opcode |= (value & (2 ** bits - 1)) << (offset - bits)
+            offset -= bits
+
+            if is_debug:
+                print(f'{token}', end=' ')
+
+            if offset < 0:
+                raise Exception('opcode overflow: {offset}')
 
         # Check parameter counts
         if len(self.params) != len(tokens):
             raise Exception(f'Illegal tokens: {tokens}, expected: {self.params}')
 
         # Write opcode
-        target_file.write(struct.pack('B', self.code))
-        packed += 1
+        write(f'{self.code:02x}', self.code, 8)
 
         # Write params
         for kind, token in zip(self.params, tokens):
             if kind == 'r':
-                reg = self.get_reg(token)
-                target_file.write(struct.pack('B', reg))
-                packed += 1
-            elif kind == 'b':
-                value = elf.get_value(8, token)
-                target_file.write(struct.pack('B', value))
-                packed += 1
-            elif kind == 's':
-                value = self.get_value(16, token)
-                target_file.write(struct.pack('H', value))
-                packed += 2
+                value = self.parse_reg(token)
+                write(token, value, 4)
+            elif kind == 'u8':
+                value = self.parse_uint(8, token)
+                write(token, value, 8)
+            elif kind == 'u16':
+                value = self.parse_uint(16, token)
+                write(token, value, 16)
+            elif kind == 'u20':
+                value = self.parse_uint(20, token)
+                write(token, value, 20)
+            elif kind == 'i8':
+                value = self.parse_int(8, token)
+                write(token, value, 8)
+            elif kind == 'i16':
+                value = self.parse_int(16, token)
+                write(token, value, 16)
+            elif kind == 'i20':
+                value = self.parse_int(20, token)
+                write(token, value, 20)
+            elif kind == 'p8':
+                write(token, 0, 8)
+            elif kind == 'p16':
+                write(token, 0, 16)
+            elif kind == 'p20':
+                write(token, 0, 20)
             else:
                 raise Exception(f'Illegal parameter type: {kind}')
 
-        while packed % 4 != 0:
-            target_file.write(struct.pack('B', 0))
-            packed += 1
+        if is_debug:
+            print(f'  # {opcode:08x}')
 
-    def rewrite(self, tokens):
-        if self.rewriter is None:
-            return tokens
-        else:
-            return self.rewriter(self, tokens)
+        target_file.write(struct.pack('I', opcode))
 
-
-def compile_data_f32(self, target, target_file, tokens):
+def compile_data_bf16(self, target, target_file, tokens):
     addr = int(tokens[0], 0)
 
     data = eval(' '.join(tokens[1:]))
@@ -104,34 +148,33 @@ def compile_data_f32(self, target, target_file, tokens):
 
     with open(target + '.' + hex(addr)[2:] + '.data', 'wb') as f:
         for i in range(len(data)):
-            f.write(struct.pack('f', data[i]))
+            bs = struct.pack('f', data[i])
+            f.write(struct.pack('BB', bs[3], bs[2]))
 
 
-def rewriter_set(self, tokens):
-    value = self.get_value(32, tokens[2])
-
-    return [
-        ['set_high', tokens[1], hex((value >> 16) & 0xffff)],
-        ['set_low', tokens[1], hex(value & 0xffff)],
-    ]
-
-Opcode.opcodes = [
-    Opcode(0, 'nop', ''),
-    Opcode(1, 'set_high', 'rs'),
-    Opcode(2, 'set_low', 'rs'),
-    Opcode(3, 'load', 's'),
-    Opcode(4, 'store', 's'),
-    Opcode(5, 'add.f32', 's'),
-    Opcode(6, 'sub.f32', 's'),
-    Opcode(7, 'mul.f32', 's'),
-    Opcode(8, 'div.f32', 's'),
-    Opcode(9, 'return', ''),
-    Opcode(255, 'data.f32', 'd', compiler=compile_data_f32)
+Instruction.instructions = [
+    Instruction(0, 'nop', ''),
+    Instruction(1, 'set', 'r u20'),
+    Instruction(2, 'seti', 'r u20'),
+    Instruction(3, 'seti_low', 'r u16'),
+    Instruction(4, 'seti_high', 'r u16'),
+    Instruction(5, 'get', 'r u20'),
+    Instruction(6, 'load', 'r r r'),
+    Instruction(7, 'store', 'r r r'),
+    Instruction(8, 'vadd.bf16', 'r r r r'),
+    Instruction(9, 'vsub.bf16', 'r r r r'),
+    Instruction(10, 'vmul.bf16', 'r r r r'),
+    Instruction(11, 'vdiv.bf16', 'r r r r'),
+    Instruction(12, 'add.int32', 'r r i16'),
+    Instruction(13, 'sub.int32', 'r r i16'),
+    Instruction(14, 'ifz', 'r r i16'),
+    Instruction(15, 'ifeq', 'r r i16'),
+    Instruction(16, 'ifneq', 'r r i16'),
+    Instruction(17, 'jmp', 'p8 i16'),
+    Instruction(255, 'return', ''),
+    Instruction(-1, 'data.bf16', 'code', compiler=compile_data_bf16),
 ]
 
-Opcode.rewrites = {
-    Opcode(0, 'set', '', rewriter=rewriter_set)
-}
 
 def compile(source, target):
     with open(source, 'r') as source_file:
@@ -156,16 +199,8 @@ def compile(source, target):
                 if len(tokens) < 1:
                     raise Exception(f'Illegal opcode: {line}')
 
-                opcode = Opcode.get_rewrite(tokens)
-                if opcode is not None:
-                    tokens_list = opcode.rewrite(tokens)
-                else:
-                    tokens_list = [tokens]
-
-                for tokens in tokens_list:
-                    opcode = Opcode.get_opcode(tokens)
-                    opcode.compile(target, target_file, tokens[1:])
-
+                instruction = Instruction.get_instruction(tokens)
+                instruction.compile(target, target_file, tokens[1:])
 
 if len(sys.argv) < 4 or sys.argv[2] != '-o':
     print(f'Usage: python {sys.argv[0]} [input file] -o [target]')

@@ -49,21 +49,21 @@ Core {
  1. set
  2. seti
  3. seti\_low
- 3. seti\_high
- 3. get
- 4. load
- 5. store
- 6. vadd.bf16
- 7. vsub.bf16
- 8. vmul.bf16
- 9. vdiv.bf16
- 10. add.int32
- 11. sub.int32
- 16. ifz
- 17. ifeq
- 18. ifneq
- 19. jmp
- 20. return
+ 4. seti\_high
+ 5. get
+ 6. load
+ 7. store
+ 8. vadd.bf16
+ 9. vsub.bf16
+ 10. vmul.bf16
+ 11. vdiv.bf16
+ 12. add.int32
+ 13. sub.int32
+ 14. ifz
+ 15. ifeq
+ 16. ifneq
+ 17. jmp
+ 255. return
 
 ### nop - no operator
 syntax
@@ -76,11 +76,11 @@ syntax
     set %dest %src
 
 parameters
-    %dest: uint4  // register 번호
-    %src: uint20 // align된 local memory 주소
+    %reg: uint4  // register 번호
+    %mem: uint20 // align된 local memory 주소
 
 pseudo code
-    reg[%reg] = mem[%src * 4]
+    reg[%reg] = mem[%mem * 4]
 
 ### seti - register의 값을 설정함
 syntax
@@ -119,11 +119,11 @@ pseudo code
 
 ### get - register의 값을 local memory로 복사함
 syntax
-    get %dest %src
+    get %reg %mem
 
 parameters
-    %dest: uint20 // align된 local memory 주소
-    %src: uint4   // register 번호
+    %reg: uint4  // register 번호
+    %mem: uint20 // align된 local memory 주소
 
 pseudo code
     mem[%dest * 4] = reg[%reg]
@@ -135,12 +135,12 @@ syntax
 parameters
     %dest: uint4
     %src: uint4
-    %count: uint16
+    %count: uint4
 
 pseudo code
     dest = reg[%dest] * 4  // Local memory는 4 bytes 단위로 align 되어있다고 가정
     src = reg[%src] * 128  // Host memory는 128 bytes 단위로 align 되어있다고 가정
-    size = %count * 4
+    size = reg[%count] * 4  // 4 bytes 단위로 roundup 되어있다고 가정
 
     memcpy(dest, src, size)
 
@@ -151,12 +151,12 @@ syntax
 parameters
     %dest: uint4
     %src: uint4
-    %count: uint16
+    %count: uint4
 
 pseudo code
     dest = reg[%dest] * 128 // Host memory는 128 bytes 단위로 align 되어있다고 가정
     src = reg[%src] * 4     // Local memory는 4 bytes 단위로 align 되어있다고 가정
-    size = %count * 4
+    size = reg[%count] * 4  // 4 bytes 단위로 roundup 되어있다고 가정
 
     memcpy(dest, src, size)
 
@@ -278,8 +278,8 @@ syntax
 
 parameters
     %reg: uint4
-    %jump: int16
     padding: uint4
+    %jump: int16
 
 pseudo code
     uint32 condition = reg[%reg]
@@ -324,11 +324,11 @@ pseudo code
 
 ### jmp
 syntax
-    jmp %jump padding
+    jmp padding %jump
 
 parameters
-    %jump: int16
     padding: uint8
+    %jump: int16
 
 pseudo code
     ip += jump
