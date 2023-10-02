@@ -12,8 +12,10 @@ def run(host):
     host.exec(0)
 
 def finalize(host):
-    host.dump_bf16(0x200800)
-    host.dump(0x200800)
+    #host.dump_bf16(0x200800)
+    #host.dump(0x200800)
+    #host.npus[0].dump_bf16()
+    host.npus[0].dump_regs()
 ###
 
 # A is stored at 0x200

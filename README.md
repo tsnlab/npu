@@ -36,8 +36,8 @@ Core {
 
 ### CSR register bits
  0. running - 0: not running, 1: running
- 1\~31. reserved
- 32. error - 0: no error, 1: error
+ 1\~30. reserved
+ 31. error - 0: no error, 1: error
 
 ## NPU Core instructions
 모든 instruction은 32bit 단위로 zero padding 되어있음.
@@ -45,24 +45,29 @@ Core {
 아래는 NPU Core에서 지원하는 instruction 목록이자 opcode임.
 모든 opcode는 uint8 크기임.
 
+reg - unsigned 4 bits
+uint# - unsigned # bits
+int# - signed # bits
+
  00. nop
  01. set
  02. seti
  03. seti\_low
  04. seti\_high
  05. get
- 06. load
- 07. store
- 08. vadd.bf16
- 09. vsub.bf16
- 0a. vmul.bf16
- 0b. vdiv.bf16
- 0c. add.int32
- 0d. sub.int32
- 0e. ifz
- 0f. ifeq
- 10. ifneq
- 11. jmp
+ 06. mov
+ 07. load
+ 08. store
+ 09. vadd.bf16
+ 0a. vsub.bf16
+ 0b. vmul.bf16
+ 0c. vdiv.bf16
+ 0d. add.int32
+ 0e. sub.int32
+ 0f. ifz
+ 10. ifeq
+ 11. ifneq
+ 12. jmp
  ff. return
 
 ### for every opcode
@@ -85,7 +90,7 @@ syntax
     set %dest %src
 
 parameters
-    %reg: uint4  // register 번호
+    %reg: reg    // register 번호
     %mem: uint20 // align된 local memory 주소
 
 pseudo code
@@ -96,20 +101,20 @@ syntax
     seti %reg %value
 
 parameters
-    %reg: uint4  // register 번호
+    %dest: reg     // register 번호
     %value: uint20 // register에 입력될 값
 
 pseudo code
-    reg[%reg] = (0x000 << 24) | (%value & 0xfffff)
+    reg[%dest] = (0x000 << 24) | (%value & 0xfffff)
 
 ### seti\_low - register의 값을 설정함
 syntax
     seti_low %reg %value padding
 
 parameters
-    %reg: uint4    // register 번호
+    %reg: reg      // register 번호
+    padding: u4
     %value: uint16 // register에 입력될 값
-    padding: uint8
 
 pseudo code
     reg[%reg] = (reg[%reg] & 0xffff0000) | (%value & 0xffff)
@@ -119,32 +124,43 @@ syntax
     seti_high %reg %value padding
 
 parameters
-    %reg: uint4    // register 번호
+    %reg: reg      // register 번호
+    padding: u4
     %value: uint16 // register에 입력될 값
-    padding: uint8
 
 pseudo code
-    reg[%reg] = (reg[%reg] & 0xffff) | ((%value & 0xffff) << 16)
+    reg[%reg] = ((%value & 0xffff) << 16) | (reg[%reg] & 0xffff)
 
 ### get - register의 값을 local memory로 복사함
 syntax
-    get %reg %mem
+    get %src %dest
 
 parameters
-    %reg: uint4  // register 번호
-    %mem: uint20 // align된 local memory 주소
+    %src: reg     // register 번호
+    %dest: uint20 // align된 local memory 주소
 
 pseudo code
-    mem[%dest * 4] = reg[%reg]
+    mem[%dest * 4] = reg[%src]
+
+### mov - register의 값을 register로 복사함
+syntax
+    mov %dest %src
+
+parameters
+    %dest: reg  // register 번호
+    %src: reg   // register 번호
+
+pseudo code
+    reg[%dest] = reg[%src]
 
 ### load - Host memory로부터 local memory로 데이터 복사
 syntax
     load %dest %src %count
 
 parameters
-    %dest: uint4
-    %src: uint4
-    %count: uint4
+    %dest: reg  
+    %src: reg  
+    %count: reg  
 
 pseudo code
     dest = reg[%dest] * 4  // Local memory는 4 bytes 단위로 align 되어있다고 가정
@@ -158,9 +174,9 @@ syntax
     store %dest %src %count
 
 parameters
-    %dest: uint4
-    %src: uint4
-    %count: uint4
+    %dest: reg  
+    %src: reg  
+    %count: reg  
 
 pseudo code
     dest = reg[%dest] * 128 // Host memory는 128 bytes 단위로 align 되어있다고 가정
@@ -174,10 +190,10 @@ syntax
     vadd.bf16 %c %a %b %count padding
 
 parameters
-    %c: uint4
-    %a: uint4
-    %b: uint4
-    %count: uint4
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
     padding: uint8
 
 pseudo code
@@ -194,10 +210,10 @@ syntax
     vsub.bf16 %c %a %b %count padding
 
 parameters
-    %c: uint4
-    %a: uint4
-    %b: uint4
-    %count: uint4
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
     padding: uint8
 
 pseudo code
@@ -214,10 +230,10 @@ syntax
     vmul.bf16 %c %a %b %count padding
 
 parameters
-    %c: uint4
-    %a: uint4
-    %b: uint4
-    %count: uint4
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
     padding: uint8
 
 pseudo code
@@ -234,10 +250,10 @@ syntax
     vdiv.bf16 %c %a %b %count padding
 
 parameters
-    %c: uint4
-    %a: uint4
-    %b: uint4
-    %count: uint4
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
     padding: uint8
 
 pseudo code
@@ -254,8 +270,8 @@ syntax
     add.int32 %a %b %i
 
 parameters
-    %a: uint4
-    %b: uint4
+    %a: reg  
+    %b: reg  
     %i: int16
 
 pseudo code
@@ -270,8 +286,8 @@ syntax
     sub.int32 %a %b %i
 
 parameters
-    %a: uint4
-    %b: uint4
+    %a: reg  
+    %b: reg  
     %i: int16
 
 pseudo code
@@ -286,8 +302,8 @@ syntax
     ifz %reg %jump padding
 
 parameters
-    %reg: uint4
-    padding: uint4
+    %reg: reg  
+    padding: reg  
     %jump: int16
 
 pseudo code
@@ -302,8 +318,8 @@ syntax
     ifeq %a %b %jump
 
 parameters
-    %a: uint4
-    %b: uint4
+    %a: reg  
+    %b: reg  
     %jump: int16
 
 pseudo code
@@ -319,8 +335,8 @@ syntax
     ifneq %a %b %jump
 
 parameters
-    %a: uint4
-    %b: uint4
+    %a: reg  
+    %b: reg  
     %jump: int16
 
 pseudo code
