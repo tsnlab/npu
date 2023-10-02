@@ -14,11 +14,10 @@ class Instruction:
 
         raise Exception(f'There is no such instruction for the code: {tokens}')
 
-    def __init__(self, code, name, params, compiler=None):
+    def __init__(self, code, name, params):
         self.code = code
         self.name = name
         self.params = params.split(' ') if len(params) != 0 else []
-        self.compiler = compiler
 
     def get_code(self):
         return self.code
@@ -72,9 +71,6 @@ class Instruction:
         for i, kind in enumerate(self.params):
             if kind[0] == 'p':
                 tokens.insert(i, 0)
-
-        if self.compiler is not None:
-            return self.compiler(self, target, target_file, tokens)
 
         opcode = 0
         offset = 32
@@ -139,18 +135,6 @@ class Instruction:
 
         target_file.write(struct.pack('I', opcode))
 
-def compile_data_bf16(self, target, target_file, tokens):
-    addr = int(tokens[0], 0)
-
-    data = eval(' '.join(tokens[1:]))
-    if not isinstance(data, list) and not isinstance(data, tuple):
-        raise Exception(f'Illegal data type: {type(data)}')
-
-    with open(target + '.' + hex(addr)[2:] + '.data', 'wb') as f:
-        for i in range(len(data)):
-            bs = struct.pack('f', data[i])
-            f.write(struct.pack('BB', bs[3], bs[2]))
-
 
 Instruction.instructions = [
     Instruction(0, 'nop', ''),
@@ -172,7 +156,6 @@ Instruction.instructions = [
     Instruction(16, 'ifneq', 'r r i16'),
     Instruction(17, 'jmp', 'p8 i16'),
     Instruction(255, 'return', ''),
-    Instruction(-1, 'data.bf16', 'code', compiler=compile_data_bf16),
 ]
 
 
@@ -185,20 +168,38 @@ def compile(source, target):
                 if not line:
                     break
 
+                # Save script file
+                if line.startswith('### script'):
+                    with open(target + '.script', 'w') as script_file:
+                        while True:
+                            line = source_file.readline();
+
+                            if not line:
+                                break
+
+                            if line.startswith('###'):
+                                break
+
+                            script_file.write(line)
+
+                # Skip comment
                 pos = line.find('#')
                 if pos >= 0:
                     line = line[:pos]
 
                 line = line.strip()
 
+                # Skip empty line
                 if len(line) == 0:
                     continue
 
+                # tokenize
                 tokens = line.split(' ')
 
                 if len(tokens) < 1:
                     raise Exception(f'Illegal opcode: {line}')
 
+                # asm -> opcode
                 instruction = Instruction.get_instruction(tokens)
                 instruction.compile(target, target_file, tokens[1:])
 

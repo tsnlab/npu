@@ -1,6 +1,20 @@
-data.bf16 0x200000 [v * 1.1 for v in range(512)]
-data.bf16 0x200400 [v * 1.2 for v in range(512)]
-data.bf16 0x200800 [0 for v in range(512)]
+### script
+def init(host):
+    host.data[0x200000] = host.bf16([v * 1.1 for v in range(512)])
+    host.data[0x200400] = host.bf16([v * 0.1 for v in range(512)])
+    host.data[0x200800] = host.zeros(512 * 2)
+
+    host.store(0, 0x00, 0x00)  # 0x00 means kernel
+    host.store(0, 0x100, 0x200000, 512 * 2)
+    host.store(0, 0x500, 0x200400, 512 * 2)
+
+def run(host):
+    host.exec(0)
+
+def finalize(host):
+    host.dump_bf16(0x200800)
+    host.dump(0x200800)
+###
 
 # A is stored at 0x200
 seti %a 0x80  # 0x200 / 4

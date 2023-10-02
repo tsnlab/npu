@@ -12,11 +12,11 @@ Tcl 파일이 있는 위치에서 Vivado 실행을 해야 `File or Directory doe
 
 
 ## RISC-V instruction extensions
- * store Core ID, SRAM address, DRAM address
- * load Core ID, DRAM address, SRAM address
- * exec Core ID
- * set Core ID, reg ID, value
- * get Core ID, reg ID, value
+ * store NPU ID, NPU address, Host address, size
+ * load NPU ID, Host address, NPU address, size
+ * exec NPU ID
+ * set NPU ID, reg ID, value
+ * get NPU ID, reg ID
 
 ## NPU Registers
 ```C
@@ -29,7 +29,7 @@ Core {
     e: uint32    // reg 5 e
     f: uint32    // reg 6 f
     g: uint32    // reg 7 g
-    ip: uint32   // reg 14 thread pointer (instruction pointer)
+    ip: uint32   // reg 14 instruction pointer (ip * 4 is memory location)
     csr: uint32  // reg 15 control status register
 }
 ```
@@ -45,25 +45,34 @@ Core {
 아래는 NPU Core에서 지원하는 instruction 목록이자 opcode임.
 모든 opcode는 uint8 크기임.
 
- 0. nop
- 1. set
- 2. seti
- 3. seti\_low
- 4. seti\_high
- 5. get
- 6. load
- 7. store
- 8. vadd.bf16
- 9. vsub.bf16
- 10. vmul.bf16
- 11. vdiv.bf16
- 12. add.int32
- 13. sub.int32
- 14. ifz
- 15. ifeq
- 16. ifneq
- 17. jmp
- 255. return
+ 00. nop
+ 01. set
+ 02. seti
+ 03. seti\_low
+ 04. seti\_high
+ 05. get
+ 06. load
+ 07. store
+ 08. vadd.bf16
+ 09. vsub.bf16
+ 0a. vmul.bf16
+ 0b. vdiv.bf16
+ 0c. add.int32
+ 0d. sub.int32
+ 0e. ifz
+ 0f. ifeq
+ 10. ifneq
+ 11. jmp
+ ff. return
+
+### for every opcode
+syntax
+    any opcode
+
+pseudo code
+    opcode = mem[ip * 4]
+    execute opcode
+    ip = ip + 1
 
 ### nop - no operator
 syntax
