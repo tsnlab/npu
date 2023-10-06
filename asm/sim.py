@@ -24,6 +24,7 @@ def IS_WRITABLE_REG(reg):
     return reg >= REG_A and reg <= REG_G
 
 STATUS_RUNNING = 1 << 0
+STATUS_LOADING = 1 << 1
 STATUS_ERROR = 1 << 31
 
 def float32_to_bf16(f32_value):
@@ -127,6 +128,9 @@ class Host:
         exec(self.script + '\ninit(host)', None, { 'host': self })
 
     def get_data(self, offset, size):
+        if offset == 0x00:
+            return 0, self.kernel
+
         for addr, data in self.data.items():
             if addr >= offset and addr + len(data) <= offset + size:
                 return addr, data
@@ -144,31 +148,64 @@ class Host:
         # Run finalizescript
         exec(self.script + '\nfinalize(host)', None, { 'host': self })
 
-    def store(self, npu_id, npu_address, host_address, size=None):
+    def store(self, npu_id, npu_address, host_address, size):
         if npu_id < 0 or npu_id >= len(self.npus):
             raise Exception(f'Illegal NPU id: {npu_id}')
 
-        if host_address == 0x00:
-            data = self.kernel
-            size = len(self.kernel)
-        else:
-            addr, data = self.get_data(host_address, size)
-            data = data[host_address - addr: host_address - addr + size]
-
         npu = self.npus[npu_id]
-        npu.memory[npu_address:npu_address + size] = data
+
+        # set npu_address
+        self.set(npu_id, REG_A, npu_address // 4)
+
+        # set host_address
+        self.set(npu_id, REG_B, host_address // 128)
+
+        # set size
+        self.set(npu_id, REG_C, (size + 3) // 4)
+
+        # store (from host side, load from NPU side)
+        npu.op_load(REG_A, REG_B, REG_C)
 
     def load(self, npu_id, host_address, npu_address):
-        pass
+        if npu_id < 0 or npu_id >= len(self.npus):
+            raise Exception(f'Illegal NPU id: {npu_id}')
+
+        npu = self.npus[npu_id]
+
+        # set host_address
+        self.set(npu_id, REG_A, host_address // 128)
+
+        # set npu_address
+        self.set(npu_id, REG_B, npu_address // 4)
+
+        # set size
+        self.set(npu_id, REG_C, (size + 3) // 4)
+
+        # load (from host side, store from NPU side)
+        npu.op_store(REG_A, REG_B, REG_C)
 
     def exec(self, npu_id):
         self.npus[npu_id].start()
 
     def set(self, npu_id, reg_id, value):
-        pass
+        if npu_id < 0 or npu_id >= len(self.npus):
+           raise Exception(f'Illegal NPU id: {npu_id}')
+
+        npu = self.npus[npu_id]
+
+        if value > 2 ** 20:
+            npu.op_seti_low(reg_id, value & 0xffff)
+            npu.op_seti_high(reg_id, (value >> 16) & 0xffff)
+        else:
+            npu.op_seti(reg_id, value)
 
     def get(self, npu_id, reg_id):
-        pass
+        if npu_id < 0 or npu_id >= len(self.npus):
+           raise Exception(f'Illegal NPU id: {npu_id}')
+
+        npu = self.npus[npu_id]
+
+        return npu.reg[reg_id]
 
     def bf16(self, values):
         if not isinstance(values, list) and not isinstance(values, tuple):
@@ -262,6 +299,166 @@ class NPU(threading.Thread):
     def is_inbound_memory(self, addr, size):
         return addr >= 0 and addr + size <= len(self.memory)
 
+    def op_nop(self):
+        pass
+
+    def op_set(self, dest, src):
+        if not IS_WRITABLE_REG(dest) or not IS_READABLE_REG(src) or not self.is_inbound_memory(self.reg[src] * 4, 4):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{dest:02x}, 0x{src:02x} or memory out of bound: 0x{src:08x} ~ + 4 bytes')
+            return
+
+        self.reg[dest] = struct.unpack('I', self.memory[src * 4:src * 4 + 4])[0]
+
+    def op_seti(self, dest, value):
+        if not IS_WRITABLE_REG(dest):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{dest:02x}')
+            return
+
+        self.reg[dest] = value
+
+    def op_seti_low(self, dest, value):
+        if not IS_WRITABLE_REG(dest):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{dest:02x}')
+            return
+
+        self.reg[dest] = (self.reg[dest] & 0xffff0000) | (value & 0xffff)
+
+    def op_seti_high(self, dest, value):
+        if not IS_WRITABLE_REG(dest):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+               raise Exception(f'Illegal register: 0x{dest:02x}')
+            return
+
+        self.reg[dest] = ((value & 0xffff) << 16) | (self.reg[dest] & 0xffff)
+
+    def op_get(self, src, dest):
+        if not IS_READABLE_REG(src):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{src:02x}')
+            return
+
+        self.memory[dest:dest + 4] = struct.pack('I', self.reg[src])
+    
+    def op_mov(self, dest, src):
+        if not IS_WRITABLE_REG(dest) or not IS_READABLE_REG(src):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{dest:02x} or 0x{src:02x}')
+            return
+
+        self.reg[dest] = self.reg[src]
+
+    def op_load(self, dest, src, count):
+        if not IS_READABLE_REG(dest) or not IS_READABLE_REG(src) or not IS_READABLE_REG(count):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{dest:02x}, 0x{src:02x} or 0x{count:02x}')
+            return
+
+        dest_addr = self.reg[dest] * 4
+        src_addr = self.reg[src] * 128
+        size = self.reg[count] * 4
+
+        if not self.is_inbound_memory(dest_addr, size):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'NPU{self.id}: Out of memory: 0x{dest_addr:08x} ~ +{size} bytes')
+            return
+
+        if self.reg[REG_CSR] & STATUS_LOADING != 0:
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'NPU{self.id}: Duplicated load/store operator executed')
+            return
+
+        self.reg[REG_CSR] |= STATUS_LOADING
+        addr, data = host.get_data(src_addr, size)
+        self.memory[dest_addr:dest_addr + size] = data[src_addr - addr: src_addr - addr + size]
+        self.reg[REG_CSR] ^= STATUS_LOADING
+
+    def op_store(self, dest, src, count):
+        if not IS_READABLE_REG(dest) or not IS_READABLE_REG(src) or not IS_READABLE_REG(count):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            return
+
+        dest_addr = self.reg[dest] * 128
+        src_addr = self.reg[src] * 4
+        size = self.reg[count] * 4
+
+        if not self.is_inbound_memory(src_addr, size):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'NPU{self.id}: Out of memory: 0x{src_addr:08x} ~ +{size} bytes')
+            return
+
+        if self.reg[REG_CSR] & STATUS_LOADING != 0:
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'NPU{self.id}: Duplicated load/store operator executed')
+            return
+
+        self.reg[REG_CSR] |= STATUS_LOADING
+        addr, data = host.get_data(dest_addr, size)
+        data[dest_addr - addr:dest_addr - addr + size] = self.memory[src_addr:src_addr + size]
+        self.reg[REG_CSR] ^= STATUS_LOADING
+
+    def op_vadd_bf16(self, c, a, b, count):
+        if not IS_READABLE_REG(c) or not IS_READABLE_REG(a) or \
+           not IS_READABLE_REG(b) or not IS_READABLE_REG(count):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{c:02x}, 0x{a:02x}, 0x{b:02x} or 0x{count:02x}')
+            return
+        
+        c_addr = self.reg[c] * 4
+        a_addr = self.reg[a] * 4
+        b_addr = self.reg[b] * 4
+        count = self.reg[count]
+
+        for i in range(count):
+            a = bf16_to_float32(self.memory[a_addr:a_addr + 2])
+            b = bf16_to_float32(self.memory[b_addr:b_addr + 2])
+            c_bytes = float32_to_bf16(a + b)
+            self.memory[c_addr:c_addr + 2] = c_bytes
+            #print('[', i, ']', a, '(', a_addr, ')', '+', b, '(', b_addr, ')', '=', a+b)
+
+            a_addr += 2
+            b_addr += 2
+            c_addr += 2
+
+    def op_vsub_bf16(self, c, a, b, count):
+        pass
+
+    def op_vmul_bf16(self, c, a, b, count):
+        pass
+
+    def op_vdiv_bf16(self, c, a, b, count):
+        pass
+
+    def op_return(self):
+        self.reg[REG_CSR] &= ~STATUS_RUNNING
+
     def exec(self, opcode):
         if is_debug:
             print(f'NPU {self.id} [{self.reg[REG_IP]:>3}] {opcode:08x}')
@@ -269,137 +466,46 @@ class NPU(threading.Thread):
         instruction = opcode >> 24
 
         if instruction == 0x00:  # nop
-            pass
+            self.op_nop()
         elif instruction == 0x01:  # set
             dest, src = self.parse(opcode, ['r', 'u20'])
-
-            if not IS_WRITABLE_REG(dest) or not self.is_inbound_memory(src):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            self.reg[dest] = struct.unpack('I', self.memory[src * 4:src * 4 + 4])[0]
+            self.op_set(dest, src)
         elif instruction == 0x02:  # seti
             dest, value = self.parse(opcode, ['r', 'u20'])
-
-            if not IS_WRITABLE_REG(dest):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            self.reg[dest] = value
+            self.op_seti(dest, value)
         elif instruction == 0x03:  # seti_low
             dest, value = self.parse(opcode, ['r', 'p4', 'u16'])
-
-            if not IS_WRITABLE_REG(dest):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            self.reg[dest] = (self.reg[dest] & 0xffff0000) | (value & 0xffff)
+            self.op_seti_low(dest, value)
         elif instruction == 0x04:  # seti_high
             dest, value = self.parse(opcode, ['r', 'p4', 'u16'])
-
-            if not IS_WRITABLE_REG(dest):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            self.reg[dest] = ((value & 0xffff) << 16) | (self.reg[dest] & 0xffff)
+            self.op_seti_high(dest, value)
         elif instruction == 0x05:  # get
             src, dest = self.parse(opcode, ['r', 'u20'])
-
-            if not IS_READABLE_REG(src):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            self.memory[dest:dest + 4] = struct.pack('I', self.reg[src])
+            self.op_get(src, dest)
         elif instruction == 0x06:  # mov
             dest, src = self.parse(opcode, ['r', 'r'])
-
-            if not IS_WRITABLE_REG(dest) or not IS_READABLE_REG(src):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            self.reg[dest] = self.reg[src]
+            self.op_mov(dest, src)
         elif instruction == 0x07:  # load
             dest, src, count = self.parse(opcode, ['r', 'r', 'r'])
-
-            if not IS_READABLE_REG(dest) or not IS_READABLE_REG(src) or not IS_READABLE_REG(count):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            dest_addr = self.reg[dest] * 4
-            src_addr = self.reg[src] * 128
-            size = self.reg[count] * 4
-
-            if not self.is_inbound_memory(dest_addr, size):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                if is_debug:
-                    print(f'NPU{self.id}: Out of memory: 0x{dest_addr:08x} ~ +{size} bytes')
-                return
-
-            addr, data = host.get_data(src_addr, size)
-            self.memory[dest:dest + size] = data[src_addr - addr: src_addr - addr + size]
+            self.op_load(dest, src, count)
         elif instruction == 0x08:  # store
             dest, src, count = self.parse(opcode, ['r', 'r', 'r'])
-
-            if not IS_READABLE_REG(dest) or not IS_READABLE_REG(src) or not IS_READABLE_REG(count):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-
-            dest_addr = self.reg[dest] * 128
-            src_addr = self.reg[src] * 4
-            size = self.reg[count] * 4
-
-            if not self.is_inbound_memory(src_addr, size):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                if is_debug:
-                    print(f'NPU{self.id}: Out of memory: 0x{src_addr:08x} ~ +{size} bytes')
-                return
-
-            addr, data = host.get_data(dest_addr, size)
-            data[dest_addr - addr:dest_addr - addr + size] = self.memory[src_addr:src_addr + size]
+            self.op_store(dest, src, count)
         elif instruction == 0x09:  # vadd.bf16
             c, a, b, count = self.parse(opcode, ['r', 'r', 'r', 'r'])
-
-            if not IS_READABLE_REG(c) or not IS_READABLE_REG(a) or \
-               not IS_READABLE_REG(b) or not IS_READABLE_REG(count):
-                self.reg[REG_CSR] |= STATUS_ERROR
-                self.reg[REG_CSR] &= ~STATUS_RUNNING
-                return
-            
-            c_addr = self.reg[c] * 4
-            a_addr = self.reg[a] * 4
-            b_addr = self.reg[b] * 4
-            count = self.reg[count]
-
-            for i in range(count):
-                a = bf16_to_float32(self.memory[a_addr:a_addr + 2])
-                b = bf16_to_float32(self.memory[b_addr:b_addr + 2])
-                c_bytes = float32_to_bf16(a + b)
-                self.memory[c_addr:c_addr + 2] = c_bytes
-                #print('[', i, ']', a, '(', a_addr, ')', '+', b, '(', b_addr, ')', '=', a+b)
-
-                a_addr += 2
-                b_addr += 2
-                c_addr += 2
-
+            self.op_vadd_bf16(c, a, b, count)
         elif instruction == 0x0a:  # vsub.bf16
-            pass
+            c, a, b, count = self.parse(opcode, ['r', 'r', 'r', 'r'])
+            self.op_vsub_bf16(c, a, b, count)
         elif instruction == 0x0b:  # vmul.bf16
-            pass
+            c, a, b, count = self.parse(opcode, ['r', 'r', 'r', 'r'])
+            self.op_vmul_bf16(c, a, b, count)
         elif instruction == 0x0c:  # vdiv.bf16
+            c, a, b, count = self.parse(opcode, ['r', 'r', 'r', 'r'])
+            self.op_vdiv_bf16(c, a, b, count)
+        elif instruction == 0x0d:  # add.i32
             pass
-        elif instruction == 0x0d:  # add.int32
-            pass
-        elif instruction == 0x0e:  # sub.int32
+        elif instruction == 0x0e:  # sub.i32
             pass
         elif instruction == 0x0f:  # ifz
             pass
@@ -410,114 +516,12 @@ class NPU(threading.Thread):
         elif instruction == 0x12:  # jmp
             pass
         elif instruction == 0xff:  # return
-            self.reg[REG_CSR] &= ~STATUS_RUNNING
-
-        return
-
-        if op[0] == 0x00:  # nop
-            return True
-        elif op[0] == 0x01:  # set_high
-            reg = op[1]
-            value = struct.unpack('H', op[2:])[0]
-
-            self.reg[reg] = value << 16 | (self.reg[reg] & 0xffff)
-
-            return True
-        elif op[0] == 0x02:  # set_low
-            reg = op[1]
-            value = struct.unpack('H', op[2:])[0]
-
-            self.reg[reg] = (self.reg[reg] & 0xffff0000) | (value & 0xffff)
-
-            return True
-        elif op[0] == 0x03:  # load
-            count = struct.unpack('H', op[1:3])[0]
-            size = count * 4
-
-            A = self.reg[1]
-            B = self.reg[2]
-
-            addr, data = self.get_data(A, size)
-            delta = A - addr
-
-            self.memory[B:B + size] = data[delta:delta + size]
-
-            return True
-        elif op[0] == 0x04:  # store
-            count = struct.unpack('H', op[1:3])[0]
-            size = count * 4
-
-            A = self.reg[1]
-            B = self.reg[2]
-
-            addr, data = self.get_data(A, size)
-
-            delta = A - addr
-            data[delta: delta + size] = self.memory[B:B + size]
-
-            self.updated[addr] = True
-
-            return True
-        elif op[0] == 0x05:  # add.f32
-            count = struct.unpack('H', op[1:3])[0]
-
-            A = self.reg[1]
-            B = self.reg[2]
-            C = self.reg[3]
-
-            for i in range(count):
-                A_i = struct.unpack('f', self.memory[A + i * 4: A + i * 4 + 4])[0]
-                B_i = struct.unpack('f', self.memory[B + i * 4: B + i * 4 + 4])[0]
-                C_i = A_i + B_i
-                self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
-
-            return True
-        elif op[0] == 0x06:  # sub.f32
-            count = struct.unpack('H', op[1:3])[0]
-
-            A = self.reg[1]
-            B = self.reg[2]
-            C = self.reg[3]
-
-            for i in range(count):
-                A_i = struct.unpack('f', self.memory[A + i * 4: A + i * 4 + 4])[0]
-                B_i = struct.unpack('f', self.memory[B + i * 4: B + i * 4 + 4])[0]
-                C_i = A_i - B_i
-                self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
-
-            return True
-        elif op[0] == 0x07:  # mul.f32
-            count = struct.unpack('H', op[1:3])[0]
-
-            A = self.reg[1]
-            B = self.reg[2]
-            C = self.reg[3]
-
-            for i in range(count):
-                A_i = struct.unpack('f', self.memory[A + i * 4: A + i * 4 + 4])[0]
-                B_i = struct.unpack('f', self.memory[B + i * 4: B + i * 4 + 4])[0]
-                C_i = A_i * B_i
-                self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
-
-            return True
-        elif op[0] == 0x08:  # div.f32
-            count = struct.unpack('H', op[1:3])[0]
-
-            A = self.reg[1]
-            B = self.reg[2]
-            C = self.reg[3]
-
-            for i in range(count):
-                A_i = struct.unpack('f', self.memory[A + i * 4: A + i * 4 + 4])[0]
-                B_i = struct.unpack('f', self.memory[B + i * 4: B + i * 4 + 4])[0]
-                C_i = A_i / B_i
-                self.memory[C + i * 4: C + i * 4 + 4] = struct.pack('f', C_i)
-
-            return True
-        elif op[0] == 0xff:
-            self.reg[REG_CSR] ^= STATUS_RUNNING
+            self.op_return()
         else:
-            raise Exception(f'Not supported opcode: 0x{op[0]}')
+            if is_debug:
+                raise Exception(f'Not supported opcode: 0x{instruction:02x}')
+
+            self.reg[REG_CSR] |= STATUS_ERROR
 
     def run(self):
         for i in range(len(self.reg)):

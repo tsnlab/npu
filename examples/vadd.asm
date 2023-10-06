@@ -4,7 +4,7 @@ def init(host):
     host.data[0x200400] = host.bf16([v * 0.1 for v in range(512)])
     host.data[0x200800] = host.zeros(512 * 2)
 
-    host.store(0, 0x00, 0x00)  # 0x00 means kernel
+    host.store(0, 0x00, 0x00, len(host.kernel))  # 0x00 means kernel
     host.store(0, 0x80, 0x200000, 512 * 2)
     host.store(0, 0x480, 0x200400, 512 * 2)
 

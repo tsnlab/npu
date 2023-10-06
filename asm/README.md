@@ -19,5 +19,5 @@ asm$ poetry run python asm.py ../examples/add.asm -o add
 
 ## Interpreter
 ```bash
-asm$ poetry run python interpreter.py add
+asm$ poetry run python sim.py add
 ```

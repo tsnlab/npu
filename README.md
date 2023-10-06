@@ -36,7 +36,8 @@ Core {
 
 ### CSR register bits
  0. running - 0: not running, 1: running
- 1\~30. reserved
+ 1. loading - 1: loading or storing, 0: data is not moving b/w CPU and NPU
+ 2\~30. reserved
  31. error - 0: no error, 1: error
 
 ## NPU Core instructions
@@ -62,8 +63,8 @@ int# - signed # bits
  0a. vsub.bf16
  0b. vmul.bf16
  0c. vdiv.bf16
- 0d. add.int32
- 0e. sub.int32
+ 0d. add.i32
+ 0e. sub.i32
  0f. ifz
  10. ifeq
  11. ifneq
