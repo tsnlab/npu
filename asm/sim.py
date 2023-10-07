@@ -30,8 +30,8 @@ STATUS_RUNNING = 1 << 0
 STATUS_LOADING = 1 << 1
 STATUS_ERROR = 1 << 31
 
-def float32_to_bf16(values):
-    if not isinstance(value, tuple) isinstance(value, list):
+def float32_to_bf16(value):
+    if isinstance(value, tuple) or isinstance(value, list):
         f32_values = value
 
         buf = bytearray()
