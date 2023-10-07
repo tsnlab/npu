@@ -10,14 +10,12 @@ asm$ poetry install
 ## Assembler
 ```bash
 asm$ poetry run python asm.py ../examples/add.asm -o add
+asm$ poetry run python asm.py ../examples/vadd.asm -o vadd
 ```
 
  - add.bin - kernel
- - add.200000.data - data for main memory at 0x200000
- - add.200800.data - data for main memory at 0x200800
- - add.201000.data - data for main memory at 0x201000
 
 ## Interpreter
 ```bash
-asm$ poetry run python sim.py add
+asm$ poetry run python sim.py vadd
 ```
