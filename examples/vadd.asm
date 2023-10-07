@@ -1,8 +1,8 @@
 ### script
 def init(host):
-    host.data[0x200000] = host.bf16([v * 1.1 for v in range(512)])
-    host.data[0x200400] = host.bf16([v * 0.1 for v in range(512)])
-    host.data[0x200800] = host.zeros(512 * 2)
+    host.data[0x200000] = float32_to_bf16([v * 1.1 for v in range(512)])
+    host.data[0x200400] = float32_to_bf16([v * 0.1 for v in range(512)])
+    host.data[0x200800] = zeros(512 * 2)
 
     host.store(0, 0x00, 0x00, len(host.kernel))  # 0x00 means kernel
     host.store(0, 0x80, 0x200000, 512 * 2)
@@ -14,6 +14,8 @@ def run(host):
 def finalize(host):
     #host.npus[0].dump_regs()
     host.dump_bf16(0x200800)
+    f32_values = bf16_to_float32(host.data[0x200800])
+    dump_compare([v * 1.1 + v * 0.1 for v in range(512)], f32_values)
     #print('A')
     #host.npus[0].dump_bf16(0x80, 512)
     #print('B')

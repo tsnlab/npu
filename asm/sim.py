@@ -17,6 +17,9 @@ REG_G = 7
 REG_IP = 14
 REG_CSR = 15
 
+RED = '\033[0;31m'
+END = '\033[0m'
+
 def IS_READABLE_REG(reg):
     return reg >= REG_ZERO and reg <= REG_G or reg >= REG_IP and reg <= REG_CSR
 
@@ -27,60 +30,74 @@ STATUS_RUNNING = 1 << 0
 STATUS_LOADING = 1 << 1
 STATUS_ERROR = 1 << 31
 
-def float32_to_bf16(f32_value):
-    """
-    f32_bytes = struct.pack('f', value)
-    f32_int = struct.unpack('I', f32_bytes)[0]
+def float32_to_bf16(values):
+    if not isinstance(value, tuple) isinstance(value, list):
+        f32_values = value
 
-    sign_bit = (f32_int >> 31) & 0x01
-    exponent_bits = (f32_int >> 23) & 0xff
-    mantissa_bits = f32_int & 0x7fffff
+        buf = bytearray()
 
-    bf16_exponent = exponent_bits - 112
-    bf16_mantissa = mantissa_bits >> 13
+        for f32_value in f32_values:
+            buf.extend(float32_to_bf16(f32_value))
 
-    bf16_value = (sign_bit << 15) | (bf16_exponent << 10) | bf16_mantissa
+        return buf
+    else:
+        f32_value = value
 
-    print(f'{bf16_value:04x}', sign_bit, bf16_exponent, bf16_mantissa)
-    return struct.pack('H', bf16_value)
-    """
-    """
-    bf16_value = np.float32(f32_value).view(np.uint32)
-    bf16_value >>= 16  # Right-shift to get the BF16 representation
-    bf16_value = np.uint16(bf16_value)
-    return struct.pack('H', u16_value)
-    """
-    f32_bytes = struct.pack('f', f32_value)
-    return f32_bytes[2:]
+        f32_bytes = struct.pack('f', f32_value)
+        return f32_bytes[2:]
 
-def bf16_to_float32(bf16_buf):
-    """
-    bf16_value = struct.unpack('H', bf16_buf)[0]
+def bf16_to_float32(value):
+    if len(value) > 2:
+        bf16_bufs = value
+        f32_values = []
 
-    sign_bit = (bf16_value >> 15) & 0x01
-    exponent_bits = (bf16_value >> 10) & 0x1f
-    matissa_bits = bf16_value & 0x03ff
+        i = 0
+        while i < len(bf16_bufs):
+            f32_values.append(bf16_to_float32(bf16_bufs[i: i + 2]))
+            i += 2
 
-    float32_exponent_bits = exponent_bits + 112
-    float32_mantissa_bits = mantissa_bits << 13
+        return f32_values
+    else:
+        bf16_buf = value
 
-    float32_bits = (sign_bit << 31) | (float32_exponent_bits << 23) | float32_mantissa_bits
-    float32_bytes = struct.pack('I', float32_bits)
+        f32_bytes = bytes([0, 0, bf16_buf[0], bf16_buf[1]])
+        return struct.unpack('f', f32_bytes)[0]
 
-    return struct.unpack('f', float32_bytes)[0]
-    """
-    """
-    bf16_value = np.float32(f32_value).view(np.uint32)
-    bf16_value >>= 16  # Right-shift to get the BF16 representation
-    bf16_value = np.uint16(bf16_value)
+def zeros(size):
+    buf = bytearray()
 
-    bf16_value = struct.unpack('H', bf16_buf)[0]
-    bfloat16_as_uint16 = np.uint16(bf16_value)
-    f32_as_uint32 = (bfloat16_as_uint16 << 16) | (bfloat16_as_uint16 & 0x7fff)
-    return np.float32(f32_as_uint32)
-    """
-    f32_bytes = bytes([0, 0, bf16_buf[0], bf16_buf[1]])
-    return struct.unpack('f', f32_bytes)[0]
+    while size > 0:
+        buf.extend(struct.pack('I', 0))
+        size -= 4
+
+    return buf
+
+def compare(a, b, epsilon=1e-4):
+    diff = a - b if a > b else b - a
+
+    return diff < epsilon
+
+def dump_compare(A, B, epsilon=1e-4):
+    A_count = len(A)
+    B_count = len(B)
+    count = max(A_count, B_count)
+
+    for i in range(count):
+        if i < A_count and i < B_count:
+            a = A[i]
+            b = B[i]
+
+            if compare(a, b, epsilon):
+                print(f'{a:>3.5f}', end=' ')
+            else:
+                print(f'{RED}{a:>3.5f} != {b:>3.5f}{END}', end=' ')
+        elif i < A_count:
+            print(f'{RED}{a:>3.5f} != None{END}', end=' ')
+        else:
+            print(f'{RED}None != {b:>3.5f}', end=' ')
+
+        if (i + 1) % 8 == 0:
+            print()
 
 def _dump_bf16(data):
     count = 1
@@ -102,6 +119,14 @@ class Host:
         self.updated = {}
         self.npus = []
         self.script = None
+        self._context = {
+            'host': self,
+            'float32_to_bf16': float32_to_bf16,
+            'bf16_to_float32': bf16_to_float32,
+            'zeros': zeros,
+            'compare': compare,
+            'dump_compare': dump_compare
+        }
 
         for i in range(npus):
             self.npus.append(NPU(i, mem_size, out=out))
@@ -125,7 +150,7 @@ class Host:
             self.script = f.read()
 
         # Run init script
-        exec(self.script + '\ninit(host)', None, { 'host': self })
+        exec(self.script + '\ninit(host)', None, self._context)
 
     def get_data(self, offset, size):
         if offset == 0x00:
@@ -139,14 +164,14 @@ class Host:
 
     def run(self):
         # Run run script
-        exec(self.script + '\nrun(host)', None, { 'host': self })
+        exec(self.script + '\nrun(host)', None, self._context)
 
         for npu in self.npus:
             if npu.is_alive():
                 npu.join()
 
         # Run finalizescript
-        exec(self.script + '\nfinalize(host)', None, { 'host': self })
+        exec(self.script + '\nfinalize(host)', None, self._context)
 
     def store(self, npu_id, npu_address, host_address, size):
         if npu_id < 0 or npu_id >= len(self.npus):
@@ -206,26 +231,6 @@ class Host:
         npu = self.npus[npu_id]
 
         return npu.reg[reg_id]
-
-    def bf16(self, values):
-        if not isinstance(values, list) and not isinstance(values, tuple):
-            raise Exception(f'Illegal values type: {type(values)}')
-
-        buf = bytearray()
-
-        for value in values:
-            buf.extend(float32_to_bf16(value))
-
-        return buf
-
-    def zeros(self, size):
-        buf = bytearray()
-
-        while size > 0:
-            buf.extend(struct.pack('I', 0))
-            size -= 4
-
-        return buf
 
     def dump_bf16(self, addr):
         data = self.data[addr]
