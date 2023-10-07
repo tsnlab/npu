@@ -1,7 +1,7 @@
 ### script
 def init(host):
-    host.data[0x200000] = float32_to_bf16([v * 1.1 for v in range(512)])
-    host.data[0x200400] = float32_to_bf16([v * 0.1 for v in range(512)])
+    host.data[0x200000] = jnp.array([v * 1.1 for v in range(512)], dtype=jnp.bfloat16).tobytes() #float32_to_bf16([v * 1.1 for v in range(512)])
+    host.data[0x200400] = jnp.array([v * 0.1 for v in range(512)], dtype=jnp.bfloat16).tobytes() #float32_to_bf16([v * 0.1 for v in range(512)])
     host.data[0x200800] = zeros(512 * 2)
 
     host.store(0, 0x00, 0x00, len(host.kernel))  # 0x00 means kernel
@@ -12,16 +12,21 @@ def run(host):
     host.exec(0)
 
 def finalize(host):
-    #host.npus[0].dump_regs()
-    host.dump_bf16(0x200800)
-    f32_values = bf16_to_float32(host.data[0x200800])
-    dump_compare([v * 1.1 + v * 0.1 for v in range(512)], f32_values)
-    #print('A')
-    #host.npus[0].dump_bf16(0x80, 512)
-    #print('B')
-    #host.npus[0].dump_bf16(0x480, 512)
-    #print('C')
-    #host.npus[0].dump_bf16(0x880, 512)
+    print('# Dump register')
+    host.npus[0].dump_regs()
+    print()
+
+    print('# Dump result')
+    dump_bf16(host.data[0x200800])
+    print()
+
+    print('# Compare result')
+    result = jnp.frombuffer(host.data[0x200800], dtype=jnp.bfloat16)
+
+    A = jnp.array([v * 1.1 for v in range(512)], dtype=jnp.bfloat16)
+    B = jnp.array([v * 0.1 for v in range(512)], dtype=jnp.bfloat16)
+
+    dump_compare(result, A + B)
 ###
 
 # kernel is stored at 0

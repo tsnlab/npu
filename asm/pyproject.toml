@@ -12,6 +12,10 @@ jax = "^0.4.16"
 jaxlib = "^0.4.16"
 
 
+[tool.poetry.group.dev.dependencies]
+flake8 = "^6.1.0"
+flake8-import-order = "^0.18.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

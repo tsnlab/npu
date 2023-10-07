@@ -1,8 +1,9 @@
-import sys
 import struct
+import sys
 
 
-is_debug = True
+is_debug = False
+
 
 class Instruction:
     instructions = []
@@ -164,7 +165,7 @@ def compile(source, target):
     with open(source, 'r') as source_file:
         with open(target + '.bin', 'wb') as target_file:
             while True:
-                line = source_file.readline();
+                line = source_file.readline()
 
                 if not line:
                     break
@@ -173,7 +174,7 @@ def compile(source, target):
                 if line.startswith('### script'):
                     with open(target + '.script', 'w') as script_file:
                         while True:
-                            line = source_file.readline();
+                            line = source_file.readline()
 
                             if not line:
                                 break
@@ -203,6 +204,7 @@ def compile(source, target):
                 # asm -> opcode
                 instruction = Instruction.get_instruction(tokens)
                 instruction.compile(target, target_file, tokens[1:])
+
 
 if len(sys.argv) < 4 or sys.argv[2] != '-o':
     print(f'Usage: python {sys.argv[0]} [input file] -o [target]')

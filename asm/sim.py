@@ -1,10 +1,12 @@
-import sys
 import glob
 import struct
+import sys
 import threading
-import numpy as np
 
-is_debug = True
+import jax.numpy as jnp
+
+
+is_debug = False
 
 REG_ZERO = 0
 REG_A = 1
@@ -20,15 +22,18 @@ REG_CSR = 15
 RED = '\033[0;31m'
 END = '\033[0m'
 
+STATUS_RUNNING = 1 << 0
+STATUS_LOADING = 1 << 1
+STATUS_ERROR = 1 << 31
+
+
 def IS_READABLE_REG(reg):
     return reg >= REG_ZERO and reg <= REG_G or reg >= REG_IP and reg <= REG_CSR
+
 
 def IS_WRITABLE_REG(reg):
     return reg >= REG_A and reg <= REG_G
 
-STATUS_RUNNING = 1 << 0
-STATUS_LOADING = 1 << 1
-STATUS_ERROR = 1 << 31
 
 def float32_to_bf16(value):
     if isinstance(value, tuple) or isinstance(value, list):
@@ -45,6 +50,7 @@ def float32_to_bf16(value):
 
         f32_bytes = struct.pack('f', f32_value)
         return f32_bytes[2:]
+
 
 def bf16_to_float32(value):
     if len(value) > 2:
@@ -63,6 +69,7 @@ def bf16_to_float32(value):
         f32_bytes = bytes([0, 0, bf16_buf[0], bf16_buf[1]])
         return struct.unpack('f', f32_bytes)[0]
 
+
 def zeros(size):
     buf = bytearray()
 
@@ -72,15 +79,19 @@ def zeros(size):
 
     return buf
 
+
 def compare(a, b, epsilon=1e-4):
     diff = a - b if a > b else b - a
 
     return diff < epsilon
 
+
 def dump_compare(A, B, epsilon=1e-4):
     A_count = len(A)
     B_count = len(B)
     count = max(A_count, B_count)
+
+    incorrect = 0
 
     for i in range(count):
         if i < A_count and i < B_count:
@@ -88,29 +99,50 @@ def dump_compare(A, B, epsilon=1e-4):
             b = B[i]
 
             if compare(a, b, epsilon):
-                print(f'{a:>3.5f}', end=' ')
+                print(f'{a}', end=' ')
             else:
-                print(f'{RED}{a:>3.5f} != {b:>3.5f}{END}', end=' ')
+                print(f'{RED}{a} != {b}{END}', end=' ')
+                incorrect += 1
         elif i < A_count:
-            print(f'{RED}{a:>3.5f} != None{END}', end=' ')
+            print(f'{RED}{a} != None{END}', end=' ')
+            incorrect += 1
         else:
-            print(f'{RED}None != {b:>3.5f}', end=' ')
+            print(f'{RED}None != {b}', end=' ')
+            incorrect += 1
 
-        if (i + 1) % 8 == 0:
+        if (i + 1) % 16 == 0:
             print()
+    print(f'Incorrect: {incorrect} / {count}')
 
-def _dump_bf16(data):
+
+def dump_bf16(data):
     count = 1
     i = 0
     while i < len(data):
-        value = bf16_to_float32(data[i:i + 2])
+        value = jnp.frombuffer(data[i:i + 2], dtype=jnp.bfloat16)[0]
 
         print(value, end=' ')
-        if count % 8 == 0:
+        if count % 16 == 0:
             print()
 
         i += 2
         count += 1
+
+
+def dump_hex(data):
+    count = 1
+    for i in range(len(data)):
+        b = data[i]
+
+        print(f'{b:02x}', end=' ')
+
+        if count % 16 == 0:
+            print()
+        elif count % 8 == 0:
+            print(end=' ')
+
+        count += 1
+
 
 class Host:
     def __init__(self, mem_size=512 * 1024, npus=4, out='stdout'):
@@ -125,7 +157,10 @@ class Host:
             'bf16_to_float32': bf16_to_float32,
             'zeros': zeros,
             'compare': compare,
-            'dump_compare': dump_compare
+            'dump_compare': dump_compare,
+            'dump_bf16': dump_bf16,
+            'dump_hex': dump_hex,
+            'jnp': jnp
         }
 
         for i in range(npus):
@@ -191,7 +226,7 @@ class Host:
         # store (from host side, load from NPU side)
         npu.op_load(REG_A, REG_B, REG_C)
 
-    def load(self, npu_id, host_address, npu_address):
+    def load(self, npu_id, host_address, npu_address, size):
         if npu_id < 0 or npu_id >= len(self.npus):
             raise Exception(f'Illegal NPU id: {npu_id}')
 
@@ -214,7 +249,7 @@ class Host:
 
     def set(self, npu_id, reg_id, value):
         if npu_id < 0 or npu_id >= len(self.npus):
-           raise Exception(f'Illegal NPU id: {npu_id}')
+            raise Exception(f'Illegal NPU id: {npu_id}')
 
         npu = self.npus[npu_id]
 
@@ -226,31 +261,11 @@ class Host:
 
     def get(self, npu_id, reg_id):
         if npu_id < 0 or npu_id >= len(self.npus):
-           raise Exception(f'Illegal NPU id: {npu_id}')
+            raise Exception(f'Illegal NPU id: {npu_id}')
 
         npu = self.npus[npu_id]
 
         return npu.reg[reg_id]
-
-    def dump_bf16(self, addr):
-        data = self.data[addr]
-        _dump_bf16(data)
-
-    def dump(self, addr):
-        data = self.data[addr]
-
-        count = 1
-        for i in range(len(data)):
-            b = data[i]
-
-            print(f'{b:02x}', end=' ')
-
-            if count % 16 == 0:
-                print()
-            elif count % 8 == 0:
-                print(end=' ')
-
-            count += 1
 
 
 class NPU(threading.Thread):
@@ -312,7 +327,8 @@ class NPU(threading.Thread):
             self.reg[REG_CSR] |= STATUS_ERROR
             self.reg[REG_CSR] &= ~STATUS_RUNNING
             if is_debug:
-                raise Exception(f'Illegal register: 0x{dest:02x}, 0x{src:02x} or memory out of bound: 0x{src:08x} ~ + 4 bytes')
+                raise Exception(f'Illegal register: 0x{dest:02x}, 0x{src:02x} '
+                                'or memory out of bound: 0x{src:08x} ~ + 4 bytes')
             return
 
         self.reg[dest] = struct.unpack('I', self.memory[src * 4:src * 4 + 4])[0]
@@ -342,7 +358,7 @@ class NPU(threading.Thread):
             self.reg[REG_CSR] |= STATUS_ERROR
             self.reg[REG_CSR] &= ~STATUS_RUNNING
             if is_debug:
-               raise Exception(f'Illegal register: 0x{dest:02x}')
+                raise Exception(f'Illegal register: 0x{dest:02x}')
             return
 
         self.reg[dest] = ((value & 0xffff) << 16) | (self.reg[dest] & 0xffff)
@@ -356,7 +372,7 @@ class NPU(threading.Thread):
             return
 
         self.memory[dest:dest + 4] = struct.pack('I', self.reg[src])
-    
+
     def op_mov(self, dest, src):
         if not IS_WRITABLE_REG(dest) or not IS_READABLE_REG(src):
             self.reg[REG_CSR] |= STATUS_ERROR
@@ -435,31 +451,93 @@ class NPU(threading.Thread):
             if is_debug:
                 raise Exception(f'Illegal register: 0x{c:02x}, 0x{a:02x}, 0x{b:02x} or 0x{count:02x}')
             return
-        
+
         c_addr = self.reg[c] * 4
         a_addr = self.reg[a] * 4
         b_addr = self.reg[b] * 4
         count = self.reg[count]
 
         for i in range(count):
-            a = bf16_to_float32(self.memory[a_addr:a_addr + 2])
-            b = bf16_to_float32(self.memory[b_addr:b_addr + 2])
-            c_bytes = float32_to_bf16(a + b)
-            self.memory[c_addr:c_addr + 2] = c_bytes
-            #print('[', i, ']', a, '(', a_addr, ')', '+', b, '(', b_addr, ')', '=', a+b)
+            a = jnp.frombuffer(self.memory[a_addr:a_addr + 2], dtype=jnp.bfloat16)[0]
+            b = jnp.frombuffer(self.memory[b_addr:b_addr + 2], dtype=jnp.bfloat16)[0]
+            c = a + b
+            self.memory[c_addr:c_addr + 2] = c.tobytes()
 
             a_addr += 2
             b_addr += 2
             c_addr += 2
 
     def op_vsub_bf16(self, c, a, b, count):
-        pass
+        if not IS_READABLE_REG(c) or not IS_READABLE_REG(a) or \
+           not IS_READABLE_REG(b) or not IS_READABLE_REG(count):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{c:02x}, 0x{a:02x}, 0x{b:02x} or 0x{count:02x}')
+            return
+
+        c_addr = self.reg[c] * 4
+        a_addr = self.reg[a] * 4
+        b_addr = self.reg[b] * 4
+        count = self.reg[count]
+
+        for i in range(count):
+            a = jnp.frombuffer(self.memory[a_addr:a_addr + 2], dtype=jnp.bfloat16)[0]
+            b = jnp.frombuffer(self.memory[b_addr:b_addr + 2], dtype=jnp.bfloat16)[0]
+            c = a - b
+            self.memory[c_addr:c_addr + 2] = c.tobytes()
+
+            a_addr += 2
+            b_addr += 2
+            c_addr += 2
 
     def op_vmul_bf16(self, c, a, b, count):
-        pass
+        if not IS_READABLE_REG(c) or not IS_READABLE_REG(a) or \
+           not IS_READABLE_REG(b) or not IS_READABLE_REG(count):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{c:02x}, 0x{a:02x}, 0x{b:02x} or 0x{count:02x}')
+            return
+
+        c_addr = self.reg[c] * 4
+        a_addr = self.reg[a] * 4
+        b_addr = self.reg[b] * 4
+        count = self.reg[count]
+
+        for i in range(count):
+            a = jnp.frombuffer(self.memory[a_addr:a_addr + 2], dtype=jnp.bfloat16)[0]
+            b = jnp.frombuffer(self.memory[b_addr:b_addr + 2], dtype=jnp.bfloat16)[0]
+            c = a * b
+            self.memory[c_addr:c_addr + 2] = c.tobytes()
+
+            a_addr += 2
+            b_addr += 2
+            c_addr += 2
 
     def op_vdiv_bf16(self, c, a, b, count):
-        pass
+        if not IS_READABLE_REG(c) or not IS_READABLE_REG(a) or \
+           not IS_READABLE_REG(b) or not IS_READABLE_REG(count):
+            self.reg[REG_CSR] |= STATUS_ERROR
+            self.reg[REG_CSR] &= ~STATUS_RUNNING
+            if is_debug:
+                raise Exception(f'Illegal register: 0x{c:02x}, 0x{a:02x}, 0x{b:02x} or 0x{count:02x}')
+            return
+
+        c_addr = self.reg[c] * 4
+        a_addr = self.reg[a] * 4
+        b_addr = self.reg[b] * 4
+        count = self.reg[count]
+
+        for i in range(count):
+            a = jnp.frombuffer(self.memory[a_addr:a_addr + 2], dtype=jnp.bfloat16)[0]
+            b = jnp.frombuffer(self.memory[b_addr:b_addr + 2], dtype=jnp.bfloat16)[0]
+            c = a / b
+            self.memory[c_addr:c_addr + 2] = c.tobytes()
+
+            a_addr += 2
+            b_addr += 2
+            c_addr += 2
 
     def op_return(self):
         self.reg[REG_CSR] &= ~STATUS_RUNNING
@@ -555,12 +633,6 @@ class NPU(threading.Thread):
         print(f'ip  : {self.reg[REG_IP]:08x} {self.reg[REG_IP]}')
         print(f'csr : {self.reg[REG_CSR]:08x} {self.reg[REG_CSR]}')
 
-    def dump_bf16(self, addr=0, size=None):
-        if size is None:
-            size = len(self.memory) - addr
-
-        data = self.memory[addr:addr + size]
-        _dump_bf16(data)
 
 if len(sys.argv) < 2:
     print(f'Usage: python {sys.argv[0]} [target]')
