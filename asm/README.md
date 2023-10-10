@@ -9,7 +9,6 @@ asm$ poetry install
 
 ## Assembler
 ```bash
-asm$ poetry run python asm.py ../examples/add.asm -o add
 asm$ poetry run python asm.py ../examples/vadd.asm -o vadd
 ```
 
