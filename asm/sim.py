@@ -143,6 +143,10 @@ def dump_hex(data):
 
         count += 1
 
+def save(data, filename):
+    with open(filename, 'wb') as file:
+        file.write(data)
+
 
 class Host:
     def __init__(self, mem_size=512 * 1024, npus=4, out='stdout'):
@@ -160,6 +164,7 @@ class Host:
             'dump_compare': dump_compare,
             'dump_bf16': dump_bf16,
             'dump_hex': dump_hex,
+            'save': save,
             'jnp': jnp
         }
 

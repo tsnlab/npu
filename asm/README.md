@@ -9,10 +9,12 @@ asm$ poetry install
 
 ## Assembler
 ```bash
-asm$ poetry run python asm.py ../examples/vadd.asm -o vadd
+asm$ poetry run python asm.py ../examples/vadd.asm
 ```
 
- - add.bin - kernel
+Outputs
+ - vadd.bin : kernel
+ - vadd.script : script
 
 ## Interpreter
 ```bash

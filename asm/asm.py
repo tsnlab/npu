@@ -1,5 +1,6 @@
 import struct
 import sys
+import pathlib
 
 
 is_debug = False
@@ -206,8 +207,9 @@ def compile(source, target):
                 instruction.compile(target, target_file, tokens[1:])
 
 
-if len(sys.argv) < 4 or sys.argv[2] != '-o':
-    print(f'Usage: python {sys.argv[0]} [input file] -o [target]')
+if len(sys.argv) < 2:
+    print(f'Usage: python {sys.argv[0]} [input file]')
     sys.exit(0)
 
-compile(sys.argv[1], sys.argv[3])
+path = pathlib.Path(sys.argv[1])
+compile(sys.argv[1], path.stem)
