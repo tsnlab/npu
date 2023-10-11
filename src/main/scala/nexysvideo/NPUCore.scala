@@ -3,7 +3,7 @@ package chipyard.fpga.nexys_video
 import chisel3._
 import chisel3.util.HasBlackBoxResource
 
-class BlackBoxInterpreter extends BlackBox with HasBlackBoxResource {
+class BlackBoxNPUCore extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val clock = Input(Bool())
     val reset = Input(Bool())
@@ -38,6 +38,6 @@ class BlackBoxInterpreter extends BlackBox with HasBlackBoxResource {
     val int32_ov = Input(Bool())
     val int32_ir = Input(Bool())
   })
-  addResource("nexysvideo/interpreter.v")
+  addResource("nexysvideo/npuCore.v")
 }
 

@@ -1,5 +1,5 @@
 
-module interpreter
+module npuCore
 (
     input clock,
     input reset,
