@@ -18,68 +18,68 @@ module tsn_dgcl(
 	input wire fpu_clk,
 	input wire reset,
 	
-	input wire [39:0] RCC_DRAM_ADDR,
-	input wire [15:0] RCC_DPRAM_ADDR,
-	input wire [15:0] RCC_LENGTH,
-	output wire RCC_READY,
-	input wire RCC_VALID,
+	input wire [39:0] rcc_dram_addr,
+	input wire [15:0] rcc_dpram_addr,
+	input wire [15:0] rcc_length,
+	output wire rcc_ready,
+	input wire rcc_valid,
 	
-	output wire [15:0] RCD_DPRAM_ADDR,
-	output wire [127:0] RCD_READ_DATA,
-	output wire [15:0] RCD_LENGTH,
-	input wire RCD_READY,
-	output wire RCD_VALID,
+	output wire [15:0] rcd_dpram_addr,
+	output wire [127:0] rcd_read_data,
+	output wire [15:0] rcd_length,
+	input wire rcd_ready,
+	output wire rcd_valid,
 	
-	input wire [39:0] WCC_DRAM_ADDR,
-	input wire [15:0] WCC_DPRAM_ADDR,
-	input wire [15:0] WCC_LENGTH,
-	input wire [127:0] WCC_WRITE_DATA,
-	output wire WCC_READY,
-	input wire WCC_VALID,
+	input wire [39:0] wcc_dram_addr,
+	input wire [15:0] wcc_dpram_addr,
+	input wire [15:0] wcc_length,
+	input wire [127:0] wcc_write_data,
+	output wire wcc_ready,
+	input wire wcc_valid,
 	
-	output wire DMA_REQ_A,
-	input wire DMA_RESP_A,
+	output wire dma_req_a,
+	input wire dma_resp_a,
 
-	output wire DMA_WRITE_VALID_A,
-	output wire [127:0] DMA_WRITE_DATA_A,
-	input wire DMA_WRITE_READY_A,
+	output wire dma_write_valid_a,
+	output wire [127:0] dma_write_data_a,
+	input wire dma_write_ready_a,
 	
-	input wire DMA_READ_VALID_A,
-	input wire [127:0] DMA_READ_DATA_A,
-	output wire DMA_READ_READY_A,
+	input wire dma_read_valid_a,
+	input wire [127:0] dma_read_data_a,
+	output wire dma_read_ready_a,
 	
-	output wire DMA_REQ_B,
-	input wire DMA_RESP_B,
+	output wire dma_req_b,
+	input wire dma_resp_b,
 
-	output wire DMA_WRITE_VALID_B,
-	output wire [127:0] DMA_WRITE_DATA_B,
-	input wire DMA_WRITE_READY_B,
+	output wire dma_write_valid_b,
+	output wire [127:0] dma_write_data_b,
+	input wire dma_write_ready_b,
 	
-	input wire DMA_READ_VALID_B,
-	input wire [127:0] DMA_READ_DATA_B,
-	output wire DMA_READ_READY_B,
+	input wire dma_read_valid_b,
+	input wire [127:0] dma_read_data_b,
+	output wire dma_read_ready_b,
 
-	output wire DMA_REQ_C,
-	input wire DMA_RESP_C,
+	output wire dma_req_c,
+	input wire dma_resp_c,
 
-	output wire DMA_WRITE_VALID_C,
-	output wire [127:0] DMA_WRITE_DATA_C,
-	input wire DMA_WRITE_READY_C,
+	output wire dma_write_valid_c,
+	output wire [127:0] dma_write_data_c,
+	input wire dma_write_ready_c,
 	
-	input wire DMA_READ_VALID_C,
-	input wire [127:0] DMA_READ_DATA_C,
-	output wire DMA_READ_READY_C,
+	input wire dma_read_valid_c,
+	input wire [127:0] dma_read_data_c,
+	output wire dma_read_ready_c,
 	
-	output wire DMA_REQ_D,
-	input wire DMA_RESP_D,
+	output wire dma_req_d,
+	input wire dma_resp_d,
 
-	output wire DMA_WRITE_VALID_D,
-	output wire [127:0] DMA_WRITE_DATA_D,
-	input wire DMA_WRITE_READY_D,
+	output wire dma_write_valid_d,
+	output wire [127:0] dma_write_data_d,
+	input wire dma_write_ready_d,
 	
-	input wire DMA_READ_VALID_D,
-	input wire [127:0] DMA_READ_DATA_D,
-	output wire DMA_READ_READY_D
+	input wire dma_read_valid_d,
+	input wire [127:0] dma_read_data_d,
+	output wire dma_read_ready_d
 );
 
 
@@ -96,11 +96,11 @@ always@(posedge gemmini_clk or posedge reset) begin
 		rcc_lengh_cnt <= 0;
 	end
 	else begin
-		if(RCC_VALID) begin
+		if(rcc_valid) begin
 			rcc_ready_r <= 1'b1;
-			rcc_dram_cnt <= rcc_dram_cnt + RCC_DRAM_ADDR;
-			rcc_dpram_cnt <= rcc_dpram_cnt + RCC_DPRAM_ADDR;
-			rcc_lengh_cnt <= rcc_lengh_cnt + RCC_LENGTH;
+			rcc_dram_cnt <= rcc_dram_cnt + rcc_dram_addr;
+			rcc_dpram_cnt <= rcc_dpram_cnt + rcc_dpram_addr;
+			rcc_lengh_cnt <= rcc_lengh_cnt + rcc_length;
 		end
 		else begin
 			rcc_ready_r <= 1'b0;
@@ -108,7 +108,7 @@ always@(posedge gemmini_clk or posedge reset) begin
 	end
 end
 	
-assign RCC_READY = rcc_ready_r;
+assign rcc_ready = rcc_ready_r;
 
 reg wcc_ready_r;
 reg [39:0] wcc_dram_cnt=0;
@@ -122,11 +122,11 @@ always@(posedge gemmini_clk or posedge reset) begin
 		wcc_lengh_cnt <= 0;
 	end
 	else begin
-		if(WCC_VALID) begin
+		if(wcc_valid) begin
 			wcc_ready_r <= 1'b1;
-			wcc_dram_cnt <= wcc_dram_cnt + WCC_DRAM_ADDR;
-			wcc_dpram_cnt <= wcc_dpram_cnt + WCC_DPRAM_ADDR;
-			wcc_lengh_cnt <= wcc_lengh_cnt + WCC_LENGTH;
+			wcc_dram_cnt <= wcc_dram_cnt + wcc_dram_addr;
+			wcc_dpram_cnt <= wcc_dpram_cnt + wcc_dpram_addr;
+			wcc_lengh_cnt <= wcc_lengh_cnt + wcc_length;
 		end
 		else begin
 			wcc_ready_r <= 1'b0;
@@ -134,7 +134,7 @@ always@(posedge gemmini_clk or posedge reset) begin
 	end
 end
 
-assign WCC_READY = wcc_ready_r;
+assign wcc_ready = wcc_ready_r;
 
 reg rcd_valid_r;
 reg [39:0] rcd_dpram_addr_r=0;
@@ -150,7 +150,7 @@ always@(posedge gemmini_clk or posedge reset) begin
 
 	end
 	else begin
-		if(RCD_READY) begin
+		if(rcd_ready) begin
 			rcd_dpram_addr_r <= rcd_dpram_addr_r + 1;
 			rcd_read_data_r <= rcd_read_data_r + 1;
 			rcd_length_r <= rcd_length_r + 1;
@@ -165,10 +165,10 @@ always@(posedge gemmini_clk or posedge reset) begin
 end
 
 
-assign RCD_DPRAM_ADDR = rcd_dpram_addr_r;
-assign RCD_READ_DATA = rcd_read_data_r;
-assign RCD_LENGTH = rcd_length_r;
-assign RCD_VALID = rcd_valid_r;
+assign rcd_dpram_addr = rcd_dpram_addr_r;
+assign rcd_read_data = rcd_read_data_r;
+assign rcd_length = rcd_length_r;
+assign rcd_valid = rcd_valid_r;
 
 reg[127:0] cnt;
 always@(posedge fpu_clk or posedge reset) begin
@@ -181,8 +181,8 @@ always@(posedge fpu_clk or posedge reset) begin
 end
 
 //*****************************************************
-assign DMA_WRITE_VALID_A = DMA_WRITE_READY_A ? 1'd1 : 1'd0;
-assign DMA_WRITE_DATA_A = DMA_WRITE_READY_A ? cnt : 128'd0;
+assign dma_write_valid_a = dma_write_ready_a ? 1'd1 : 1'd0;
+assign dma_write_data_a = dma_write_ready_a ? cnt : 128'd0;
 
 reg[127:0] rd_cnt_a=0;
 reg dma_read_ready_a_r = 0;
@@ -191,8 +191,8 @@ always@(posedge fpu_clk or posedge reset) begin
 		dma_read_ready_a_r <= 0;
 	end
 	else begin
-		if(DMA_READ_VALID_A) begin
-			rd_cnt_a <= rd_cnt_a + DMA_READ_DATA_A;
+		if(dma_read_valid_a) begin
+			rd_cnt_a <= rd_cnt_a + dma_read_data_a;
 			dma_read_ready_a_r <= 1;
 		end
 		else begin
@@ -202,14 +202,14 @@ always@(posedge fpu_clk or posedge reset) begin
 	end
 end
 
-assign DMA_READ_READY_A = dma_read_ready_a_r;
+assign dma_read_ready_a = dma_read_ready_a_r;
 
-assign DMA_REQ_A = DMA_RESP_A;
+assign dma_req_a = dma_resp_a;
 
 //*****************************************************
 
-assign DMA_WRITE_VALID_B = DMA_WRITE_READY_B ? 1'd1 : 1'd0;
-assign DMA_WRITE_DATA_B = DMA_WRITE_READY_B ? cnt : 128'd0;
+assign dma_write_valid_b = dma_write_ready_b ? 1'd1 : 1'd0;
+assign dma_write_data_b = dma_write_ready_b ? cnt : 128'd0;
 
 reg[127:0] rd_cnt_b=0;
 reg dma_read_ready_b_r = 0;
@@ -218,8 +218,8 @@ always@(posedge fpu_clk or posedge reset) begin
 		dma_read_ready_b_r <= 0;
 	end
 	else begin
-		if(DMA_READ_VALID_B) begin
-			rd_cnt_b <= rd_cnt_b + DMA_READ_DATA_B;
+		if(dma_read_valid_b) begin
+			rd_cnt_b <= rd_cnt_b + dma_read_data_b;
 			dma_read_ready_b_r <= 1;
 		end
 		else begin
@@ -229,14 +229,14 @@ always@(posedge fpu_clk or posedge reset) begin
 	end
 end
 
-assign DMA_READ_READY_B = dma_read_ready_b_r;
+assign dma_read_ready_b = dma_read_ready_b_r;
 
-assign DMA_REQ_B = DMA_RESP_B;
+assign dma_req_b = dma_resp_b;
 
 //*****************************************************
 
-assign DMA_WRITE_VALID_C = DMA_WRITE_READY_C ? 1'd1 : 1'd0;
-assign DMA_WRITE_DATA_C = DMA_WRITE_READY_C ? cnt : 128'd0;
+assign dma_write_valid_c = dma_write_ready_c ? 1'd1 : 1'd0;
+assign dma_write_data_c = dma_write_ready_c ? cnt : 128'd0;
 
 reg[127:0] rd_cnt_c=0;
 reg dma_read_ready_c_r = 0;
@@ -245,8 +245,8 @@ always@(posedge fpu_clk or posedge reset) begin
 		dma_read_ready_c_r <= 0;
 	end
 	else begin
-		if(DMA_READ_VALID_C) begin
-			rd_cnt_c <= rd_cnt_c + DMA_READ_DATA_C;
+		if(dma_read_valid_c) begin
+			rd_cnt_c <= rd_cnt_c + dma_read_data_c;
 			dma_read_ready_c_r <= 1;
 		end
 		else begin
@@ -256,14 +256,14 @@ always@(posedge fpu_clk or posedge reset) begin
 	end
 end
 
-assign DMA_READ_READY_C = dma_read_ready_c_r;
+assign dma_read_ready_c = dma_read_ready_c_r;
 
-assign DMA_REQ_C = DMA_RESP_C;
+assign dma_req_c = dma_resp_c;
 
 //*****************************************************
 
-assign DMA_WRITE_VALID_D = DMA_WRITE_READY_D ? 1'd1 : 1'd0;
-assign DMA_WRITE_DATA_D = DMA_WRITE_READY_D ? cnt : 128'd0;
+assign dma_write_valid_d = dma_write_ready_d ? 1'd1 : 1'd0;
+assign dma_write_data_d = dma_write_ready_d ? cnt : 128'd0;
 
 reg[127:0] rd_cnt_d=0;
 reg dma_read_ready_d_r = 0;
@@ -272,8 +272,8 @@ always@(posedge fpu_clk or posedge reset) begin
 		dma_read_ready_d_r <= 0;
 	end
 	else begin
-		if(DMA_READ_VALID_D) begin
-			rd_cnt_d <= rd_cnt_d + DMA_READ_DATA_D;
+		if(dma_read_valid_d) begin
+			rd_cnt_d <= rd_cnt_d + dma_read_data_d;
 			dma_read_ready_d_r <= 1;
 		end
 		else begin
@@ -283,9 +283,9 @@ always@(posedge fpu_clk or posedge reset) begin
 	end
 end
 
-assign DMA_READ_READY_D = dma_read_ready_d_r;
+assign dma_read_ready_d = dma_read_ready_d_r;
 
-assign DMA_REQ_D = DMA_RESP_D;
+assign dma_req_d = dma_resp_d;
 
 //*****************************************************
 
