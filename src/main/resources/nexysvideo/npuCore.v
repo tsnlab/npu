@@ -1,12 +1,13 @@
 
 module npuCore
 (
-    input clock,
-    input reset,
+    input clk,
+    input rst,
 
-    input rocc_if_dram_offset,
-    input rocc_if_size,
-    input rocc_if_funct,
+    input [39:0] rocc_if_host_mem_offset,
+    input [15:0] rocc_if_size,
+    input [15:0] rocc_if_local_mem_offset,
+    input [6:0] rocc_if_funct,
     input rocc_if_cmd_vld,
     output rocc_if_fin,
     output rocc_if_busy,
@@ -30,8 +31,8 @@ module npuCore
     input int32_ir
 
 )
-    always@(posedge clock or posedge reset) begin
-        if reset begin
+    always@(posedge clk or posedge rst) begin
+        if (rst) begin
             bf16_a <= 0;
             bf16_b <= 0;
             bf16_iv <= 0;
@@ -44,8 +45,8 @@ module npuCore
             int32_iv <= 0;
             int32_or <= 0;
         end else begin
-            bf16_a <= rocc_if_size;
-            bf16_b <= rocc_if_funct;
+            bf16_a <= rocc_if_size(0);
+            bf16_b <= rocc_if_funct(0);
             bf16_iv <= rocc_if_cmd_vld;
             rocc_if_fin <= bf16_y;
             rocc_if_busy <= bf16_ov;
