@@ -133,7 +133,16 @@ wire dma_read_ff_d_empty;
 wire [9:0] dma_read_ff_d_rd_cnt;
 
 
-localparam r
+localparam fwdc_st = 4'd0;
+localparam fwdc_p0 = 4'd1;
+localparam fwdc_p1 = 4'd2;
+localparam fwdc_p2 = 4'd3;
+localparam fwdc_p3 = 4'd4;
+localparam fwdc_s0 = 4'd5;
+localparam fwdc_s1 = 4'd6;
+localparam fwdc_s2 = 4'd7;
+
+reg[3:0] fwdcon = fwdc_st;
 
 as72x512_ft rcc_fifo (
 	.rst			(reset),           // input wire rst
@@ -291,7 +300,150 @@ end
 assign dma_read_valid_a = (dma_mux==2'b00)? dma_read_vld : 1'b0;
 assign dma_read_data_a = dma_read_data;
 assign dma_read_ready_mux = (dma_mux==2'b00)? dma_read_ready_a : (dma_mux==2'b01)? dma_read_ready_b : (dma_mux==2'b10)? dma_read_ready_c : (dma_mux==2'b11)? dma_read_ready_d : 1'b0; 
- 
+
+reg[1:0] fpu_sel =2'd0;
+reg fpu_resp;
+reg fpu_write_rdy;
+wire [127:0] fpu_write_data;
+wire fpu_write_vld;
+reg[15:0] fpu_write_length;
+reg[15:0] fpu_write_cnt;
+
+
+assign fpu_write_data = (fpu_sel == 2'd0)? dma_write_data_a : (fpu_sel == 2'd1)? dma_write_data_b : (fpu_sel == 2'd2)? dma_write_data_c : (fpu_sel == 2'd2)? dma_write_data_d : 128'd0;
+assign fpu_write_vld = (fpu_sel == 2'd0)? dma_write_valid_a : (fpu_sel == 2'd1)? dma_write_valid_b : (fpu_sel == 2'd2)? dma_write_valid_c : (fpu_sel == 2'd2)? dma_write_valid_d : 1'b0;
+
+always@(posedge fpu_clk or posedge reset) begin
+	if(reset) begin
+		
+	end
+	else begin
+		case(fwdcon) 
+			fwdc_st : begin
+				
+			end
+			fwdc_p0 : begin
+				if(dma_req_a) begin fpu_sel <= 2'd0; end
+				else if(dma_req_b) begin
+					fpu_sel <= 2'd1;
+				end
+				else if(dma_req_c) begin
+					fpu_sel <= 2'd2;
+				end
+				else if(dma_req_d) begin
+					fpu_sel <= 2'd3;
+				end
+			end
+			fwdc_p1 : begin
+				if(dma_req_b) begin
+					fpu_sel <= 2'd1;
+				end
+				else if(dma_req_c) begin
+					fpu_sel <= 2'd2;
+				end
+				else if(dma_req_d) begin
+					fpu_sel <= 2'd3;
+				end
+				else if(dma_req_a) begin
+					fpu_sel <= 2'd0;
+				end
+				
+			end
+			fwdc_p2 : begin
+				if(dma_req_c) begin
+					fpu_sel <= 2'd2;
+				end
+				else if(dma_req_d) begin
+					fpu_sel <= 2'd3;
+				end
+				else if(dma_req_a) begin
+					fpu_sel <= 2'd0;
+				end
+				else if(dma_req_b) begin
+					fpu_sel <= 2'd1;
+				end
+			end
+			fwdc_p3 : begin
+				if(dma_req_d) begin
+					fpu_sel <= 2'd3;
+				end
+				else if(dma_req_a) begin
+					fpu_sel <= 2'd0;
+				end
+				else if(dma_req_b) begin
+					fpu_sel <= 2'd1;
+				end
+				else if(dma_req_c) begin
+					fpu_sel <= 2'd2;
+				end
+				
+			end
+			fwdc_s0 : begin
+				fpu_resp <= 1'b1;
+				if(fpu_write_vld&&fpu_write_rdy)begin
+					fpu_write_length <= fpu_write_data[71:56];
+					fwdcon <= fwdc_s1;
+				end
+				
+			end
+			fwdc_s1 : begin
+				fpu_resp <= 1'b1;
+				if(fpu_write_vld&&fpu_write_rdy)begin
+					fpu_write_cnt <= fpu_write_cnt + 1;
+					fwdcon <= fwdc_s2;
+				end
+			end
+			fwdc_s2 : begin
+				
+			end
+			fwdc_s3 : begin
+				
+			end
+			default : begin
+				
+			end
+		endcase
+		
+	end
+end
+
+assign dma_resp_a = (fpu_sel == 2'd0)?  fpu_resp : 1'b0;
+assign dma_resp_b = (fpu_sel == 2'd1)?  fpu_resp : 1'b0;
+assign dma_resp_c = (fpu_sel == 2'd2)?  fpu_resp : 1'b0;
+assign dma_resp_d = (fpu_sel == 2'd3)?  fpu_resp : 1'b0;
+assign dma_write_ready_a = (fpu_sel == 2'd0)?  fpu_write_rdy : 1'b0;
+assign dma_write_ready_b = (fpu_sel == 2'd1)?  fpu_write_rdy : 1'b0;
+assign dma_write_ready_c = (fpu_sel == 2'd2)?  fpu_write_rdy : 1'b0;
+assign dma_write_ready_d = (fpu_sel == 2'd3)?  fpu_write_rdy : 1'b0;
+
+wire fpu_ff_wr_en;
+wire [127:0] fpu_ff_wr_data;
+wire fpu_ff_full;
+wire [9:0] fpu_ff_wr_cnt;
+wire fpu_ff_rd_en;
+wire [127:0] fpu_ff_rd_data;
+wire fpu_ff_empty;
+wire [9:0] fpu_ff_rd_cnt;
+
+assign fpu_ff_wr_en = fpu_write_vld &&(~fpu_ff_full)&&(fpu_resp);
+assign fpu_ff_wr_data = fpu_write_data;
+assign fpu_write_rdy = (~fpu_ff_full)&&(fpu_resp);
+
+as128x1024 fpu_write_fifo (
+	.rst			(rsresett),           // input wire rst
+	
+	.wr_clk			(fpu_clk),        // input wire wr_clk
+	.wr_en			(fpu_ff_wr_en),         // input wire wr_en
+	.din			(fpu_ff_wr_data),           // input wire [127 : 0] din
+	.full			(fpu_ff_full),          // output wire full
+	.wr_data_count	(fpu_ff_wr_cnt), // output wire [9 : 0] wr_data_count
+  
+	.rd_clk			(fpu_clk),        // input wire rd_clk
+	.rd_en			(fpu_ff_rd_en),         // input wire rd_en
+	.dout			(fpu_ff_rd_data),          // output wire [127 : 0] dout
+	.empty			(fpu_ff_empty),         // output wire empty
+	.rd_data_count	(fpu_ff_rd_cnt)  // output wire [9 : 0] rd_data_count
+);
 
 
 as32x512_ft as32x512_ft (
