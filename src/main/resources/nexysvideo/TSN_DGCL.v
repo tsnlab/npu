@@ -116,9 +116,9 @@ wire [127:0] rcd_ff_d_rd_data;
 wire rcd_ff_d_empty;
 wire [9:0] rcd_ff_d_rd_cnt;
 
-localparam rcd_st = 2'd0;
-localparam rcd_s0 = 2'd1;
-localparam rcd_end = 2'd2;
+localparam rcd_st = 2'd0,
+			rcd_s0 = 2'd1,
+			rcd_end = 2'd2;
 reg [1:0] rcdcon = rcd_st;
 
 reg rcd_cmd_valid_d ;
@@ -132,17 +132,82 @@ wire [127:0] dma_read_ff_d_rd_data;
 wire dma_read_ff_d_empty;
 wire [9:0] dma_read_ff_d_rd_cnt;
 
-
-localparam fwdc_st = 4'd0;
-localparam fwdc_p0 = 4'd1;
-localparam fwdc_p1 = 4'd2;
-localparam fwdc_p2 = 4'd3;
-localparam fwdc_p3 = 4'd4;
-localparam fwdc_s0 = 4'd5;
-localparam fwdc_s1 = 4'd6;
-localparam fwdc_s2 = 4'd7;
+localparam fwdc_st = 4'd0,
+			fwdc_p0 = 4'd1,
+			fwdc_p1 = 4'd2,
+			fwdc_p2 = 4'd3,
+			fwdc_p3 = 4'd4,
+			fwdc_s0 = 4'd5,
+			fwdc_s1 = 4'd6,
+			fwdc_end = 4'd7;
 
 reg[3:0] fwdcon = fwdc_st;
+
+reg[15:0] rcdcon_count;
+reg[15:0] rcdcon_length;
+reg dma_read_vld;
+reg[127:0] dma_read_data;
+reg[1:0] dma_mux;
+wire dma_read_ready_mux;
+
+reg[1:0] fpu_sel =2'd0;
+reg fpu_resp;
+reg fpu_write_rdy;
+wire [127:0] fpu_write_data;
+wire fpu_write_vld;
+reg[15:0] fpu_write_length;
+reg[15:0] fpu_write_cnt;
+wire [3:0] dma_req;
+
+wire fpu_ff_wr_en;
+wire [127:0] fpu_ff_wr_data;
+wire fpu_ff_full;
+wire [9:0] fpu_ff_wr_cnt;
+wire fpu_ff_rd_en;
+wire [127:0] fpu_ff_rd_data;
+wire fpu_ff_empty;
+wire [9:0] fpu_ff_rd_cnt;
+
+localparam dcc_st := 4'd0,
+			dcc_s0 := 4'd1,
+			dcc_s1 := 4'd2,
+			dcc_s2 := 4'd3,
+			dcc_s3 := 4'd4,
+			dcc_s4 := 4'd5;
+
+reg[3:0] dcccon = dcc_st;
+
+reg[15:0]dcc_length =0;
+reg[15:0]dcc_count=0;
+reg[127:0] dcc_header_r;
+reg[7:0] mess_type;
+reg wcd_read_en;
+
+wire wcc_ff_wr_en;
+wire [71:0] wcc_ff_wr_data;
+wire wcc_ff_full;
+wire [7:0] wcc_ff_wr_cnt;
+wire wcc_ff_rd_en;
+wire [71:0] wcc_ff_rd_data;
+wire wcc_ff_empty;
+wire [7:0] wcc_ff_rd_cnt;
+
+wire wcd_ff_wr_en;
+wire [127:0] wcd_ff_wr_data;
+wire wcd_ff_full;
+wire [9:0] wcd_ff_wr_cnt;
+wire wcd_ff_rd_en;
+wire [127:0] wcd_ff_rd_data;
+wire wcd_ff_empty;
+wire [9:0] wcd_ff_rd_cnt;
+
+localparam gwcd_st = 4'd0,
+			gwcd_s0 = 4'd1,
+			gwcd_end = 4'd2;
+reg[3:0] gwcdcon;
+reg[15:0] gwcd_length;
+reg[15:0] gwcd_count;
+reg gwcd_en;
 
 as72x512_ft rcc_fifo (
 	.rst			(reset),           // input wire rst
@@ -213,14 +278,6 @@ as128x1024 rcd_data_fifo (
 	.empty			(rcd_ff_d_empty),         // output wire empty
 	.rd_data_count	(rcd_ff_d_rd_cnt)  // output wire [9 : 0] rd_data_count
 );
-
-reg[15:0] rcdcon_count;
-reg[15:0] rcdcon_length;
-reg dma_read_vld;
-reg[127:0] dma_read_data;
-reg[1:0] dma_mux;
-wire dma_read_ready_mux;
-
 
 always@(posedge fpu_clk or posedge reset) begin
 	if(reset) begin
@@ -301,29 +358,29 @@ assign dma_read_valid_a = (dma_mux==2'b00)? dma_read_vld : 1'b0;
 assign dma_read_data_a = dma_read_data;
 assign dma_read_ready_mux = (dma_mux==2'b00)? dma_read_ready_a : (dma_mux==2'b01)? dma_read_ready_b : (dma_mux==2'b10)? dma_read_ready_c : (dma_mux==2'b11)? dma_read_ready_d : 1'b0; 
 
-reg[1:0] fpu_sel =2'd0;
-reg fpu_resp;
-reg fpu_write_rdy;
-wire [127:0] fpu_write_data;
-wire fpu_write_vld;
-reg[15:0] fpu_write_length;
-reg[15:0] fpu_write_cnt;
-
-
 assign fpu_write_data = (fpu_sel == 2'd0)? dma_write_data_a : (fpu_sel == 2'd1)? dma_write_data_b : (fpu_sel == 2'd2)? dma_write_data_c : (fpu_sel == 2'd2)? dma_write_data_d : 128'd0;
 assign fpu_write_vld = (fpu_sel == 2'd0)? dma_write_valid_a : (fpu_sel == 2'd1)? dma_write_valid_b : (fpu_sel == 2'd2)? dma_write_valid_c : (fpu_sel == 2'd2)? dma_write_valid_d : 1'b0;
+assign dma_req = {dma_req_c,dma_req_d,dma_req_b,dma_req_a};
 
 always@(posedge fpu_clk or posedge reset) begin
 	if(reset) begin
-		
+		fwdcon <= fwdc_st;
+		fpu_sel <= 2'd0; 
+		fpu_resp <= 1'b0;
+		fpu_write_cnt <= 16'd0;
+		fpu_write_length <= 16'd0;
+
 	end
 	else begin
 		case(fwdcon) 
 			fwdc_st : begin
-				
+				fwdcon <= fwdc_p0;
+				fpu_resp <= 1'b0;
 			end
 			fwdc_p0 : begin
-				if(dma_req_a) begin fpu_sel <= 2'd0; end
+				if(dma_req_a) begin 
+					fpu_sel <= 2'd0; 
+				end
 				else if(dma_req_b) begin
 					fpu_sel <= 2'd1;
 				end
@@ -387,17 +444,36 @@ always@(posedge fpu_clk or posedge reset) begin
 				
 			end
 			fwdc_s1 : begin
-				fpu_resp <= 1'b1;
-				if(fpu_write_vld&&fpu_write_rdy)begin
-					fpu_write_cnt <= fpu_write_cnt + 1;
+				if(fpu_write_cnt == fpu_write_length) begin
 					fwdcon <= fwdc_s2;
+					fpu_resp <= 1'b0;
+				end
+				else if(fpu_write_vld&&fpu_write_rdy)begin
+					fpu_write_cnt <= fpu_write_cnt + 1;
+					fwdcon <= fwdc_s1;
+					fpu_resp <= 1'b0;
 				end
 			end
-			fwdc_s2 : begin
-				
-			end
-			fwdc_s3 : begin
-				
+			fwdc_end : begin
+				fpu_write_cnt <= 16'd0;
+				fpu_write_length <= 16'd0;
+				fpu_resp <= 1'b0;
+				case (fpu_sel)
+					2'd0 : begin
+						fwdcon <= fwdc_p1
+					end
+					2'd1 : begin
+						fwdcon <= fwdc_p2
+					end
+					2'd2 : begin
+						fwdcon <= fwdc_p3
+					end
+					2'd3 : begin
+						fwdcon <= fwdc_p0
+					end
+					default : begin
+					end
+				endcase
 			end
 			default : begin
 				
@@ -416,21 +492,12 @@ assign dma_write_ready_b = (fpu_sel == 2'd1)?  fpu_write_rdy : 1'b0;
 assign dma_write_ready_c = (fpu_sel == 2'd2)?  fpu_write_rdy : 1'b0;
 assign dma_write_ready_d = (fpu_sel == 2'd3)?  fpu_write_rdy : 1'b0;
 
-wire fpu_ff_wr_en;
-wire [127:0] fpu_ff_wr_data;
-wire fpu_ff_full;
-wire [9:0] fpu_ff_wr_cnt;
-wire fpu_ff_rd_en;
-wire [127:0] fpu_ff_rd_data;
-wire fpu_ff_empty;
-wire [9:0] fpu_ff_rd_cnt;
-
 assign fpu_ff_wr_en = fpu_write_vld &&(~fpu_ff_full)&&(fpu_resp);
 assign fpu_ff_wr_data = fpu_write_data;
 assign fpu_write_rdy = (~fpu_ff_full)&&(fpu_resp);
 
 as128x1024 fpu_write_fifo (
-	.rst			(rsresett),           // input wire rst
+	.rst			(reset),           // input wire rst
 	
 	.wr_clk			(fpu_clk),        // input wire wr_clk
 	.wr_en			(fpu_ff_wr_en),         // input wire wr_en
@@ -445,54 +512,183 @@ as128x1024 fpu_write_fifo (
 	.rd_data_count	(fpu_ff_rd_cnt)  // output wire [9 : 0] rd_data_count
 );
 
+always@(posedge fpu_clk or posedge reset) begin
+	if(reset) begin
+		fpu_ff_rd_en <= 1'b0;
+		dcc_length <= 0;
+		mess_form <= 0;
+		dcc_header_r <= 0;
+		rcc_ff_wr_data <= 0;
+		wcd_read_en <= 1'b0;
+		dcc_count <= 16'd0;
+		dcccon <= dcc_st;
+	end
+	else begin
+		case(dcccon)
+			dcc_st : begin
+				if(~fpu_ff_empty) begin
+					fpu_ff_rd_en <= 1'b1;
+					dcc_length <= fpu_ff_rd_data[71:56];
+					mess_form <= fpu_ff_rd_data[79:71];
+					dcc_header_r <= fpu_ff_rd_data;
+					dcccon <= dcc_s0;
+				end
+				else begin
+					dcccon <= dcc_st;
+				end 
+			end
+			dcc_s0 : begin
+				fpu_ff_rd_en <= 1'b0;
+				if(mess_form == 8'h01) begin
+					dcccon <= dcc_rc0;
+				end
+				else if(mess_form == 8'h03) begin
+					dcccon <= dcc_wc0;
+				end
+			end
+			dcc_rc0 : begin
+				rcc_ff_wr_en <= 1'b1;
+				rcc_ff_wr_data <= dcc_header_r[71:0];
+				dcccon <= dcc_rc1;
+			end
+			dcc_rc1 : begin
+				rcc_ff_wr_en <= 1'b0;
+				dcc_header_r <= 128'd0;
+				dcccon <= dcc_st;
+			end
+			dcc_wc0 : begin
+				wcc_ff_wr_en <= 1'b1;
+				wcc_ff_wr_data <= dcc_header_r[71:0];
+				dcccon <= dcc_wc1;
+			end
+			dcc_wc1 : begin
+				if(~wcd_ff_full&&wcd_ff_wr_en) begin
+					if(dcc_length == dcc_count) begin
+						wcd_read_en <= 1'b0;
+						dcc_count <= 16'd0;
+						dcccon <= dcc_wc2;
 
-as32x512_ft as32x512_ft (
-	.rst			(rst),           // input wire rst
+					end
+					else begin
+						wcd_read_en <= 1'b1;
+						dcc_count <= dcc_count + 1;
+						dcccon <= dcc_wc1;
 
-	.wr_clk			(wr_clk),        // input wire wr_clk
-	.wr_en			(wr_en),         // input wire wr_en
-	.din			(din),           // input wire [31 : 0] din
-	.full			(full),          // output wire full
-	.wr_data_count	(wr_data_count), // output wire [8 : 0] wr_data_count
+					end
+				end
+				else begin
+					wcd_read_en <= 1'b1;
+					dcc_count <= dcc_count;
+					dcccon <= dcc_wc1;
+				end
 
-	.rd_clk			(rd_clk),        // input wire rd_clk
-	.rd_en			(rd_en),         // input wire rd_en
-	.dout			(dout),          // output wire [31 : 0] dout
-	.empty			(empty),         // output wire empty
-	.rd_data_count	(rd_data_count)  // output wire [8 : 0] rd_data_count
+			end
+			dcc_wc1 : begin
+				wcd_read_en <= 1'b0;
+				dcc_count <= 16'd0;
+				dcccon <= dcc_st;
+			end
+			default : begin
+			end
+		endcase
+	end
+end
+
+assign wcd_ff_wr_en = (wcd_read_en && (~wcd_ff_full) &&(~fpu_ff_empty));
+assign fpu_ff_rd_en = (wcd_read_en && (~wcd_ff_full) &&(~fpu_ff_empty));
+
+as72x512_ft wcc_ff (
+	.rst			(reset),           // input wire rst
+	
+	.wr_clk			(fpu_clk),        // input wire wr_clk
+	.wr_en			(wcc_ff_wr_en),         // input wire wr_en
+	.din			(wcc_ff_wr_data),           // input wire [71 : 0] din
+	.full			(wcc_ff_full),          // output wire full
+	.wr_data_count	(wcc_ff_wr_cnt), // output wire [8 : 0] wr_data_count
+
+	.rd_clk			(gemmini_clk),        // input wire rd_clk
+	.rd_en			(wcc_ff_rd_en),         // input wire rd_en
+	.dout			(wcc_ff_rd_data),          // output wire [71 : 0] dout
+	.empty			(wcc_ff_empty),         // output wire empty
+	.rd_data_count	(wcc_ff_rd_cnt)  // output wire [8 : 0] rd_data_count
 );
 
-as72x512_ft as72x512_ft (
-	.rst			(rst),           // input wire rst
+as128x1024 wcd_ff (
+	.rst			(reset),           // input wire rst
 	
-	.wr_clk			(wr_clk),        // input wire wr_clk
-	.wr_en			(wr_en),         // input wire wr_en
-	.din			(din),           // input wire [71 : 0] din
-	.full			(full),          // output wire full
-	.wr_data_count	(wr_data_count), // output wire [8 : 0] wr_data_count
-
-	.rd_clk			(rd_clk),        // input wire rd_clk
-	.rd_en			(rd_en),         // input wire rd_en
-	.dout			(dout),          // output wire [71 : 0] dout
-	.empty			(empty),         // output wire empty
-	.rd_data_count	(rd_data_count)  // output wire [8 : 0] rd_data_count
-);
-
-as128x1024 as128x1024 (
-	.rst			(rst),           // input wire rst
-	
-	.wr_clk			(wr_clk),        // input wire wr_clk
-	.wr_en			(wr_en),         // input wire wr_en
-	.din			(din),           // input wire [127 : 0] din
-	.full			(full),          // output wire full
-	.wr_data_count	(wr_data_count), // output wire [9 : 0] wr_data_count
+	.wr_clk			(fpu_clk),        // input wire wr_clk
+	.wr_en			(wcd_ff_wr_en),         // input wire wr_en
+	.din			(wcd_ff_wr_data),           // input wire [127 : 0] din
+	.full			(wcd_ff_full),          // output wire full
+	.wr_data_count	(wcd_ff_wr_cnt), // output wire [9 : 0] wr_data_count
   
-	.rd_clk			(rd_clk),        // input wire rd_clk
-	.rd_en			(rd_en),         // input wire rd_en
-	.dout			(dout),          // output wire [127 : 0] dout
-	.empty			(empty),         // output wire empty
-	.rd_data_count	(rd_data_count)  // output wire [9 : 0] rd_data_count
+	.rd_clk			(gemmini_clk),        // input wire rd_clk
+	.rd_en			(wcd_ff_rd_en),         // input wire rd_en
+	.dout			(wcd_ff_rd_data),          // output wire [127 : 0] dout
+	.empty			(wcd_ff_empty),         // output wire empty
+	.rd_data_count	(wcd_ff_rd_cnt)  // output wire [9 : 0] rd_data_count
 );
+
+
+always@(posedge gemmini_clk or posedge reset)begin
+	if(reset)begin
+		gwcdcon <= gwcd_st;
+		gwcd_length <= 0;
+		wcc_ff_rd_en <= 1'b0;
+		gwcd_length <= 0;
+		gwcd_count <= 0;
+		gwcd_en <= 1'b0; 
+	end
+	else begin
+		case(gwcdcon)
+			gwcd_st : begin
+				if((~wcc_ff_empty)&&(~wcd_ff_empty)) begin
+					if(wcc_ready) begin
+						gwcdcon <= gwcd_s0;
+						gwcd_length <= wcc_ff_rd_data[71:56];
+					end
+					else begin
+						gwcdcon <= gwcd_st;
+					end
+				end
+				else begin
+					gwcdcon <= gwcd_st;
+					gwcd_length <= wcc_ff_rd_data[71:56];
+				end
+			end
+			gwcd_s0 : begin
+				if(gwcd_count==gwcd_length) begin
+					gwcd_en <= 1'b0; 
+					gwcd_count <= 0;
+					wcc_ff_rd_en <= 1'b1;
+					gwcdcon <= gwcd_end;
+				end
+				else begin
+					gwcd_en <= 1'b1; 
+					gwcdcon <= gwcd_s0;
+					if(wcd_ff_rd_en)begin
+						gwcd_count <= gwcd_count + 1;
+					end
+				end
+			end
+			gwcd_end: begin
+				wcc_ff_rd_en <= 1'b0;
+				gwcd_length <= 0;
+				gwcd_count <= 0;
+				gwcdcon <= gwcd_st;
+			end
+			default : begin
+			end
+		endcase
+	end
+end
+
+assign wcd_ff_rd_en = (gwcd_en &&wcc_ready);
+assign wcc_dram_addr = wcc_ff_rd_data[39:0];
+assign wcc_dpram_addr = wcc_ff_rd_data[55:40];
+assign wcc_length = wcc_ff_rd_data[71:56];
+assign wcc_write_data = wcd_ff_rd_data;
+assign wcc_valid = gwcd_en;
 
 
 endmodule
