@@ -8,4 +8,4 @@
 1. cd chipyard/
 2. source env.sh/
 3. cd fpga
-4. make SUB_PROJECT=connx_npu bitstream
+4. make SUB_PROJECT=nexysvideo bitstream
