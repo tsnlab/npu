@@ -3,10 +3,11 @@ package connx_npu
 import chisel3._
 import chisel3.util._
 import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.util.DontTouch
 import chisel3.experimental.hierarchy.{Definition, Instance, instantiable, public}
 import connx_npu.fudian._
 
-class BF16Unit extends Module {
+class BF16Unit extends Module with DontTouch{
     val exp = 8
     val sig = 8
     // lazy val module = new Impl
@@ -28,19 +29,19 @@ class BF16Unit extends Module {
     val y_add = bfAdd.io.result
     bfAdd.io.a := io.a
     bfAdd.io.b := b_b
-    bfAdd.io.rm := 0.U
+    bfAdd.io.rm := 1.U
 
     val bfMul = Module(new FMUL(exp, sig))
     val y_mul = bfMul.io.result
     bfMul.io.a := io.a
     bfMul.io.b := b_b
-    bfMul.io.rm := 0.U
+    bfMul.io.rm := 1.U
 
     // val bfDiv = Module(new FDIV(exp, sig))
     // val y_div = bfDiv.io.result
     // bfDiv.io.a := io.a
     // bfDiv.io.b := b_b
-    // bfDiv.io.rm := 0.U
+    // bfDiv.io.rm := 1.U
     // bfDiv.io.specialIO.isSqrt := 0.U
     // bfDiv.io.specialIO.kill := 1.U
     // bfDiv.io.specialIO.in_valid := io.in_valid
@@ -60,4 +61,5 @@ class BF16Unit extends Module {
         io.y := 0.U
     }
     // }
+
 }

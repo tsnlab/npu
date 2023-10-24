@@ -30,11 +30,11 @@ class WithNexysVideoTweaks extends Config(
   new WithNoDesignKey ++
   new testchipip.WithUARTTSIClient ++
   new chipyard.harness.WithSerialTLTiedOff ++
-  new chipyard.harness.WithHarnessBinderClockFreqMHz(40) ++
-  new chipyard.config.WithMemoryBusFrequency(40.0) ++
-  new chipyard.config.WithFrontBusFrequency(40.0) ++
-  new chipyard.config.WithSystemBusFrequency(40.0) ++
-  new chipyard.config.WithPeripheryBusFrequency(40.0) ++
+  new chipyard.harness.WithHarnessBinderClockFreqMHz(30) ++
+  new chipyard.config.WithMemoryBusFrequency(30.0) ++
+  new chipyard.config.WithFrontBusFrequency(30.0) ++
+  new chipyard.config.WithSystemBusFrequency(30.0) ++
+  new chipyard.config.WithPeripheryBusFrequency(30.0) ++
   new chipyard.harness.WithAllClocksFromHarnessClockInstantiator ++
   new chipyard.clocking.WithPassthroughClockGenerator ++
   new chipyard.config.WithNoDebug ++ // no jtag

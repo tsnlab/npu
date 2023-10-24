@@ -10,6 +10,16 @@ class dmaController (implicit p: Parameters) extends BlackBox with HasBlackBoxRe
   val io = IO(new Bundle {
     val clk = Input(Clock())
     val rst = Input(Bool())
+    
+    val core_req = Input(Bool())
+    val core_ready = Output(Bool())
+    val core_rwn = Input(Bool())
+    val core_hostAddr = Input(Bits(40.W))
+    val core_localAddr = Input(Bits(14.W))
+    val core_tansferLength = Input(Bits(16.W))
+    val core_writeData = Input(Bits(128.W))
+    val core_readData = Output(Bits(128.W))
+    val core_ack = Output(Bool())
 
     val dma_req = Output(Bool())
     val dma_resp = Input(Bool())

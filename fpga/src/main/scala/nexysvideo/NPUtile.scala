@@ -36,41 +36,64 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
         })
 
 
-        // val NPUCoreDef = Module(new BlackBoxNPUCore)
+        val NPUCoreDef = Module(new NPUCore)
 
-        // NPUCoreDef.io.clock := io.clk
-        // NPUCoreDef.io.reset := io.rst
-        // NPUCoreDef.io.rocc_if_host_mem_offset := io.rocc_if_host_mem_offset
-        // NPUCoreDef.io.rocc_if_size := io.rocc_if_size
-        // NPUCoreDef.io.rocc_if_local_mem_offset := io.rocc_if_local_mem_offset
-        // NPUCoreDef.io.rocc_if_funct := io.rocc_if_funct
-        // NPUCoreDef.io.rocc_if_cmd_vld := io.rocc_if_cmd_vld
-        // io.rocc_if_fin := NPUCoreDef.io.rocc_if_fin
-        // io.rocc_if_busy := NPUCoreDef.io.rocc_if_busy
+        NPUCoreDef.io.clk := clock
+        NPUCoreDef.io.rstn := ~reset.asBool
+        NPUCoreDef.io.rocc_if_host_mem_offset := io.rocc_if_host_mem_offset
+        NPUCoreDef.io.rocc_if_size := io.rocc_if_size
+        NPUCoreDef.io.rocc_if_local_mem_offset := io.rocc_if_local_mem_offset
+        NPUCoreDef.io.rocc_if_funct := io.rocc_if_funct
+        NPUCoreDef.io.rocc_if_cmd_vld := io.rocc_if_cmd_vld
+        io.rocc_if_fin := NPUCoreDef.io.rocc_if_fin
+        io.rocc_if_busy := NPUCoreDef.io.rocc_if_busy
 
-        io.rocc_if_fin := true.B
-        io.rocc_if_busy := false.B
+        // io.rocc_if_fin := true.B
+        // io.rocc_if_busy := false.B
 
         val BF16UnitDef = Module(new BF16Unit)
-        BF16UnitDef.io.opc := 0.U
-        BF16UnitDef.io.a := 0.U
-        BF16UnitDef.io.b := 0.U
-        BF16UnitDef.io.in_valid := 0.U
-        BF16UnitDef.io.out_ready := 0.U
+        
+        BF16UnitDef.io.opc := NPUCoreDef.io.bf16_opc
+        BF16UnitDef.io.a := NPUCoreDef.io.bf16_a
+        BF16UnitDef.io.b := NPUCoreDef.io.bf16_b
+        NPUCoreDef.io.bf16_y := BF16UnitDef.io.y
+        BF16UnitDef.io.in_valid := NPUCoreDef.io.bf16_iv
+        BF16UnitDef.io.out_ready := NPUCoreDef.io.bf16_or
+        NPUCoreDef.io.bf16_ov := BF16UnitDef.io.out_valid
+        NPUCoreDef.io.bf16_ir := BF16UnitDef.io.in_ready
 
 
-
-        // import outer.DMAControllerDef
-        //요기서부터 마저 해야함.
 
         // val Uint32UnitDef = Definition(new BlackBoxInt32u)
-        // val DPRAMDef = Definition(new BlackBoxDpram)
+        val SRAMDef = Module(new SRAM)
+
+        SRAMDef.io.clka := clock
+        SRAMDef.io.ena := NPUCoreDef.io.sram_ena
+        SRAMDef.io.wea := NPUCoreDef.io.sram_wea
+        SRAMDef.io.addra := NPUCoreDef.io.sram_addra
+        SRAMDef.io.dina := NPUCoreDef.io.sram_dina
+        SRAMDef.io.clkb := clock
+        SRAMDef.io.enb := NPUCoreDef.io.sram_enb
+        SRAMDef.io.addrb := NPUCoreDef.io.sram_addrb
+        NPUCoreDef.io.sram_doutb := SRAMDef.io.doutb
+
 
         val DMAControllerDef = Module(new dmaController)
 
 
         DMAControllerDef.io.clk := clock
         DMAControllerDef.io.rst := reset
+
+        DMAControllerDef.io.core_req := NPUCoreDef.io.dma_req
+        NPUCoreDef.io.dma_ready := DMAControllerDef.io.core_ready
+        DMAControllerDef.io.core_rwn := NPUCoreDef.io.dma_rwn
+        DMAControllerDef.io.core_hostAddr := NPUCoreDef.io.dma_hostAddr
+        DMAControllerDef.io.core_localAddr := NPUCoreDef.io.dma_localAddr
+        DMAControllerDef.io.core_tansferLength := NPUCoreDef.io.dma_tansferLength
+        DMAControllerDef.io.core_writeData := NPUCoreDef.io.dma_writeData
+        NPUCoreDef.io.dma_readData := DMAControllerDef.io.core_readData
+        NPUCoreDef.io.dma_ack := DMAControllerDef.io.core_ack
+
         io.dma_req := DMAControllerDef.io.dma_req
         DMAControllerDef.io.dma_resp := io.dma_resp
         io.dma_write_valid := DMAControllerDef.io.dma_write_valid

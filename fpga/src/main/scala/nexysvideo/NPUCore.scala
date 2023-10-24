@@ -3,10 +3,10 @@ package connx_npu
 import chisel3._
 import chisel3.util.HasBlackBoxResource
 
-class BlackBoxNPUCore extends BlackBox with HasBlackBoxResource {
+class NPUCore extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
-    val clock = Input(Clock())
-    val reset = Input(Bool())
+    val clk = Input(Clock())
+    val rstn = Input(Bool())
     // val rocc_if_dram_offset = Input(UInt(40.W))
     // val rocc_if_size = Input(UInt(16.W))
     // val rocc_if_funct = Input(UInt(7.W))
@@ -30,15 +30,28 @@ class BlackBoxNPUCore extends BlackBox with HasBlackBoxResource {
     val bf16_ov = Input(Bool())
     val bf16_ir = Input(Bool())
 
-    val uint32_opc = Output(Bool())
-    val uint32_a = Output(Bool())
-    val uint32_b = Output(Bool())
-    val uint32_y = Input(Bool())
-    val uint32_iv = Output(Bool())
-    val uint32_or = Output(Bool())
-    val uint32_ov = Input(Bool())
-    val uint32_ir = Input(Bool())
+    // val int32_opc = Output(Bool())
+    // val int32_a = Output(Bool())
+    // val int32_b = Output(Bool())
+    // val int32_y = Input(Bool())
+    val dma_req = Output(Bool())
+    val dma_ready = Input(Bool())
+    val dma_rwn = Output(Bool())
+    val dma_hostAddr = Output(Bits(40.W))
+    val dma_localAddr = Output(Bits(14.W))
+    val dma_tansferLength = Output(Bits(16.W))
+    val dma_writeData = Output(Bits(128.W))
+    val dma_readData = Input(Bits(128.W))
+    val dma_ack = Input(Bool())
+    
+    val sram_ena = Output(Bool())
+    val sram_wea = Output(Bool())
+    val sram_addra = Output(UInt(14.W))
+    val sram_dina = Output(UInt(128.W))
+    val sram_enb = Output(Bool())
+    val sram_addrb = Output(UInt(14.W))
+    val sram_doutb = Input(UInt(128.W))
   })
-  addResource("nexysvideo/npuCore.v")
+  addResource("vsrc/NPUCore.v")
 }
 
