@@ -5,7 +5,7 @@ import chisel3.util.HasBlackBoxResource
 
 class BlackBoxDGCL extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
-    val gemmini_clk = Input(Bool())
+    val risc_clk = Input(Bool())
 	val fpu_clk = Input(Bool())
 	val reset = Input(Bool())
 	val rcc_dram_addr = Output(UInt(40,W))
