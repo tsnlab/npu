@@ -4,6 +4,9 @@
  - poetry 1.6 is required
 
 ```bash
+asm$ curl -sSL https://install.python-poetry.org | python3 -
+asm$ pip install jax
+asm$ poetry add jax
 asm$ poetry install
 ```
 
