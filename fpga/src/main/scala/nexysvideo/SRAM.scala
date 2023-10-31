@@ -8,12 +8,12 @@ class SRAM extends BlackBox with HasBlackBoxResource {
         val clka = Input(Clock())
         val ena = Input(Bool())
         val wea = Input(Bool())
-        val addra = Input(UInt(14.W))
+        val addra = Input(UInt(12.W))
         val dina = Input(UInt(128.W))
 
         val clkb = Input(Clock())
         val enb = Input(Bool())
-        val addrb = Input(UInt(14.W))
+        val addrb = Input(UInt(12.W))
         val doutb = Output(UInt(128.W))
 
     })

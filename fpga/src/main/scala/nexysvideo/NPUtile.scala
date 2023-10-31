@@ -61,21 +61,34 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
         BF16UnitDef.io.out_ready := NPUCoreDef.io.bf16_or
         NPUCoreDef.io.bf16_ov := BF16UnitDef.io.out_valid
         NPUCoreDef.io.bf16_ir := BF16UnitDef.io.in_ready
+        BF16UnitDef.io.isSqrt := NPUCoreDef.io.bf16_isSqrt
+        BF16UnitDef.io.kill := NPUCoreDef.io.bf16_kill
 
 
 
         // val Uint32UnitDef = Definition(new BlackBoxInt32u)
-        val SRAMDef = Module(new SRAM)
+        val SRAMADef = Module(new SRAM)
+        val SRAMBDef = Module(new SRAM)
 
-        SRAMDef.io.clka := clock
-        SRAMDef.io.ena := NPUCoreDef.io.sram_ena
-        SRAMDef.io.wea := NPUCoreDef.io.sram_wea
-        SRAMDef.io.addra := NPUCoreDef.io.sram_addra
-        SRAMDef.io.dina := NPUCoreDef.io.sram_dina
-        SRAMDef.io.clkb := clock
-        SRAMDef.io.enb := NPUCoreDef.io.sram_enb
-        SRAMDef.io.addrb := NPUCoreDef.io.sram_addrb
-        NPUCoreDef.io.sram_doutb := SRAMDef.io.doutb
+        SRAMADef.io.clka := clock
+        SRAMADef.io.ena := NPUCoreDef.io.sram_a_ena
+        SRAMADef.io.wea := NPUCoreDef.io.sram_a_wea
+        SRAMADef.io.addra := NPUCoreDef.io.sram_a_addra
+        SRAMADef.io.dina := NPUCoreDef.io.sram_a_dina
+        SRAMADef.io.clkb := clock
+        SRAMADef.io.enb := NPUCoreDef.io.sram_a_enb
+        SRAMADef.io.addrb := NPUCoreDef.io.sram_a_addrb
+        NPUCoreDef.io.sram_a_doutb := SRAMADef.io.doutb
+
+        SRAMBDef.io.clka := clock
+        SRAMBDef.io.ena := NPUCoreDef.io.sram_b_ena
+        SRAMBDef.io.wea := NPUCoreDef.io.sram_b_wea
+        SRAMBDef.io.addra := NPUCoreDef.io.sram_b_addra
+        SRAMBDef.io.dina := NPUCoreDef.io.sram_b_dina
+        SRAMBDef.io.clkb := clock
+        SRAMBDef.io.enb := NPUCoreDef.io.sram_b_enb
+        SRAMBDef.io.addrb := NPUCoreDef.io.sram_b_addrb
+        NPUCoreDef.io.sram_b_doutb := SRAMBDef.io.doutb
 
 
         val DMAControllerDef = Module(new dmaController)

@@ -3,20 +3,20 @@ module SRAM (
 		input   wire		clka,		// write clock
 		input	wire		ena,		// write enable
 		input	wire		wea,		// write werite enable
-		input	wire	[13:0]	addra,		// write address
+		input	wire	[11:0]	addra,		// write address
 		input	wire	[127:0]	dina,		// write data in
 
 		//----| read signals
 		input	wire		clkb,		// read clock
 		input	wire		enb,		// read enable
-		input	wire	[13:0]	addrb,		// read address
+		input	wire	[11:0]	addrb,		// read address
 		output	reg	[127:0]	doutb		// read data out
 		);
 //==============================================================================
 //----| parameter & macro definition |------------------------------------------
 
 //----| behaviral modelling |---------------------------------------------------
-reg	[127:0]	ram[16*1024-1:0];
+reg	[127:0]	ram[16*256-1:0];
 
 //---- write operation
 always @(posedge clka) if(ena && wea) ram[addra] <= dina;

@@ -13,11 +13,13 @@ class BF16Unit extends Module with DontTouch{
     // lazy val module = new Impl
     // class Impl extends LazyModuleImp(this) {
     val io = IO(new Bundle {
-        val opc = Input(Bits(3.W))
+        val opc = Input(Bits(2.W))
         val a, b = Input(Bits(16.W))
         val in_valid, out_ready = Input(Bool())
         val y = Output(Bits(16.W))
         val in_ready, out_valid = Output(Bool())
+        val isSqrt = Input(Bool())
+        val kill = Input(Bool())
     })
     val doAdd = io.opc === 0.U
     val doSub = io.opc === 1.U
@@ -37,24 +39,24 @@ class BF16Unit extends Module with DontTouch{
     bfMul.io.b := b_b
     bfMul.io.rm := 1.U
 
-    // val bfDiv = Module(new FDIV(exp, sig))
-    // val y_div = bfDiv.io.result
-    // bfDiv.io.a := io.a
-    // bfDiv.io.b := b_b
-    // bfDiv.io.rm := 1.U
-    // bfDiv.io.specialIO.isSqrt := 0.U
-    // bfDiv.io.specialIO.kill := 1.U
-    // bfDiv.io.specialIO.in_valid := io.in_valid
-    // bfDiv.io.specialIO.out_ready :=io.out_ready
-    // io.in_ready := bfDiv.io.specialIO.in_ready
-    // io.out_valid := bfDiv.io.specialIO.out_valid
-    io.in_ready := 0.U
-    io.out_valid := 0.U
+    val bfDiv = Module(new FDIV(exp, sig))
+    val y_div = bfDiv.io.result
+    bfDiv.io.a := io.a
+    bfDiv.io.b := b_b
+    bfDiv.io.rm := 1.U
+    bfDiv.io.specialIO.isSqrt := io.isSqrt
+    bfDiv.io.specialIO.kill := io.kill
+    bfDiv.io.specialIO.in_valid := io.in_valid
+    bfDiv.io.specialIO.out_ready :=io.out_ready
+    io.in_ready := bfDiv.io.specialIO.in_ready
+    io.out_valid := bfDiv.io.specialIO.out_valid
+    // io.in_ready := 0.U
+    // io.out_valid := 0.U
     
     when(doMul) {
         io.y := y_mul
-    // }.elsewhen(doDiv) {
-    //     io.y := y_div
+    }.elsewhen(doDiv) {
+        io.y := y_div
     }.elsewhen(doAdd || doSub) {
         io.y := y_add
     }.otherwise {
