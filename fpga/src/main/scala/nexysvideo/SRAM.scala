@@ -5,6 +5,7 @@ import chisel3.util.HasBlackBoxResource
 
 class SRAM extends BlackBox with HasBlackBoxResource {
     val io = IO(new Bundle {
+        val rstn = Input(Bool())
         val clka = Input(Clock())
         val ena = Input(Bool())
         val wea = Input(Bool())
@@ -15,7 +16,6 @@ class SRAM extends BlackBox with HasBlackBoxResource {
         val enb = Input(Bool())
         val addrb = Input(UInt(12.W))
         val doutb = Output(UInt(128.W))
-
     })
     addResource("vsrc/SRAM.v")
 }

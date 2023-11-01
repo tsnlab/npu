@@ -1,5 +1,6 @@
 module SRAM (
 		//----| write signals
+		input   wire        rstn,
 		input   wire		clka,		// write clock
 		input	wire		ena,		// write enable
 		input	wire		wea,		// write werite enable
@@ -12,17 +13,25 @@ module SRAM (
 		input	wire	[11:0]	addrb,		// read address
 		output	reg	[127:0]	doutb		// read data out
 		);
-//==============================================================================
-//----| parameter & macro definition |------------------------------------------
 
-//----| behaviral modelling |---------------------------------------------------
 reg	[127:0]	ram[16*256-1:0];
 
 //---- write operation
-always @(posedge clka) if(ena && wea) ram[addra] <= dina;
+integer i;
+always @(posedge clka or negedge !rstn) begin
+    if(!rstn) begin
+        for (i=0; i<16*256-1; i=i+1) ram[i] <= 0;
+    end else begin
+        if(ena && wea) ram[addra] <= dina;
+    end
+end
 
-//---- read operation
-reg	[63:0]	outb;
-always @(posedge clkb) if(enb) doutb <= ram[addrb];
+always @(posedge clkb or negedge !rstn) begin
+    if (!rstn) begin 
+        doutb <= 0;
+    end else begin
+        if(enb) doutb <= ram[addrb];
+    end
+end
 
 endmodule

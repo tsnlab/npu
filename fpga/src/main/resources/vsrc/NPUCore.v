@@ -30,7 +30,7 @@ module NPUCore
     input               dma_ready,
     output  reg         dma_rwn,
     output  reg [39:0]  dma_hostAddr,
-    output  reg [11:0]  dma_localAddr,
+    output  reg [15:0]  dma_localAddr,
     output  reg [15:0]  dma_tansferLength,
     output      [127:0] dma_writeData,
     input       [127:0] dma_readData,
@@ -102,25 +102,25 @@ localparam OPC_RETURN	    = 8'hff;
 reg	[14:0]	state;
 reg	[15:0]	scnt;
 reg	[31:0]	rf[0:15];
-//reg	[31:0]	ra_radr, rb_radr, rc_wadr;
-//reg	[31:0]	opc_radr;	
 reg	[7:0]	opc_cmd;
 wire		opc_div		= opc_cmd == OPC_VDIV_BF16;
 
 reg     kernel_wren;
 reg     operanda_wren;
 reg     operandb_wren;
-reg     resultc_wren;
+reg     resultc_wren, resultc_wren_d, resultc_wren_d2;
 
 reg	[11:0]  kernel_wadr;
-reg	[11:0]  operanda_wadr;
-reg	[11:0]  operandb_wadr;
-reg	[11:0]  resultc_wadr;
+reg	[14:0]  operanda_wadr;
+reg	[14:0]  operandb_wadr;
+reg	[14:0]  resultc_wadr;
+reg [14:0]  resultc_wadr_d2;
+reg [14:0]  resultc_wadr_d;
 
 reg	[11:0]	kernel_radr;
-reg	[11:0]	operanda_radr;
-reg	[11:0]	operandb_radr;
-reg	[11:0]	resultc_radr;
+reg	[14:0]	operanda_radr;
+reg	[14:0]	operandb_radr;
+reg	[14:0]	resultc_radr;
 
 reg		kernel_rden;
 reg     operanda_rden;
@@ -128,44 +128,35 @@ reg     operandb_rden;
 reg     resultc_rden;
 //wire	[127:0]	lf_rdat		= sram_doutb;
 
-reg sram_a_wea_reg;
-reg sram_b_wea_reg;
-reg sram_a_ena_reg;
-reg sram_b_ena_reg;
-reg [11:0]  sram_a_addra_reg;
-reg [11:0]  sram_b_addra_reg;
+wire [15:0] sram_a_doutb_7 = sram_a_doutb[127:112];
+wire [15:0] sram_a_doutb_6 = sram_a_doutb[111:96];
+wire [15:0] sram_a_doutb_5 = sram_a_doutb[95:80];
+wire [15:0] sram_a_doutb_4 = sram_a_doutb[79:64];
+wire [15:0] sram_a_doutb_3 = sram_a_doutb[63:48];
+wire [15:0] sram_a_doutb_2 = sram_a_doutb[47:32];
+wire [15:0] sram_a_doutb_1 = sram_a_doutb[31:16];
+wire [15:0] sram_a_doutb_0 = sram_a_doutb[15:0];
+wire [15:0] sram_b_doutb_7 = sram_b_doutb[127:112];
+wire [15:0] sram_b_doutb_6 = sram_b_doutb[111:96];
+wire [15:0] sram_b_doutb_5 = sram_b_doutb[95:80];
+wire [15:0] sram_b_doutb_4 = sram_b_doutb[79:64];
+wire [15:0] sram_b_doutb_3 = sram_b_doutb[63:48];
+wire [15:0] sram_b_doutb_2 = sram_b_doutb[47:32];
+wire [15:0] sram_b_doutb_1 = sram_b_doutb[31:16];
+wire [15:0] sram_b_doutb_0 = sram_b_doutb[15:0];
+
 reg [127:0] sram_a_dina_reg;
 reg [127:0] sram_b_dina_reg;
-reg sram_a_enb_reg;
-reg sram_b_enb_reg;
-reg [11:0]  sram_a_addrb_reg;
-reg [11:0]  sram_b_addrb_reg;
-reg [127:0] sram_a_doutb_reg;
-reg [127:0] sram_b_doutb_reg;
-reg		lh_wren;
-reg	[14:0]	lh_wadr;
-reg	[31:0]	lh_wdat;
-// reg		lh_rden;
-//reg		sram_rden;
-//reg	[14:0]	lh_radr;
-//wire	[31:0]	lh_rdat;
 
 reg	[31:0]	fpu_cnt;
-//reg		bf16_alat;
-//reg		bf16_blat;
-//reg		bf16_ylat;
-wire	[31:0]	opcode		= sram_a_doutb;
+wire	[31:0]	opcode		= sram_a_doutb[127:96];
 wire	[7:0]	opc		= opcode[00+:8];
-//wire	[3:0]	rno		= opcode[08+:4];
-wire	[15:0]	rval_u20    = opcode[12+:20];
+wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
 wire	[15:0]	rval	= opcode[16+:16];
-// wire	[15:0]	cnt		= opcode[08+:16];
-//wire	[15:0]	lscnt_no    = opcode[16+:4];
-// wire	[15:0]	bf16_exec_cnt_no    = opcode[20+:4];
-wire    [3:0]   arg_ano = opcode[08+:4];
-wire    [3:0]   arg_bno = opcode[12+:4];
-wire    [3:0]   arg_cno = opcode[16+:4];
-wire    [3:0]   arg_dno = opcode[20+:4];
+wire    [3:0]   arg_ano = opcode[12+:4];
+wire    [3:0]   arg_bno = opcode[08+:4];
+wire    [3:0]   arg_cno = opcode[20+:4];
+wire    [3:0]   arg_dno = opcode[16+:4];
 
 always @(negedge rstn or posedge clk) begin
 	if(!rstn) begin
@@ -188,13 +179,20 @@ always @(negedge rstn or posedge clk) begin
 		operandb_rden	<= 0;
 		operandb_radr	<= 0;
 		resultc_wren	<= 0;
+		resultc_wren_d	<= 0;
+		resultc_wren_d2	<= 0;
 		resultc_wadr	<= 0;
+		resultc_wadr_d2	<= 0;
+		resultc_wadr_d	<= 0;
 		resultc_rden	<= 0;
 		resultc_radr	<= 0;
 		opc_cmd		<= 0;
 		bf16_opc		<= 0;
 		fpu_cnt		<= 0;
 		bf16_a		<= 0;
+		bf16_b		<= 0;
+        sram_a_dina_reg <= 0;
+        sram_b_dina_reg <= 0;
 		bf16_iv		<= 0;
 		bf16_or		<= 1;
 		rocc_if_fin	<= 0;
@@ -254,7 +252,8 @@ always @(negedge rstn or posedge clk) begin
 			state		<= S_EXEC;
 			kernel_wren		<= 0;
 			kernel_rden		<= 0;
-			kernel_radr		<= kernel_rden ? kernel_radr + 1 : kernel_radr;
+			kernel_radr		<= kernel_rden ? kernel_radr + 4 : kernel_radr;
+            resultc_wren    <= 0;
 		end
 
 		S_EXEC:
@@ -271,49 +270,25 @@ always @(negedge rstn or posedge clk) begin
 			// rf[15]	    <= opc == OPC_SETI_HIGH && arg_ano == 15 ? {rval, rf[15][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 15 ? {rf[15][16+:16], rval} : rf[15];
 
 
-			// rc_wadr		<=  arg_ano == 1 ? rf[1]/4 : 
-            //     arg_ano == 2 ? rf[2]/4 :
-            //     arg_ano == 3 ? rf[3]/4 :
-            //     arg_ano == 4 ? rf[4]/4 :
-            //     arg_ano == 5 ? rf[5]/4 :
-            //     arg_ano == 6 ? rf[6]/4 :
-            //     arg_ano == 7 ? rf[7]/4 : rc_wadr ;
-                
-			// ra_radr		<=  arg_bno == 1 ? rf[1]/4 : 
-            //     arg_bno == 2 ? rf[2]/4 :
-            //     arg_bno == 3 ? rf[3]/4 :
-            //     arg_bno == 4 ? rf[4]/4 :
-            //     arg_bno == 5 ? rf[5]/4 :
-            //     arg_bno == 6 ? rf[6]/4 :
-            //     arg_bno == 7 ? rf[7]/4 : ra_radr ;
-
-			// rb_radr		<=  arg_cno == 1 ? rf[1]/4 : 
-            //     arg_cno == 2 ? rf[2]/4 :
-            //     arg_cno == 3 ? rf[3]/4 :
-            //     arg_cno == 4 ? rf[4]/4 :
-            //     arg_cno == 5 ? rf[5]/4 :
-            //     arg_cno == 6 ? rf[6]/4 :
-            //     arg_cno == 7 ? rf[7]/4 : rb_radr ;
-
 			dma_req		        <= opc == OPC_LOAD ? 1 : 0;
 			dma_rwn		        <= opc == OPC_LOAD;
 			dma_localAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
-                opc == OPC_LOAD ? //if
-                arg_ano == 1 ? rf[1][15:0] : 
-                arg_ano == 2 ? rf[2][15:0] :
-                arg_ano == 3 ? rf[3][15:0] :
-                arg_ano == 4 ? rf[4][15:0] :
-                arg_ano == 5 ? rf[5][15:0] :
-                arg_ano == 6 ? rf[6][15:0] :
-                arg_ano == 7 ? rf[7][15:0] : dma_localAddr :
-                //else
-                arg_bno == 1 ? rf[1][15:0] : 
-                arg_bno == 2 ? rf[2][15:0] :
-                arg_bno == 3 ? rf[3][15:0] :
-                arg_bno == 4 ? rf[4][15:0] :
-                arg_bno == 5 ? rf[5][15:0] :
-                arg_bno == 6 ? rf[6][15:0] :
-                arg_bno == 7 ? rf[7][15:0] : dma_localAddr : dma_localAddr;
+                opc == OPC_LOAD ? 
+                arg_ano == 1 ? rf[1] : 
+                arg_ano == 2 ? rf[2] :
+                arg_ano == 3 ? rf[3] :
+                arg_ano == 4 ? rf[4] :
+                arg_ano == 5 ? rf[5] :
+                arg_ano == 6 ? rf[6] :
+                arg_ano == 7 ? rf[7] : dma_localAddr :
+
+                arg_bno == 1 ? rf[1] : 
+                arg_bno == 2 ? rf[2] :
+                arg_bno == 3 ? rf[3] :
+                arg_bno == 4 ? rf[4] :
+                arg_bno == 5 ? rf[5] :
+                arg_bno == 6 ? rf[6] :
+                arg_bno == 7 ? rf[7] : dma_localAddr : dma_localAddr;
 
 			dma_hostAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
                 opc == OPC_LOAD ? 
@@ -334,13 +309,13 @@ always @(negedge rstn or posedge clk) begin
                 arg_ano == 7 ? rf[7] : dma_hostAddr : dma_hostAddr;
 
 			dma_tansferLength	<= opc == OPC_LOAD || opc == OPC_STORE ? 
-                arg_cno == 1 ? rf[1][15:0] : 
-                arg_cno == 2 ? rf[2][15:0] :
-                arg_cno == 3 ? rf[3][15:0] :
-                arg_cno == 4 ? rf[4][15:0] :
-                arg_cno == 5 ? rf[5][15:0] :
-                arg_cno == 6 ? rf[6][15:0] :
-                arg_cno == 7 ? rf[7][15:0] : dma_tansferLength : dma_tansferLength;
+                arg_cno == 1 ? rf[1][15:0]/8 : 
+                arg_cno == 2 ? rf[2][15:0]/8 :
+                arg_cno == 3 ? rf[3][15:0]/8 :
+                arg_cno == 4 ? rf[4][15:0]/8 :
+                arg_cno == 5 ? rf[5][15:0]/8 :
+                arg_cno == 6 ? rf[6][15:0]/8 :
+                arg_cno == 7 ? rf[7][15:0]/8 : dma_tansferLength : dma_tansferLength;
 
 			opc_cmd		<= opc;
 			bf16_opc	<= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? opc - OPC_VADD_BF16 : bf16_opc;
@@ -352,43 +327,37 @@ always @(negedge rstn or posedge clk) begin
                 arg_dno == 5 ? rf[5] :
                 arg_dno == 6 ? rf[6] :
                 arg_dno == 7 ? rf[7] : fpu_cnt : fpu_cnt ;
-			// fpu_cnt		<= cnt;
             
-            // sram_a_enb_reg  <= (opc >= OPC_NOP && opc <= OPC_SETI_HIGH) || (opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16);
             kernel_rden <= opc >= OPC_NOP && opc <= OPC_SETI_HIGH;
             operanda_rden <= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16;
-            // sram_b_enb_reg  <= (opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16) || (opc == OPC_STORE);
             operandb_rden <= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16;
             resultc_rden <= opc == OPC_STORE;
-			// lh_rden		<= opc >= OPC_NOP && opc <= OPC_MOVE || opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16;
-			// lf_rden		<= opc == OPC_STORE;
             operanda_radr   <= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ?
-                arg_bno == 1 ? rf[1]/4 : 
-                arg_bno == 2 ? rf[2]/4 :
-                arg_bno == 3 ? rf[3]/4 :
-                arg_bno == 4 ? rf[4]/4 :
-                arg_bno == 5 ? rf[5]/4 :
-                arg_bno == 6 ? rf[6]/4 :
-                arg_bno == 7 ? rf[7]/4 : operanda_radr : operanda_radr ;
+                arg_bno == 1 ? rf[1] : 
+                arg_bno == 2 ? rf[2] :
+                arg_bno == 3 ? rf[3] :
+                arg_bno == 4 ? rf[4] :
+                arg_bno == 5 ? rf[5] :
+                arg_bno == 6 ? rf[6] :
+                arg_bno == 7 ? rf[7] : operanda_radr : operanda_radr ;
 
             operandb_radr   <= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? 
-                arg_cno == 1 ? rf[1]/4 : 
-                arg_cno == 2 ? rf[2]/4 :
-                arg_cno == 3 ? rf[3]/4 :
-                arg_cno == 4 ? rf[4]/4 :
-                arg_cno == 5 ? rf[5]/4 :
-                arg_cno == 6 ? rf[6]/4 :
-                arg_cno == 7 ? rf[7]/4 : operandb_radr : operandb_radr ;
-			// lh_radr		<= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? rf[1] / 4 : lh_radr;
+                arg_cno == 1 ? rf[1] : 
+                arg_cno == 2 ? rf[2] :
+                arg_cno == 3 ? rf[3] :
+                arg_cno == 4 ? rf[4] :
+                arg_cno == 5 ? rf[5] :
+                arg_cno == 6 ? rf[6] :
+                arg_cno == 7 ? rf[7] : operandb_radr : operandb_radr ;
 
 			resultc_radr	<= opc == OPC_STORE ? 
-                arg_bno == 1 ? rf[1]/4 : 
-                arg_bno == 2 ? rf[2]/4 :
-                arg_bno == 3 ? rf[3]/4 :
-                arg_bno == 4 ? rf[4]/4 :
-                arg_bno == 5 ? rf[5]/4 :
-                arg_bno == 6 ? rf[6]/4 :
-                arg_bno == 7 ? rf[7]/4 : resultc_radr : resultc_radr;
+                arg_bno == 1 ? rf[1] : 
+                arg_bno == 2 ? rf[2] :
+                arg_bno == 3 ? rf[3] :
+                arg_bno == 4 ? rf[4] :
+                arg_bno == 5 ? rf[5] :
+                arg_bno == 6 ? rf[6] :
+                arg_bno == 7 ? rf[7] : resultc_radr : resultc_radr;
 
 
 			// lf_wadr		<= rb / 4;
@@ -398,8 +367,7 @@ always @(negedge rstn or posedge clk) begin
 		begin
 			state		<= dma_ready ? S_LOAD_DATA : state;
 			dma_req		<= dma_ready ? 0 : 1;
-            // sram_a_enb_reg  <= 0;
-            // sram_b_enb_reg  <= 0;
+
             kernel_rden     <= 0;
             operanda_rden   <= 0;
             operandb_rden   <= 0;
@@ -411,40 +379,26 @@ always @(negedge rstn or posedge clk) begin
 			state		<= dma_ack && scnt == dma_tansferLength - 1 ? S_OPC_READ : state;
 			scnt		<= dma_ack ? (scnt == dma_tansferLength - 1 ? 0 : scnt + 1) : scnt;
        
-            // sram_a_wea_reg  <= dma_localAddr[12] == 1'b0;
-            // sram_b_wea_reg  <= dma_localAddr[12] == 1'b1;
+            kernel_wren     <= dma_localAddr[15:14] == 2'b00;
+            kernel_wadr     <= kernel_wren ? kernel_wadr + 8 : dma_localAddr[14:0];
+            operanda_wren   <= dma_localAddr[15:14] == 2'b01;
+            operanda_wadr   <= operanda_wren ? operanda_wadr + 1 : dma_localAddr[14:0];
+            operandb_wren   <= dma_localAddr[15:14] == 2'b10;
+            operandb_wadr   <= operandb_wren ? operandb_wadr + 1 : dma_localAddr[14:0];
+            resultc_wren    <= dma_localAddr[15:14] == 2'b11;
+            resultc_wadr    <= resultc_wren ? resultc_wadr + 1 : dma_localAddr[14:0];
 
-            // sram_a_ena  <= dma_localAddr[12] == 1'b0;
-            // sram_b_ena  <= dma_localAddr[12] == 1'b1;
-
-            // sram_a_addra_reg    <= sram_a_wea_reg && !dma_localAddr[12]? sram_a_addra_reg + 4 : dma_localAddr[11:0];
-            // sram_b_addra_reg    <= sram_b_wea_reg && dma_localAddr[12]? sram_a_addra_reg + 4 : dma_localAddr[11:0];
-            kernel_wren     <= dma_localAddr[12:11] == 2'b00;
-            kernel_wadr     <= kernel_wren ? kernel_wadr + 4 : dma_localAddr[15:0];
-            operanda_wren   <= dma_localAddr[12:11] == 2'b01;
-            operanda_wadr   <= operanda_wren ? operanda_wadr + 4 : dma_localAddr[15:0];
-            operandb_wren   <= dma_localAddr[12:11] == 2'b10;
-            operandb_wadr   <= operandb_wren ? operandb_wadr + 4 : dma_localAddr[15:0];
-            resultc_wren    <= dma_localAddr[12:11] == 2'b11;
-            resultc_wadr    <= resultc_wren ? resultc_wadr + 4 : dma_localAddr[15:0];
-
-			// lf_wren		<= dma_ack;
-			// lf_wadr		<= lf_wren ? lf_wadr + 2 : lf_wadr;
             sram_a_dina_reg <= dma_readData;
             sram_b_dina_reg <= dma_readData;
-			// lf_wdat		<= dma_readData;
 			kernel_rden		<= dma_ack && scnt == dma_tansferLength - 1;
 		end
 
 		S_STORE_PRE:
 		begin
-			state		<= scnt == 3 ? S_STORE_REQ : state;
-			scnt		<= scnt == 3 ? 0 : scnt + 1;
-			dma_req		<= scnt == 3;
-			// lf_rden		<= scnt < 2;
-            resultc_rden    <= scnt < 2;
-            resultc_radr    <= resultc_radr ? resultc_radr + 4 : resultc_radr;
-			// lf_radr		<= lf_rden ? lf_radr + 2 : lf_radr;
+			state		<= S_STORE_REQ;
+			dma_req		<= 1;
+            resultc_rden    <= 1;
+            resultc_radr    <= resultc_rden ? resultc_radr + 8 : resultc_radr;
 		end
 
 		S_STORE_REQ:
@@ -458,95 +412,108 @@ always @(negedge rstn or posedge clk) begin
 			state		<= dma_ack && scnt == dma_tansferLength - 1 ? S_OPC_READ : state;
 			scnt		<= dma_ack ? (scnt == dma_tansferLength - 1 ? 0 : scnt + 1) : scnt;
 			resultc_rden    <= dma_ack && scnt != dma_tansferLength - 1;
-			resultc_radr	<= dma_ack && scnt == dma_tansferLength - 1 ? 0 : resultc_rden ? resultc_radr + 2 : resultc_radr;
+			resultc_radr	<= dma_ack && scnt == dma_tansferLength - 1 ? 0 : resultc_rden ? resultc_radr + 8 : resultc_radr;
 
 			kernel_rden		<= dma_ack && scnt == dma_tansferLength - 1;
-			// kernel_radr		<= dma_ack && scnt == dma_tansferLength - 1 ? opc_radr : lh_radr;
 		end
 
         S_BF16:
         begin
 			state		<= !opc_div || bf16_ir ? S_FOP : state;
+            
+            bf16_a  <= operanda_radr[2:0] == 3'b000 ? sram_a_doutb_0 :
+                operanda_radr[2:0] == 3'b001 ? sram_a_doutb_1 :
+                operanda_radr[2:0] == 3'b010 ? sram_a_doutb_2 :
+                operanda_radr[2:0] == 3'b011 ? sram_a_doutb_3 :
+                operanda_radr[2:0] == 3'b100 ? sram_a_doutb_4 :
+                operanda_radr[2:0] == 3'b101 ? sram_a_doutb_5 :
+                operanda_radr[2:0] == 3'b110 ? sram_a_doutb_6 : sram_a_doutb_7;
+            bf16_b  <= operandb_radr[2:0] == 3'b000 ? sram_b_doutb_0 :
+                operandb_radr[2:0] == 3'b001 ? sram_b_doutb_1 :
+                operandb_radr[2:0] == 3'b010 ? sram_b_doutb_2 :
+                operandb_radr[2:0] == 3'b011 ? sram_b_doutb_3 :
+                operandb_radr[2:0] == 3'b100 ? sram_b_doutb_4 :
+                operandb_radr[2:0] == 3'b101 ? sram_b_doutb_5 :
+                operandb_radr[2:0] == 3'b110 ? sram_b_doutb_6 : sram_b_doutb_7;
 
-            bf16_a  <= sram_a_doutb;
-            bf16_b  <= sram_b_doutb;
-
-            resultc_wadr   <= arg_ano == 1 ? rf[1]/4 : 
-                arg_ano == 2 ? rf[2]/4 :
-                arg_ano == 3 ? rf[3]/4 :
-                arg_ano == 4 ? rf[4]/4 :
-                arg_ano == 5 ? rf[5]/4 :
-                arg_ano == 6 ? rf[6]/4 :
-                arg_ano == 7 ? rf[7]/4 : resultc_wadr;
+            resultc_wadr   <= arg_ano == 1 ? rf[1] : 
+                arg_ano == 2 ? rf[2] :
+                arg_ano == 3 ? rf[3] :
+                arg_ano == 4 ? rf[4] :
+                arg_ano == 5 ? rf[5] :
+                arg_ano == 6 ? rf[6] :
+                arg_ano == 7 ? rf[7] : resultc_wadr;
                 
             operanda_rden   <= fpu_cnt > 1;
             operandb_rden   <= fpu_cnt > 1;
             operanda_radr   <= !opc_div || bf16_ir ? operanda_radr + 1 : operanda_radr;
             operandb_radr   <= !opc_div || bf16_ir ? operandb_radr + 1 : operandb_radr;
 
-			// lh_rden		<= fpu_cnt > 1;
-			// lh_radr		<= ra_radr;
-            // resultc_wren    <= bf16_ylat
-            // sram_b_dina_reg    <= bf16_ylat ? bf16_y : sram_b_dina_reg;
-			// lh_wren		<= bf16_ylat;
-			// lh_wdat		<= bf16_ylat ? bf16_y : lh_wdat;
-			// rb_radr		<= !opc_div || bf16_ir ? rb_radr + 1 : rb_radr;
-			// bf16_a		<= bf16_alat ? lh_rdat : bf16_a;
-			// bf16_alat	<= 0;
-			// bf16_blat	<= 1;
-			// bf16_ylat	<= 0;
+            resultc_wren_d  <= opc_div? 0 : 1;
         
         end
 
 		S_FOP:
 		begin
 			state       <= opc_div ? (bf16_ov ? (fpu_cnt == 1 ? S_FIN : state) : state) : (fpu_cnt == 1 ? S_FIN : state);
-            // state		<= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? S_FIN : S_FOP) : state;
-			// scnt		<= (opc_div ? bf16_ov : scnt == 1) ? 0 : scnt + 1;
-			// fpu_cnt		<= (opc_div ? bf16_ov : scnt == 1) ? fpu_cnt - 1 : fpu_cnt;
+            
+            bf16_a  <= operanda_radr[2:0] == 3'b000 ? sram_a_doutb_0 :
+                operanda_radr[2:0] == 3'b001 ? sram_a_doutb_1 :
+                operanda_radr[2:0] == 3'b010 ? sram_a_doutb_2 :
+                operanda_radr[2:0] == 3'b011 ? sram_a_doutb_3 :
+                operanda_radr[2:0] == 3'b100 ? sram_a_doutb_4 :
+                operanda_radr[2:0] == 3'b101 ? sram_a_doutb_5 :
+                operanda_radr[2:0] == 3'b110 ? sram_a_doutb_6 : sram_a_doutb_7;
+            bf16_b  <= operandb_radr[2:0] == 3'b000 ? sram_b_doutb_0 :
+                operandb_radr[2:0] == 3'b001 ? sram_b_doutb_1 :
+                operandb_radr[2:0] == 3'b010 ? sram_b_doutb_2 :
+                operandb_radr[2:0] == 3'b011 ? sram_b_doutb_3 :
+                operandb_radr[2:0] == 3'b100 ? sram_b_doutb_4 :
+                operandb_radr[2:0] == 3'b101 ? sram_b_doutb_5 :
+                operandb_radr[2:0] == 3'b110 ? sram_b_doutb_6 : sram_b_doutb_7;
             fpu_cnt     <= opc_div ? (bf16_ov ? fpu_cnt - 1 : fpu_cnt) : fpu_cnt - 1;
             
-			// lh_rden		<= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
-            operanda_rden   <= opc_div ? (bf16_ov ? (fpu_cnt == 1 ? 0 : 1) : 0) : (fpu_cnt == 1 ? 0 : 1);
-            operandb_rden   <= opc_div ? (bf16_ov ? (fpu_cnt == 1 ? 0 : 1) : 0) : (fpu_cnt == 1 ? 0 : 1);
-			// operanda_rden		<= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 1;
-			// operandb_rden		<= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 1;
+            operanda_rden   <= opc_div ? (bf16_ov ? (fpu_cnt <= 2 ? 0 : 1) : 0) : (fpu_cnt <= 2 ? 0 : 1);
+            operandb_rden   <= opc_div ? (bf16_ov ? (fpu_cnt <= 2 ? 0 : 1) : 0) : (fpu_cnt <= 2 ? 0 : 1);
             
-			// lh_wadr		<= lh_wren ? lh_wadr + 1 : lh_wadr;
 			resultc_wadr	<= (opc_div ? bf16_ov : 1) ? resultc_wadr + 1 : resultc_wadr;
-			// lh_radr		<= (opc_div ? bf16_ov : scnt == 1) ? rb_radr : lh_radr;
 
-            resultc_wren    <= opc_div ? (bf16_ov) : 1;
-            // resultc_wren    <= (opc_div ? bf16_ov : scnt == 1) ? 
-			// lh_wren		<= 0;
+            resultc_wren_d  <= opc_div ? (bf16_ov) : fpu_cnt >= 2;
+            resultc_wren_d2 <= resultc_wren_d;
+            resultc_wren    <= resultc_wren_d2;
             operanda_radr   <= opc_div ? (bf16_ov ? operanda_radr + 1 : operanda_radr) : operanda_radr + 1;
-            operandb_radr   <= opc_div ? (bf16_ov ? operanda_radr + 1 : operanda_radr) : operanda_radr + 1;
-            // operanda_radr   <= !opc_div || bf16_ir ? operanda_radr + 1 : operanda_radr;
-            // operandb_radr   <= !opc_div || bf16_ir ? operandb_radr + 1 : operandb_radr;
+            operandb_radr   <= opc_div ? (bf16_ov ? operandb_radr + 1 : operandb_radr) : operandb_radr + 1;
 
-			// ra_radr		<= (opc_div ? bf16_ov : scnt == 1) ? ra_radr + 1 : ra_radr;
 			bf16_iv		<= opc_div && scnt == 1;
 			bf16_or		<= 1;
-			// bf16_alat	<= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
-			// bf16_blat	<= 0;
-			// bf16_b		<= bf16_blat ? lh_rdat : bf16_b;
-			// bf16_ylat	<= (opc_div ? bf16_ov : scnt == 1);
 
-            // resultc_wren    <= (opc_div ? bf16_ov : 1)
-            sram_b_dina_reg    <= (opc_div ? bf16_ov : 1) ? bf16_y : sram_b_dina_reg;
+            resultc_wadr_d <= resultc_wadr;
+            
+            sram_b_dina_reg[15:0] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b000 ? bf16_y : sram_b_dina_reg[15:0]) : sram_b_dina_reg[15:0];
+            sram_b_dina_reg[31:16] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b001 ? bf16_y : sram_b_dina_reg[31:16]) : sram_b_dina_reg[31:16];
+            sram_b_dina_reg[47:32] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b010 ? bf16_y : sram_b_dina_reg[47:32]) : sram_b_dina_reg[47:32];
+            sram_b_dina_reg[63:48] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b011 ? bf16_y : sram_b_dina_reg[63:48]) : sram_b_dina_reg[63:48];
+            sram_b_dina_reg[79:64] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b100 ? bf16_y : sram_b_dina_reg[79:64]) : sram_b_dina_reg[79:64];
+            sram_b_dina_reg[95:80] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b101 ? bf16_y : sram_b_dina_reg[95:80]) : sram_b_dina_reg[95:80];
+            sram_b_dina_reg[111:96] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b110 ? bf16_y : sram_b_dina_reg[111:96]) : sram_b_dina_reg[111:96];
+            sram_b_dina_reg[127:112] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b111 ? bf16_y : sram_b_dina_reg[127:112]) : sram_b_dina_reg[127:112];
 		end
 
 		S_FIN:
 		begin
 			state		<= S_OPC_READ;
-			// bf16_ylat	<= 0;
-			// lh_wren		<= bf16_ylat;
-            resultc_wren    <= (opc_div ? bf16_ov : 1);
-			// lh_wdat		<= bf16_ylat ? bf16_y : lh_wdat;
-            sram_b_dina_reg    <= (opc_div ? bf16_ov : 1) ? bf16_y : sram_b_dina_reg;
-			// lh_rden		<= 1;
+            resultc_wren    <= resultc_wren_d2;
+            
+            sram_b_dina_reg[15:0] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b000 ? bf16_y : sram_b_dina_reg[15:0]) : sram_b_dina_reg[15:0];
+            sram_b_dina_reg[31:16] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b001 ? bf16_y : sram_b_dina_reg[31:16]) : sram_b_dina_reg[31:16];
+            sram_b_dina_reg[47:32] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b010 ? bf16_y : sram_b_dina_reg[47:32]) : sram_b_dina_reg[47:32];
+            sram_b_dina_reg[63:48] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b011 ? bf16_y : sram_b_dina_reg[63:48]) : sram_b_dina_reg[63:48];
+            sram_b_dina_reg[79:64] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b100 ? bf16_y : sram_b_dina_reg[79:64]) : sram_b_dina_reg[79:64];
+            sram_b_dina_reg[95:80] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b101 ? bf16_y : sram_b_dina_reg[95:80]) : sram_b_dina_reg[95:80];
+            sram_b_dina_reg[111:96] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b110 ? bf16_y : sram_b_dina_reg[111:96]) : sram_b_dina_reg[111:96];
+            sram_b_dina_reg[127:112] <= (opc_div ? bf16_ov : 1) ? (resultc_wadr_d[2:0] == 3'b111 ? bf16_y : sram_b_dina_reg[127:112]) : sram_b_dina_reg[127:112];
+
             kernel_rden <= 1;
-			// lh_radr		<= opc_radr;
 			bf16_iv		<= 0;
 		end
 
@@ -565,54 +532,23 @@ always @(negedge rstn or posedge clk) begin
 	end
 end
 
-//----| npc wdat control |------------------------------------------------------
-reg		qi;
-always @(negedge rstn or posedge clk) 
-    qi <= !rstn ? 0 : (state == S_STORE_PRE || state == S_STORE_DATA) && resultc_rden;
-
-wire		qo		= state == S_STORE_DATA && dma_ack; 
-reg	[1:0]	qc;
-always @(negedge rstn or posedge clk) 
-    qc <= !rstn ? 0 : (state == S_STORE_PRE && !scnt ? 0 : (qi && !qo ? qc + 1 : (!qi && qo ? qc - 1 : qc)));
-reg [3*64-1:0]	q;
-always @(negedge rstn or posedge clk) 
-    q <= !rstn ? 0 : qi && !qo ? (qc == 0 ? {sram_b_doutb, q[0+:2*64]} : qc == 1 ? {q[2*64+:64], sram_b_doutb, q[0+:64]} : {q[1*64+:2*64], sram_b_doutb}) :
-        !qi &&  qo ? (qc == 1 ? {3*64'h0} : {q[0+:2*64], 64'h0}) : 
-        qi &&  qo ? (qc == 1 ? {sram_b_doutb, 64'h0, 64'h0} : qc == 2 ? {q[1*64+:64], sram_b_doutb, 64'h0} : {q[0+:2*64], sram_b_doutb}) : q;
-assign		dma_writeData	= q[2*64+:64];
-
-////----| sram 32bit write part |-------------------------------------------------
-//reg	[31:0]	lh_wlsb;
-//always @(negedge rstn or posedge clk) lh_wlsb <= !rstn ? 0 : lh_wren ? lh_wdat : lh_wlsb;
-
-////----| sram 32bit read part |--------------------------------------------------
-//reg		lh_rden_dly;
-//always @(negedge rstn or posedge clk) 
-//    lh_rden_dly <= !rstn ? 0 : lh_rden;
-//reg		lh_radr0;
-//always @(negedge rstn or posedge clk) 
-//    lh_radr0 <= !rstn ? 0 : lh_rden ? lh_radr[0] : lh_radr0;
-//reg	[31:0]	lh_rmsb;
-//always @(negedge rstn or posedge clk) 
-//    lh_rmsb <= !rstn ? 0 : lh_rden_dly ? sram_doutb[32+:32] : lh_rmsb;
-////assign		lh_rdat		= !lh_radr0 ? sram_doutb[0+:32] : lh_rmsb;
-//assign		lh_rdat		= !lh_radr0 ? sram_doutb[0+:32] : sram_doutb[32+:32];
+assign		dma_writeData	= sram_b_doutb;
 
 
 //----| sram signal mapping |---------------------------------------------------
 assign		sram_a_ena	= kernel_wren | operanda_wren;
 assign		sram_a_wea	= kernel_wren | operanda_wren;
-assign		sram_a_addra	= kernel_wren ? kernel_wadr / 2 : operanda_wadr / 2;
+assign		sram_a_addra	= kernel_wren ? kernel_wadr / 4 : operanda_wadr / 8;
 assign		sram_a_dina	= sram_a_dina_reg;
 assign		sram_a_enb	= kernel_rden | operanda_rden;
-assign		sram_a_addrb	= kernel_rden ? kernel_radr / 2 : operanda_radr / 2;
+assign		sram_a_addrb	= kernel_rden ? kernel_radr / 4 : operanda_radr / 8;
 
 assign		sram_b_ena	= operandb_wren | resultc_wren;
 assign		sram_b_wea	= operandb_wren | resultc_wren;
-assign		sram_b_addra	= operandb_wren ? operandb_wadr / 2 : resultc_wadr / 2;
+assign		sram_b_addra	= operandb_wren ? operandb_wadr / 8 : resultc_wadr_d / 8;
 assign		sram_b_dina	= sram_b_dina_reg;
 assign		sram_b_enb	= operandb_rden | resultc_rden;
-assign		sram_b_addrb	= operandb_rden ? operandb_radr / 2 : resultc_radr / 2;
+assign		sram_b_addrb	= operandb_rden ? operandb_radr / 8 : resultc_radr / 8;
 
 //----| output mapping |--------------------------------------------------------
 assign		rocc_if_busy		= state != S_IDLE;

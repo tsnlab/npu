@@ -70,6 +70,7 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
         val SRAMADef = Module(new SRAM)
         val SRAMBDef = Module(new SRAM)
 
+        SRAMADef.io.rstn :=  ~reset.asBool
         SRAMADef.io.clka := clock
         SRAMADef.io.ena := NPUCoreDef.io.sram_a_ena
         SRAMADef.io.wea := NPUCoreDef.io.sram_a_wea
@@ -80,6 +81,7 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
         SRAMADef.io.addrb := NPUCoreDef.io.sram_a_addrb
         NPUCoreDef.io.sram_a_doutb := SRAMADef.io.doutb
 
+        SRAMBDef.io.rstn :=  ~reset.asBool
         SRAMBDef.io.clka := clock
         SRAMBDef.io.ena := NPUCoreDef.io.sram_b_ena
         SRAMBDef.io.wea := NPUCoreDef.io.sram_b_wea
