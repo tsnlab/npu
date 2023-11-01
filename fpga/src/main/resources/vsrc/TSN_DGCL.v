@@ -13,13 +13,8 @@
 //    0.01 junhyuk - Create
 ////////////////////////////////////////////////////////////////////////////////
 			
-<<<<<<< HEAD:src/main/resources/nexysvideo/TSN_DGCL.v
 module tsn_dgcl(
 	input wire risc_clk,
-=======
-module TSN_DGCL(
-	input wire gemmini_clk,
->>>>>>> risc-v:fpga/src/main/resources/vsrc/TSN_DGCL.v
 	input wire fpu_clk,
 	input wire reset,
 	
@@ -504,7 +499,6 @@ as128x1024 fpu_write_fifo (
 //***** Select write or read data
 always@(posedge fpu_clk or posedge reset) begin
 	if(reset) begin
-<<<<<<< HEAD:src/main/resources/nexysvideo/TSN_DGCL.v
 		wcd_read_en <= 1'b0;
 		dcc_length <= 0;
 		mess_form <= 0;
@@ -598,23 +592,6 @@ always@(posedge fpu_clk or posedge reset) begin
 				dcccon <= dcc_st;
 			end
 		endcase
-=======
-		rcd_ready_r <= 1'b0;
-		// rcd_dram_cnt <= 0;
-		rcd_dpram_cnt <= 0;
-		rcd_lengh_cnt <= 0;
-	end
-	else begin
-		if(rcd_valid) begin
-			rcd_ready_r <= 1'b1;
-			// rcd_dram_cnt <= rcd_dram_cnt + rcd_dram_addr;
-			rcd_dpram_cnt <= rcd_dpram_cnt + rcd_dpram_addr;
-			rcd_lengh_cnt <= rcd_lengh_cnt + rcd_length;
-		end
-		else begin
-			rcd_ready_r <= 1'b0;
-		end
->>>>>>> risc-v:fpga/src/main/resources/vsrc/TSN_DGCL.v
 	end
 end
 
@@ -669,7 +646,6 @@ always@(posedge risc_clk or posedge reset)begin
 		gwcd_dpaddr <= 16'd0;
 	end
 	else begin
-<<<<<<< HEAD:src/main/resources/nexysvideo/TSN_DGCL.v
 		case(gwcdcon)
 			gwcd_st : begin
 				
@@ -719,19 +695,6 @@ always@(posedge risc_clk or posedge reset)begin
 				gwcdcon <= gwcd_st;
 			end
 		endcase
-=======
-		if(wcc_ready) begin
-			wcc_dpram_addr_r <= wcc_dpram_addr_r + 1;
-			wcc_read_data_r <= wcc_read_data_r + 1;
-			wcc_length_r <= wcc_length_r + 1;
-			wcc_valid_r <= 1;
-		end
-		else begin
-			// wcc_dpram_cntcc_valid_r <= 0;
-		
-		end
-
->>>>>>> risc-v:fpga/src/main/resources/vsrc/TSN_DGCL.v
 	end
 end
 
