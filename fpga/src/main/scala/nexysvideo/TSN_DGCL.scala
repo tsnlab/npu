@@ -5,8 +5,13 @@ import chisel3.util.HasBlackBoxResource
 
 class TSN_DGCL extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
+<<<<<<< HEAD:src/main/scala/nexysvideo/TSN_DGCL.scala
+    val risc_clk = Input(Bool())
+	val fpu_clk = Input(Bool())
+=======
     val gemmini_clk = Input(Clock())
 	val fpu_clk = Input(Clock())
+>>>>>>> risc-v:fpga/src/main/scala/nexysvideo/TSN_DGCL.scala
 	val reset = Input(Bool())
 	val rcc_dram_addr = Output(UInt(40.W))
 	val rcc_dpram_addr = Output(UInt(16.W))
