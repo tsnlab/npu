@@ -93,35 +93,35 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
         NPUCoreDef.io.sram_b_doutb := SRAMBDef.io.doutb
 
 
-        val DMAControllerDef = Module(new dmaController)
+        val LoadStoreControllerDef = Module(new loadStoreController)
 
 
-        DMAControllerDef.io.clk := clock
-        DMAControllerDef.io.rst := reset
+        LoadStoreControllerDef.io.clk := clock
+        LoadStoreControllerDef.io.rst := reset
 
-        DMAControllerDef.io.core_req := NPUCoreDef.io.dma_req
-        NPUCoreDef.io.dma_ready := DMAControllerDef.io.core_ready
-        DMAControllerDef.io.core_rwn := NPUCoreDef.io.dma_rwn
-        DMAControllerDef.io.core_hostAddr := NPUCoreDef.io.dma_hostAddr
-        DMAControllerDef.io.core_localAddr := NPUCoreDef.io.dma_localAddr
-        DMAControllerDef.io.core_tansferLength := NPUCoreDef.io.dma_tansferLength
-        DMAControllerDef.io.core_writeData := NPUCoreDef.io.dma_writeData
-        NPUCoreDef.io.dma_readData := DMAControllerDef.io.core_readData
-        NPUCoreDef.io.dma_ack := DMAControllerDef.io.core_ack
+        LoadStoreControllerDef.io.core_req := NPUCoreDef.io.dma_req
+        NPUCoreDef.io.dma_ready := LoadStoreControllerDef.io.core_ready
+        LoadStoreControllerDef.io.core_rwn := NPUCoreDef.io.dma_rwn
+        LoadStoreControllerDef.io.core_hostAddr := NPUCoreDef.io.dma_hostAddr
+        LoadStoreControllerDef.io.core_localAddr := NPUCoreDef.io.dma_localAddr
+        LoadStoreControllerDef.io.core_transferLength := NPUCoreDef.io.dma_transferLength
+        LoadStoreControllerDef.io.core_writeData := NPUCoreDef.io.dma_writeData
+        NPUCoreDef.io.dma_readData := LoadStoreControllerDef.io.core_readData
+        NPUCoreDef.io.dma_ack := LoadStoreControllerDef.io.core_ack
 
-        io.dma_req := DMAControllerDef.io.dma_req
-        DMAControllerDef.io.dma_resp := io.dma_resp
-        io.dma_write_valid := DMAControllerDef.io.dma_write_valid
-        io.dma_write_data := DMAControllerDef.io.dma_write_data
-        DMAControllerDef.io.dma_write_ready := io.dma_write_ready
-        DMAControllerDef.io.dma_read_valid := io.dma_read_valid
-        DMAControllerDef.io.dma_read_data := io.dma_read_data
-        io.dma_read_ready := DMAControllerDef.io.dma_read_ready
+        io.dma_req := LoadStoreControllerDef.io.dma_req
+        LoadStoreControllerDef.io.dma_resp := io.dma_resp
+        io.dma_write_valid := LoadStoreControllerDef.io.dma_write_valid
+        io.dma_write_data := LoadStoreControllerDef.io.dma_write_data
+        LoadStoreControllerDef.io.dma_write_ready := io.dma_write_ready
+        LoadStoreControllerDef.io.dma_read_valid := io.dma_read_valid
+        LoadStoreControllerDef.io.dma_read_data := io.dma_read_data
+        io.dma_read_ready := LoadStoreControllerDef.io.dma_read_ready
 
-        // DMAControllerDef.io.dma_req := 0.U
-        // DMAControllerDef.io.dma_write_valid := 0.U
-        // DMAControllerDef.io.dma_write_data := 0.U
-        // DMAControllerDef.io.dma_read_ready := 0.U
+        // LoadStoreControllerDef.io.dma_req := 0.U
+        // LoadStoreControllerDef.io.dma_write_valid := 0.U
+        // LoadStoreControllerDef.io.dma_write_data := 0.U
+        // LoadStoreControllerDef.io.dma_read_ready := 0.U
 
     }
     

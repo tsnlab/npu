@@ -6,7 +6,7 @@ import freechips.rocketchip.tile._
 import org.chipsalliance.cde.config._
 import freechips.rocketchip.diplomacy._
 
-class dmaController (implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
+class loadStoreController (implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val clk = Input(Clock())
     val rst = Input(Bool())
@@ -16,7 +16,7 @@ class dmaController (implicit p: Parameters) extends BlackBox with HasBlackBoxRe
     val core_rwn = Input(Bool())
     val core_hostAddr = Input(Bits(40.W))
     val core_localAddr = Input(Bits(14.W))
-    val core_tansferLength = Input(Bits(16.W))
+    val core_transferLength = Input(Bits(16.W))
     val core_writeData = Input(Bits(128.W))
     val core_readData = Output(Bits(128.W))
     val core_ack = Output(Bool())
@@ -30,5 +30,5 @@ class dmaController (implicit p: Parameters) extends BlackBox with HasBlackBoxRe
     val dma_read_data = Input(Bits(128.W))
     val dma_read_ready = Output(Bool())
   })
-  addResource("/vsrc/dmaController.v")
+  addResource("/vsrc/loadStoreController.v")
 }

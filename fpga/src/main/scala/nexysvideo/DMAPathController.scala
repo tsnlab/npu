@@ -3,10 +3,10 @@ package connx_npu
 import chisel3._
 import chisel3.util.HasBlackBoxResource
 
-class TSN_DGCL extends BlackBox with HasBlackBoxResource {
+class DMAPathController extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
-    val risc_clk = Input(Bool())
-	val fpu_clk = Input(Bool())
+    val risc_clk = Input(Clock())
+	val fpu_clk = Input(Clock())
 	val reset = Input(Bool())
 	val rcc_dram_addr = Output(UInt(40.W))
 	val rcc_dpram_addr = Output(UInt(16.W))
@@ -57,5 +57,8 @@ class TSN_DGCL extends BlackBox with HasBlackBoxResource {
 	val dma_read_data_d = Output(UInt(128.W))
 	val dma_read_ready_d = Input(Bool())
   })
-  addResource("/vsrc/TSN_DGCL.v")
+  addResource("/vsrc/DMAPathController.v")
+  addResource("/vsrc/as128x1024/as128x1024.xci")
+  addResource("/vsrc/as32x512_ft/as32x512_ft.xci")
+  addResource("/vsrc/as72x512_ft/as72x512_ft.xci")
 }

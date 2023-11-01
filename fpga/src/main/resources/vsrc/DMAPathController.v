@@ -13,7 +13,7 @@
 //    0.01 junhyuk - Create
 ////////////////////////////////////////////////////////////////////////////////
 			
-module tsn_dgcl(
+module DMAPathController(
 	input wire risc_clk,
 	input wire fpu_clk,
 	input wire reset,

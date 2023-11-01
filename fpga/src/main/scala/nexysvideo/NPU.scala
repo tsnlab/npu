@@ -142,7 +142,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     // val NPUTile1Def = Module(new NPUTile)
     // val NPUTile2Def = Module(new NPUTile)
     // val NPUTile3Def = Module(new NPUTile)
-    val DMAGroupControllerDef = Module(new TSN_DGCL)
+    val DMAPathControllerDef = Module(new DMAPathController)
     // val DMAEngineDef = LazyModule(new DMAEngine()(p))
 
     // NPUTile0Def.io.clk := clock
@@ -185,62 +185,62 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val NPUTile3Fin = NPUTile3Def.module.io.rocc_if_fin
     val NPUTile3Busy = NPUTile3Def.module.io.rocc_if_busy
 
-    DMAGroupControllerDef.io.gemmini_clk := clock
-    DMAGroupControllerDef.io.fpu_clk := clock
-    DMAGroupControllerDef.io.reset := reset
-    DMAGroupControllerDef.io.dma_req_a := NPUTile0Def.module.io.dma_req 
-    NPUTile0Def.module.io.dma_resp := DMAGroupControllerDef.io.dma_resp_a
-    DMAGroupControllerDef.io.dma_write_valid_a := NPUTile0Def.module.io.dma_write_valid
-    DMAGroupControllerDef.io.dma_write_data_a := NPUTile0Def.module.io.dma_write_data
-    NPUTile0Def.module.io.dma_write_ready := DMAGroupControllerDef.io.dma_write_ready_a
-    NPUTile0Def.module.io.dma_read_valid := DMAGroupControllerDef.io.dma_read_valid_a
-    NPUTile0Def.module.io.dma_read_data := DMAGroupControllerDef.io.dma_read_data_a
-    DMAGroupControllerDef.io.dma_read_ready_a := NPUTile0Def.module.io.dma_read_ready
+    DMAPathControllerDef.io.risc_clk := clock
+    DMAPathControllerDef.io.fpu_clk := clock
+    DMAPathControllerDef.io.reset := reset
+    DMAPathControllerDef.io.dma_req_a := NPUTile0Def.module.io.dma_req 
+    NPUTile0Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_a
+    DMAPathControllerDef.io.dma_write_valid_a := NPUTile0Def.module.io.dma_write_valid
+    DMAPathControllerDef.io.dma_write_data_a := NPUTile0Def.module.io.dma_write_data
+    NPUTile0Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_a
+    NPUTile0Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_a
+    NPUTile0Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_a
+    DMAPathControllerDef.io.dma_read_ready_a := NPUTile0Def.module.io.dma_read_ready
 
-    DMAGroupControllerDef.io.dma_req_b := NPUTile1Def.module.io.dma_req 
-    NPUTile1Def.module.io.dma_resp := DMAGroupControllerDef.io.dma_resp_b
-    DMAGroupControllerDef.io.dma_write_valid_b := NPUTile1Def.module.io.dma_write_valid
-    DMAGroupControllerDef.io.dma_write_data_b := NPUTile1Def.module.io.dma_write_data
-    NPUTile1Def.module.io.dma_write_ready := DMAGroupControllerDef.io.dma_write_ready_b
-    NPUTile1Def.module.io.dma_read_valid := DMAGroupControllerDef.io.dma_read_valid_b
-    NPUTile1Def.module.io.dma_read_data := DMAGroupControllerDef.io.dma_read_data_b
-    DMAGroupControllerDef.io.dma_read_ready_b := NPUTile1Def.module.io.dma_read_ready
+    DMAPathControllerDef.io.dma_req_b := NPUTile1Def.module.io.dma_req 
+    NPUTile1Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_b
+    DMAPathControllerDef.io.dma_write_valid_b := NPUTile1Def.module.io.dma_write_valid
+    DMAPathControllerDef.io.dma_write_data_b := NPUTile1Def.module.io.dma_write_data
+    NPUTile1Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_b
+    NPUTile1Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_b
+    NPUTile1Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_b
+    DMAPathControllerDef.io.dma_read_ready_b := NPUTile1Def.module.io.dma_read_ready
 
-    DMAGroupControllerDef.io.dma_req_c := NPUTile2Def.module.io.dma_req 
-    NPUTile2Def.module.io.dma_resp := DMAGroupControllerDef.io.dma_resp_c
-    DMAGroupControllerDef.io.dma_write_valid_c := NPUTile2Def.module.io.dma_write_valid
-    DMAGroupControllerDef.io.dma_write_data_c := NPUTile2Def.module.io.dma_write_data
-    NPUTile2Def.module.io.dma_write_ready := DMAGroupControllerDef.io.dma_write_ready_c
-    NPUTile2Def.module.io.dma_read_valid := DMAGroupControllerDef.io.dma_read_valid_c
-    NPUTile2Def.module.io.dma_read_data := DMAGroupControllerDef.io.dma_read_data_c
-    DMAGroupControllerDef.io.dma_read_ready_c := NPUTile2Def.module.io.dma_read_ready
+    DMAPathControllerDef.io.dma_req_c := NPUTile2Def.module.io.dma_req 
+    NPUTile2Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_c
+    DMAPathControllerDef.io.dma_write_valid_c := NPUTile2Def.module.io.dma_write_valid
+    DMAPathControllerDef.io.dma_write_data_c := NPUTile2Def.module.io.dma_write_data
+    NPUTile2Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_c
+    NPUTile2Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_c
+    NPUTile2Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_c
+    DMAPathControllerDef.io.dma_read_ready_c := NPUTile2Def.module.io.dma_read_ready
 
-    DMAGroupControllerDef.io.dma_req_d := NPUTile3Def.module.io.dma_req 
-    NPUTile3Def.module.io.dma_resp := DMAGroupControllerDef.io.dma_resp_d
-    DMAGroupControllerDef.io.dma_write_valid_d := NPUTile3Def.module.io.dma_write_valid
-    DMAGroupControllerDef.io.dma_write_data_d := NPUTile3Def.module.io.dma_write_data
-    NPUTile3Def.module.io.dma_write_ready := DMAGroupControllerDef.io.dma_write_ready_d
-    NPUTile3Def.module.io.dma_read_valid := DMAGroupControllerDef.io.dma_read_valid_d
-    NPUTile3Def.module.io.dma_read_data := DMAGroupControllerDef.io.dma_read_data_d
-    DMAGroupControllerDef.io.dma_read_ready_d := NPUTile3Def.module.io.dma_read_ready
+    DMAPathControllerDef.io.dma_req_d := NPUTile3Def.module.io.dma_req 
+    NPUTile3Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_d
+    DMAPathControllerDef.io.dma_write_valid_d := NPUTile3Def.module.io.dma_write_valid
+    DMAPathControllerDef.io.dma_write_data_d := NPUTile3Def.module.io.dma_write_data
+    NPUTile3Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_d
+    NPUTile3Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_d
+    NPUTile3Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_d
+    DMAPathControllerDef.io.dma_read_ready_d := NPUTile3Def.module.io.dma_read_ready
 
-    DMAEngineDef.module.io.rcc.valid :=DMAGroupControllerDef.io.rcc_valid
-    DMAGroupControllerDef.io.rcc_ready :=DMAEngineDef.module.io.rcc.ready
-    DMAEngineDef.module.io.rcc.bits.dram_addr :=DMAGroupControllerDef.io.rcc_dram_addr
-    DMAEngineDef.module.io.rcc.bits.dpram_addr :=DMAGroupControllerDef.io.rcc_dpram_addr
-    DMAEngineDef.module.io.rcc.bits.length :=DMAGroupControllerDef.io.rcc_length
+    DMAEngineDef.module.io.rcc.valid :=DMAPathControllerDef.io.rcc_valid
+    DMAPathControllerDef.io.rcc_ready :=DMAEngineDef.module.io.rcc.ready
+    DMAEngineDef.module.io.rcc.bits.dram_addr :=DMAPathControllerDef.io.rcc_dram_addr
+    DMAEngineDef.module.io.rcc.bits.dpram_addr :=DMAPathControllerDef.io.rcc_dpram_addr
+    DMAEngineDef.module.io.rcc.bits.length :=DMAPathControllerDef.io.rcc_length
     
-    DMAGroupControllerDef.io.rcd_valid :=DMAEngineDef.module.io.rcd.valid
-    DMAEngineDef.module.io.rcd.ready :=DMAGroupControllerDef.io.rcd_ready
-    DMAGroupControllerDef.io.rcd_dpram_addr :=DMAEngineDef.module.io.rcd.bits.dpram_addr
-    DMAGroupControllerDef.io.rcd_read_data :=DMAEngineDef.module.io.rcd.bits.data
-    DMAGroupControllerDef.io.rcd_length :=DMAEngineDef.module.io.rcd.bits.length
+    DMAPathControllerDef.io.rcd_valid :=DMAEngineDef.module.io.rcd.valid
+    DMAEngineDef.module.io.rcd.ready :=DMAPathControllerDef.io.rcd_ready
+    DMAPathControllerDef.io.rcd_dpram_addr :=DMAEngineDef.module.io.rcd.bits.dpram_addr
+    DMAPathControllerDef.io.rcd_read_data :=DMAEngineDef.module.io.rcd.bits.data
+    DMAPathControllerDef.io.rcd_length :=DMAEngineDef.module.io.rcd.bits.length
 
-    DMAEngineDef.module.io.wcc.valid :=DMAGroupControllerDef.io.wcc_valid
-    DMAGroupControllerDef.io.wcc_ready :=DMAEngineDef.module.io.wcc.ready
-    DMAEngineDef.module.io.wcc.bits.dram_addr :=DMAGroupControllerDef.io.wcc_dram_addr
-    DMAEngineDef.module.io.wcc.bits.data :=DMAGroupControllerDef.io.wcc_write_data
-    DMAEngineDef.module.io.wcc.bits.length :=DMAGroupControllerDef.io.wcc_length
+    DMAEngineDef.module.io.wcc.valid :=DMAPathControllerDef.io.wcc_valid
+    DMAPathControllerDef.io.wcc_ready :=DMAEngineDef.module.io.wcc.ready
+    DMAEngineDef.module.io.wcc.bits.dram_addr :=DMAPathControllerDef.io.wcc_dram_addr
+    DMAEngineDef.module.io.wcc.bits.data :=DMAPathControllerDef.io.wcc_write_data
+    DMAEngineDef.module.io.wcc.bits.length :=DMAPathControllerDef.io.wcc_length
 
     // io.ptw <> DMAEngineDef.module.io.ptw
 

@@ -18,7 +18,8 @@ reg	[127:0]	ram[16*256-1:0];
 
 //---- write operation
 integer i;
-always @(posedge clka or negedge !rstn) begin
+// always @(posedge clka or negedge rstn) begin
+always @(posedge clka or negedge rstn) begin
     if(!rstn) begin
         for (i=0; i<16*256-1; i=i+1) ram[i] <= 0;
     end else begin
@@ -26,7 +27,7 @@ always @(posedge clka or negedge !rstn) begin
     end
 end
 
-always @(posedge clkb or negedge !rstn) begin
+always @(posedge clkb or negedge rstn) begin
     if (!rstn) begin 
         doutb <= 0;
     end else begin

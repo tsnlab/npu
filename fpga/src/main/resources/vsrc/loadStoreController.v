@@ -13,20 +13,20 @@
 //    0.01 junhyuk - Create
 ////////////////////////////////////////////////////////////////////////////////
 			
-module dmaController(
+module loadStoreController(
 	input wire clk,
-	input wire reset,
+	input wire rst,
 
   //***** FPU Core block
 	input wire core_req,
 	output reg core_ready,
   input wire core_rwn,
-	input wire [39:0] core_host_addr,
-  input wire [13:0] core_local_addr,
-	input wire [15:0]core_transfer_length,
+	input wire [39:0] core_hostAddr,
+  input wire [13:0] core_localAddr,
+	input wire [15:0]core_transferLength,
 	output wire core_ack,
-	input wire [127:0] core_write_data,
-	output wire [127:0] core_read_data,
+	input wire [127:0] core_writeData,
+	output wire [127:0] core_readData,
 
   //***** DMA Path Controller block
   output reg dma_req,
@@ -49,8 +49,8 @@ reg[3:0] cfcon = cfc_idle;
 reg data_st;
 reg data_done;
 //***** fpu reqest process
-always@(posedge clk or posedge reset)begin
-  if(reset) begin
+always@(posedge clk or posedge rst)begin
+  if(rst) begin
     dma_req <= 1'b0;
     cfcon <= cfc_idle;
     data_st <= 1'b0;
@@ -117,8 +117,8 @@ reg read_valid;
 reg rd_en;
 
 //***** DMA data Path Control
-always@(posedge clk or posedge reset) begin
-  if(reset) begin
+always@(posedge clk or posedge rst) begin
+  if(rst) begin
     data_done <= 1'b0;
     wr_en <= 1'b0;
     rd_en <= 1'b0;
@@ -141,13 +141,13 @@ always@(posedge clk or posedge reset) begin
           end
           else begin
             dpcon <= dpc_wr_data0;
-            dpcon_lengh <= core_transfer_length;
+            dpcon_lengh <= core_transferLength;
           end
         end
       end
       dpc_wr_data0 : begin
         wr_en <= 1'b1;
-        dma_write_data <= {48'd0,8'h03,core_transfer_length,core_host_addr,core_local_addr};
+        dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,core_localAddr};
         if(dma_write_ready) begin
           dpcon <= dpc_wr_data1;
         end
@@ -158,12 +158,12 @@ always@(posedge clk or posedge reset) begin
       dpc_wr_data1 : begin
         if(dpcon_cnt >= dpcon_lengh) begin
           wr_en <= 1'b0;
-          dma_write_data <= core_write_data;
+          dma_write_data <= core_writeData;
           dpcon <= dpc_end;
         end
         else begin
           wr_en <= 1'b1;
-          dma_write_data <= core_write_data;
+          dma_write_data <= core_writeData;
           if(dma_write_valid) begin
             dpcon_cnt <= dpcon_cnt + 1;
           end
@@ -177,7 +177,7 @@ always@(posedge clk or posedge reset) begin
       dpc_rd_data : begin
         if(dma_write_ready) begin
           rd_en <= 1'b1;
-          dma_write_data <= {48'd0,8'h01,core_transfer_length,core_host_addr,core_local_addr};
+          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,core_localAddr};
           dpcon <= dpc_end;
         end
       end
@@ -195,8 +195,8 @@ always@(posedge clk or posedge reset) begin
 end
 
 //***** Read Data Path control
-always@(posedge clk or posedge reset) begin
-  if(reset) begin
+always@(posedge clk or posedge rst) begin
+  if(rst) begin
     read_valid <= 1'b0;
   end
   else begin
@@ -207,7 +207,7 @@ end
 
 assign core_ack = ((wr_en && dma_write_ready) || (dma_read_valid && read_valid));
 assign dma_write_valid = ((wr_en || rd_en) && dma_write_ready);
-assign core_read_data = dma_read_data;
-assign dma_read_ready = !reset;
+assign core_readData = dma_read_data;
+assign dma_read_ready = !rst;
 
 endmodule

@@ -31,7 +31,7 @@ module NPUCore
     output  reg         dma_rwn,
     output  reg [39:0]  dma_hostAddr,
     output  reg [15:0]  dma_localAddr,
-    output  reg [15:0]  dma_tansferLength,
+    output  reg [15:0]  dma_transferLength,
     output      [127:0] dma_writeData,
     input       [127:0] dma_readData,
     input               dma_ack,
@@ -165,7 +165,7 @@ always @(negedge rstn or posedge clk) begin
 		dma_req		<= 0;
 		dma_rwn		<= 0;
 		dma_hostAddr    <= 0;
-		dma_tansferLength   <= 0;
+		dma_transferLength   <= 0;
 		kernel_wren		<= 0;
 		kernel_wadr		<= 0;
 		kernel_rden		<= 0;
@@ -231,14 +231,14 @@ always @(negedge rstn or posedge clk) begin
                     dma_rwn		<= 1;
                     dma_localAddr   <= rocc_if_local_mem_offset;
                     dma_hostAddr    <= rocc_if_host_mem_offset;
-                    dma_tansferLength   <= rocc_if_size;
+                    dma_transferLength   <= rocc_if_size;
                 end else if(rocc_if_funct == 7'd4) begin
                     state <= S_STORE_PRE;
                     dma_req     <= 0;
                     dma_rwn		<= 0;
                     dma_localAddr   <= rocc_if_local_mem_offset;
                     dma_hostAddr    <= rocc_if_host_mem_offset;
-                    dma_tansferLength   <= rocc_if_size;
+                    dma_transferLength   <= rocc_if_size;
                 end else begin
                     state <= state;
                     dma_rwn		<= 0;
@@ -308,14 +308,14 @@ always @(negedge rstn or posedge clk) begin
                 arg_ano == 6 ? rf[6] :
                 arg_ano == 7 ? rf[7] : dma_hostAddr : dma_hostAddr;
 
-			dma_tansferLength	<= opc == OPC_LOAD || opc == OPC_STORE ? 
+			dma_transferLength	<= opc == OPC_LOAD || opc == OPC_STORE ? 
                 arg_cno == 1 ? rf[1][15:0]/8 : 
                 arg_cno == 2 ? rf[2][15:0]/8 :
                 arg_cno == 3 ? rf[3][15:0]/8 :
                 arg_cno == 4 ? rf[4][15:0]/8 :
                 arg_cno == 5 ? rf[5][15:0]/8 :
                 arg_cno == 6 ? rf[6][15:0]/8 :
-                arg_cno == 7 ? rf[7][15:0]/8 : dma_tansferLength : dma_tansferLength;
+                arg_cno == 7 ? rf[7][15:0]/8 : dma_transferLength : dma_transferLength;
 
 			opc_cmd		<= opc;
 			bf16_opc	<= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? opc - OPC_VADD_BF16 : bf16_opc;
@@ -376,8 +376,8 @@ always @(negedge rstn or posedge clk) begin
 
 		S_LOAD_DATA:
 		begin
-			state		<= dma_ack && scnt == dma_tansferLength - 1 ? S_OPC_READ : state;
-			scnt		<= dma_ack ? (scnt == dma_tansferLength - 1 ? 0 : scnt + 1) : scnt;
+			state		<= dma_ack && scnt == dma_transferLength - 1 ? S_OPC_READ : state;
+			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
        
             kernel_wren     <= dma_localAddr[15:14] == 2'b00;
             kernel_wadr     <= kernel_wren ? kernel_wadr + 8 : dma_localAddr[14:0];
@@ -390,7 +390,7 @@ always @(negedge rstn or posedge clk) begin
 
             sram_a_dina_reg <= dma_readData;
             sram_b_dina_reg <= dma_readData;
-			kernel_rden		<= dma_ack && scnt == dma_tansferLength - 1;
+			kernel_rden		<= dma_ack && scnt == dma_transferLength - 1;
 		end
 
 		S_STORE_PRE:
@@ -409,12 +409,12 @@ always @(negedge rstn or posedge clk) begin
 
 		S_STORE_DATA:
 		begin
-			state		<= dma_ack && scnt == dma_tansferLength - 1 ? S_OPC_READ : state;
-			scnt		<= dma_ack ? (scnt == dma_tansferLength - 1 ? 0 : scnt + 1) : scnt;
-			resultc_rden    <= dma_ack && scnt != dma_tansferLength - 1;
-			resultc_radr	<= dma_ack && scnt == dma_tansferLength - 1 ? 0 : resultc_rden ? resultc_radr + 8 : resultc_radr;
+			state		<= dma_ack && scnt == dma_transferLength - 1 ? S_OPC_READ : state;
+			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
+			resultc_rden    <= dma_ack && scnt != dma_transferLength - 1;
+			resultc_radr	<= dma_ack && scnt == dma_transferLength - 1 ? 0 : resultc_rden ? resultc_radr + 8 : resultc_radr;
 
-			kernel_rden		<= dma_ack && scnt == dma_tansferLength - 1;
+			kernel_rden		<= dma_ack && scnt == dma_transferLength - 1;
 		end
 
         S_BF16:
