@@ -41,3 +41,73 @@ set_property -dict [list \
         CONFIG.C_PROBE14_TYPE {1} \
         CONFIG.C_PROBE14_WIDTH {97} \
         ] [get_ips ila]
+        
+create_ip -vendor xilinx.com -library ip -name fifo_generator -module_name as32x512_ft -dir $ipdir -force
+set_property -dict [list \
+        CONFIG.Fifo_Implementation {Independent_Clocks_Distributed_RAM} \
+        CONFIG.Performance_Options {First_Word_Fall_Through} \
+        CONFIG.Input_Data_Width {32} \
+        CONFIG.Input_Depth {512} \
+        CONFIG.Output_Data_Width {32} \
+        CONFIG.Output_Depth {512} \
+        CONFIG.Reset_Type {Asynchronous_Reset} \
+        CONFIG.Full_Flags_Reset_Value {1} \
+        CONFIG.Data_Count_Width {9} \
+        CONFIG.Write_Data_Count {true} \
+        CONFIG.Write_Data_Count_Width {9} \
+        CONFIG.Read_Data_Count {true} \
+        CONFIG.Read_Data_Count_Width {9} \
+        CONFIG.Full_Threshold_Assert_Value {511} \
+        CONFIG.Full_Threshold_Negate_Value {510} \
+        CONFIG.Empty_Threshold_Assert_Value {4} \
+        CONFIG.Empty_Threshold_Negate_Value {5}
+        ] [get_ips as32x512_ft]
+
+create_ip -name fifo_generator -vendor xilinx.com -library ip -module_name as72x512_ft -dir $ipdir -force
+set_property -dict [list \
+        CONFIG.Fifo_Implementation {Independent_Clocks_Distributed_RAM} \
+        CONFIG.Performance_Options {First_Word_Fall_Through} \
+        CONFIG.Input_Data_Width {72} \
+        CONFIG.Input_Depth {512} \
+        CONFIG.Output_Data_Width {72} \
+        CONFIG.Output_Depth {512} \
+        CONFIG.Reset_Type {Asynchronous_Reset} \
+        CONFIG.Full_Flags_Reset_Value {1} \
+        CONFIG.Data_Count_Width {9} \
+        CONFIG.Write_Data_Count {true} \
+        CONFIG.Write_Data_Count_Width {9} \
+        CONFIG.Read_Data_Count {true} \
+        CONFIG.Read_Data_Count_Width {9} \
+        CONFIG.Full_Threshold_Assert_Value {511} \
+        CONFIG.Full_Threshold_Negate_Value {510} \
+        CONFIG.Empty_Threshold_Assert_Value {4} \
+        CONFIG.Empty_Threshold_Negate_Value {5}
+        ] [get_ips as72x512_ft]
+
+create_ip -name fifo_generator -vendor xilinx.com -library ip -module_name as128x1024 -dir $ipdir -force
+set_property -dict [list \
+        CONFIG.Fifo_Implementation {Independent_Clocks_Distributed_RAM} \
+        CONFIG.INTERFACE_TYPE {Native}\
+        CONFIG.Performance_Options {First_Word_Fall_Through} \
+        CONFIG.Input_Data_Width {128} \
+        CONFIG.Output_Data_Width {128} \
+        CONFIG.Reset_Type {Asynchronous_Reset} \
+        CONFIG.Full_Flags_Reset_Value {1} \
+        CONFIG.Write_Data_Count {true}\
+        CONFIG.Read_Data_Count {true} \
+        CONFIG.Full_Threshold_Assert_Value {1023} \
+        CONFIG.Full_Threshold_Negate_Value {1022} \
+        CONFIG.Empty_Threshold_Assert_Value {4} \
+        CONFIG.Empty_Threshold_Negate_Value {5} \
+        CONFIG.FIFO_Implementation_wach {Common_Clock_Distributed_RAM} \
+        CONFIG.Full_Threshold_Assert_Value_wach {15} \
+        CONFIG.Empty_Threshold_Assert_Value_wach {14} \
+        CONFIG.FIFO_Implementation_wrch {Common_Clock_Distributed_RAM} \
+        CONFIG.Full_Threshold_Assert_Value_wrch {15} \
+        CONFIG.Empty_Threshold_Assert_Value_wrch {14} \
+        CONFIG.FIFO_Implementation_rach {Common_Clock_Distributed_RAM} \
+        CONFIG.Full_Threshold_Assert_Value_rach {15} \
+        CONFIG.Empty_Threshold_Assert_Value_rach {14} \
+        CONFIG.Enable_Safety_Circuit {false}
+        ] [get_ips as128x1024]
+
