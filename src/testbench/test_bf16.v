@@ -69,11 +69,11 @@ module test_bf16;
 
 
     // Check the output 'io_y'
-    if (io_y == expected_result) begin
-      $display("Test PASSED: io_y is correct.");
-    end else begin
-      $display("Test FAILED: io_y is incorrect. Expected: %h, Actual: %h", expected_result, io_y);
-    end
+    // if (io_y == expected_result) begin
+    //   $display("Test PASSED: io_y is correct.");
+    // end else begin
+    //   $display("Test FAILED: io_y is incorrect. Expected: %h, Actual: %h", expected_result, io_y);
+    // end
 
     // Finish the simulation
     $finish;
@@ -92,7 +92,7 @@ end
       // Add more cases for other opcodes as needed
       default: expected_result = 16'h0000; // Default value for undefined opcode
     endcase
-    
+
     if (io_y == expected_result) begin
         $display("Test PASSED: io_y is correct.");
       end else begin
