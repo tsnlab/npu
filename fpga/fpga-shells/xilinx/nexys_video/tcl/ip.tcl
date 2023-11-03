@@ -41,7 +41,7 @@ set_property -dict [list \
         CONFIG.C_PROBE14_TYPE {1} \
         CONFIG.C_PROBE14_WIDTH {97} \
         ] [get_ips ila]
-        
+
 create_ip -vendor xilinx.com -library ip -name fifo_generator -module_name as32x512_ft -dir $ipdir -force
 set_property -dict [list \
         CONFIG.Fifo_Implementation {Independent_Clocks_Distributed_RAM} \
