@@ -95,11 +95,11 @@ module DMAPathController(
 reg rcc_ff_wr_en;
 reg [71:0] rcc_ff_wr_data;
 wire rcc_ff_full;
-wire [8:0] rcc_ff_wr_cnt;
+wire [4:0] rcc_ff_wr_cnt;
 wire rcc_ff_rd_en;
 wire [71:0] rcc_ff_rd_data;
 wire rcc_ff_empty;
-wire [8:0] rcc_ff_rd_cnt;
+wire [4:0] rcc_ff_rd_cnt;
 
 
 //***** Read Controller Data Path Header FIFO Signal
@@ -107,21 +107,21 @@ wire rcd_ff_c_wr_en;
 reg rcd_ff_c_wr_en_d;
 reg [31:0] rcd_ff_c_wr_data;
 wire rcd_ff_c_full;
-wire [8:0] rcd_ff_c_wr_cnt;
+wire [4:0] rcd_ff_c_wr_cnt;
 reg rcd_ff_c_rd_en;
 wire [31:0] rcd_ff_c_rd_data;
 wire rcd_ff_c_empty;
-wire [8:0] rcd_ff_c_rd_cnt;
+wire [4:0] rcd_ff_c_rd_cnt;
 
 //***** Read Controller Data Path Data FIFO Signal
 wire rcd_ff_d_wr_en;
 wire [127:0] rcd_ff_d_wr_data;
 wire rcd_ff_d_full;
-wire [9:0] rcd_ff_d_wr_cnt;
+wire [7:0] rcd_ff_d_wr_cnt;
 reg rcd_ff_d_rd_en;
 wire [127:0] rcd_ff_d_rd_data;
 wire rcd_ff_d_empty;
-wire [9:0] rcd_ff_d_rd_cnt;
+wire [7:0] rcd_ff_d_rd_cnt;
 
 //***** Read Controller Data State Machine
 localparam rcd_st = 2'd0,
@@ -178,11 +178,11 @@ wire [3:0] dma_req;
 wire fpu_ff_wr_en;
 wire [127:0] fpu_ff_wr_data;
 wire fpu_ff_full;
-wire [9:0] fpu_ff_wr_cnt;
+wire [7:0] fpu_ff_wr_cnt;
 wire fpu_ff_rd_en;
 wire [127:0] fpu_ff_rd_data;
 wire fpu_ff_empty;
-wire [9:0] fpu_ff_rd_cnt;
+wire [7:0] fpu_ff_rd_cnt;
 
 //***** DMA Command Control State Machine
 localparam dcc_st = 4'd0,
@@ -204,11 +204,11 @@ reg[7:0] mess_form;
 reg wcc_ff_wr_en;
 reg [71:0] wcc_ff_wr_data;
 wire wcc_ff_full;
-wire [8:0] wcc_ff_wr_cnt;
+wire [4:0] wcc_ff_wr_cnt;
 reg wcc_ff_rd_en;
 wire [71:0] wcc_ff_rd_data;
 wire wcc_ff_empty;
-wire [8:0] wcc_ff_rd_cnt;
+wire [4:0] wcc_ff_rd_cnt;
 
 
 //***** Write Controller Data Signal
@@ -217,11 +217,11 @@ reg wcd_read_da_en;
 wire wcd_ff_wr_en;
 wire [127:0] wcd_ff_wr_data;
 wire wcd_ff_full;
-wire [9:0] wcd_ff_wr_cnt;
+wire [7:0] wcd_ff_wr_cnt;
 wire wcd_ff_rd_en;
 wire [127:0] wcd_ff_rd_data;
 wire wcd_ff_empty;
-wire [9:0] wcd_ff_rd_cnt;
+wire [7:0] wcd_ff_rd_cnt;
 
 //***** Group Write Control State Machine
 localparam gwcd_st = 4'd0,
@@ -479,7 +479,7 @@ assign fpu_ff_wr_en = fpu_write_vld &&(~fpu_ff_full)&&(dpc_rdy);
 assign fpu_ff_wr_data = fpu_write_data;
 assign fpu_write_rdy = (~fpu_ff_full)&&(dpc_rdy);
 
-as128x1024 fpu_write_fifo (
+as128x256_ft fpu_write_fifo (
 	.rst			(reset),           // input wire rst
 	
 	.wr_clk			(fpu_clk),        // input wire wr_clk
@@ -599,7 +599,7 @@ assign wcd_ff_wr_en = (wcd_read_da_en && (~wcd_ff_full) &&(~fpu_ff_empty));
 assign fpu_ff_rd_en = (wcd_read_en && (~wcd_ff_full) &&(~fpu_ff_empty));
 assign wcd_ff_wr_data = fpu_ff_rd_data;
 
-as72x512_ft wcc_ff (
+as72x32_ft wcc_ff (
 	.rst			(reset),           // input wire rst
 	
 	.wr_clk			(fpu_clk),        // input wire wr_clk
@@ -615,7 +615,7 @@ as72x512_ft wcc_ff (
 	.rd_data_count	(wcc_ff_rd_cnt)  // output wire [8 : 0] rd_data_count
 );
 
-as128x1024 wcd_ff (
+as128x256_ft wcd_ff (
 	.rst			(reset),           // input wire rst
 	
 	.wr_clk			(fpu_clk),        // input wire wr_clk
@@ -707,7 +707,7 @@ assign wcc_valid = gwcd_en;
 
 
 
-as72x512_ft rcc_fifo (
+as72x32_ft rcc_fifo (
 	.rst			(reset),           // input wire rst
 	
 	.wr_clk			(fpu_clk),        // input wire wr_clk
@@ -748,7 +748,7 @@ assign rcd_ff_d_wr_en = (rcd_valid && (~rcd_ff_d_full));
 assign rcd_ready = ((~rcd_ff_d_full) && (~rcd_ff_c_full));
 assign rcd_ff_d_wr_data = rcd_read_data;
 
-as32x512_ft rcd_com_fifo (
+as32x32_ft rcd_com_fifo (
 	.rst			(reset),           // input wire rst
 
 	.wr_clk			(risc_clk),        // input wire wr_clk
@@ -764,7 +764,7 @@ as32x512_ft rcd_com_fifo (
 	.rd_data_count	(rcd_ff_c_rd_cnt)  // output wire [8 : 0] rd_data_count
 );
 
-as128x1024 rcd_data_fifo (
+as128x256_ft rcd_data_fifo (
 	.rst			(reset),           // input wire rst
 	
 	.wr_clk			(risc_clk),        // input wire wr_clk
