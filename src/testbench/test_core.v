@@ -50,7 +50,7 @@ reg dma_ready;
 wire dma_rwn;
 wire [39:0]  dma_hostAddr;
 wire [15:0]  dma_localAddr;
-wire [15:0]  dma_tansferLength;
+wire [15:0]  dma_transferLength;
 wire [127:0] dma_writeData;
 reg dma_readData;
 reg dma_ack;
@@ -120,24 +120,17 @@ NPUCore uut0 (
     .dma_rwn(dma_rwn),
     .dma_hostAddr(dma_hostAddr),
     .dma_localAddr(dma_localAddr),
-    .dma_tansferLength(dma_tansferLength),
+    .dma_transferLength(dma_transferLength),
     .dma_writeData(dma_writeData),
     .dma_readData(dma_readData),
     .dma_ack(dma_ack),
-    .sram_a_ena(sram_a_ena), // Connect SRAM signals as needed
-    .sram_a_wea(sram_a_wea),
-    .sram_a_addra(sram_a_addra),
-    .sram_a_dina(sram_a_dina),
-    .sram_a_enb(sram_a_enb),
-    .sram_a_addrb(sram_a_addrb),
-    .sram_a_doutb(sram_a_doutb),
-    .sram_b_ena(sram_b_ena),
-    .sram_b_wea(sram_b_wea),
-    .sram_b_addra(sram_b_addra),
-    .sram_b_dina(sram_b_dina),
-    .sram_b_enb(sram_b_enb),
-    .sram_b_addrb(sram_b_addrb),
-    .sram_b_doutb(sram_b_doutb)
+    .sram_ena(sram_a_ena), // Connect SRAM signals as needed
+    .sram_wea(sram_a_wea),
+    .sram_addra(sram_a_addra),
+    .sram_dina(sram_a_dina),
+    .sram_enb(sram_a_enb),
+    .sram_addrb(sram_a_addrb),
+    .sram_doutb(sram_a_doutb)
 );
 BF16Unit uut1 (
     .clock(clk),
@@ -175,18 +168,18 @@ always @(posedge clk) if(sram_a_enb) sram_a_doutb <= A[sram_a_addrb];
 //    .doutb(sram_a_doutb) // Connect read data out
 //);
 
-SRAM uut3(
-    .rstn(rstn),
-    .clka(clk),      // Connect write clock
-    .ena(sram_b_ena), // Connect write enable
-    .wea(sram_b_wea), // Connect write write enable
-    .addra(sram_b_addra), // Connect write address
-    .dina(sram_b_dina), // Connect write data in
+//SRAM uut3(
+//    .rstn(rstn),
+//    .clka(clk),      // Connect write clock
+//    .ena(sram_b_ena), // Connect write enable
+//    .wea(sram_b_wea), // Connect write write enable
+//    .addra(sram_b_addra), // Connect write address
+//    .dina(sram_b_dina), // Connect write data in
 
-    .clkb(clk), // Connect read clock
-    .enb(sram_b_enb), // Connect read enable
-    .addrb(sram_b_addrb), // Connect read address
-    .doutb(sram_b_doutb) // Connect read data out
-);
+//    .clkb(clk), // Connect read clock
+//    .enb(sram_b_enb), // Connect read enable
+//    .addrb(sram_b_addrb), // Connect read address
+//    .doutb(sram_b_doutb) // Connect read data out
+//);
 
 endmodule

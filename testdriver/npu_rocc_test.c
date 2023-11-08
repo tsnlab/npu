@@ -2,17 +2,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static inline void reg_write(int idx, unsigned long data)
+static inline void npu_regSet(int idx, unsigned long data)
 {
 	ROCC_INSTRUCTION_SS(3, data, idx, 0);
 }
 
-static inline unsigned long reg_read(int idx)
+static inline unsigned long npu_regGet(int idx)
 {
 	unsigned long value;
 	ROCC_INSTRUCTION_DSS(3, value, 0, idx, 1);
 	return value;
 }
+
+static inline void npu_exec()
+{
+	ROCC_INSTRUCTION(3, 2);
+}
+
 
 // unsigned long data = 0x3421L;
 
@@ -23,8 +29,8 @@ int main(void)
     int cnt = 0;
 
     printf("reg_write start. input = %lx \n", input); 
-	reg_write(1, input);
-    result = reg_read(1);
+	npu_regSet(1, input);
+    result = npu_regGet(1);
     printf("reg_write finished. result = %lx \n", result); 
 
     
