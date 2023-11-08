@@ -8,6 +8,9 @@ import jax.numpy as jnp
 
 is_debug = False
 
+SRAM_WIDTH = 128
+SRAM_DEPTH = 4096
+
 REG_ZERO = 0
 REG_A = 1
 REG_B = 2
@@ -149,7 +152,7 @@ def save(data, filename):
 
 
 class Host:
-    def __init__(self, mem_size=512 * 1024, npus=4, out='stdout'):
+    def __init__(self, mem_size=SRAM_WIDTH * SRAM_DEPTH, npus=4, out='stdout'):
         self.kernel = None
         self.data = {}
         self.updated = {}
@@ -274,7 +277,7 @@ class Host:
 
 
 class NPU(threading.Thread):
-    def __init__(self, id, mem_size=512 * 1024, out='stdout'):
+    def __init__(self, id, mem_size=SRAM_WIDTH * SRAM_DEPTH, out='stdout'):
         super().__init__()
 
         self.id = id
