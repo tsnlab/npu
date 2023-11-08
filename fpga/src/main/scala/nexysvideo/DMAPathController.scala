@@ -58,7 +58,7 @@ class DMAPathController extends BlackBox with HasBlackBoxResource {
 	val dma_read_ready_d = Input(Bool())
   })
   addResource("/vsrc/DMAPathController.v")
-  addResource("/vsrc/as128x1024/as128x1024.xci")
-  addResource("/vsrc/as32x512_ft/as32x512_ft.xci")
-  addResource("/vsrc/as72x512_ft/as72x512_ft.xci")
+//   addResource("/vsrc/as128x1024/as128x1024.xci")
+//   addResource("/vsrc/as32x512_ft/as32x512_ft.xci")
+//   addResource("/vsrc/as72x512_ft/as72x512_ft.xci")
 }

@@ -68,29 +68,29 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
 
         // val Uint32UnitDef = Definition(new BlackBoxInt32u)
         val SRAMADef = Module(new SRAM)
-        val SRAMBDef = Module(new SRAM)
+        // val SRAMBDef = Module(new SRAM)
 
-        SRAMADef.io.rstn :=  ~reset.asBool
+        // SRAMADef.io.rstn :=  ~reset.asBool
         SRAMADef.io.clka := clock
-        SRAMADef.io.ena := NPUCoreDef.io.sram_a_ena
-        SRAMADef.io.wea := NPUCoreDef.io.sram_a_wea
-        SRAMADef.io.addra := NPUCoreDef.io.sram_a_addra
-        SRAMADef.io.dina := NPUCoreDef.io.sram_a_dina
+        SRAMADef.io.ena := NPUCoreDef.io.sram_ena
+        SRAMADef.io.wea := NPUCoreDef.io.sram_wea
+        SRAMADef.io.addra := NPUCoreDef.io.sram_addra
+        SRAMADef.io.dina := NPUCoreDef.io.sram_dina
         SRAMADef.io.clkb := clock
-        SRAMADef.io.enb := NPUCoreDef.io.sram_a_enb
-        SRAMADef.io.addrb := NPUCoreDef.io.sram_a_addrb
-        NPUCoreDef.io.sram_a_doutb := SRAMADef.io.doutb
+        SRAMADef.io.enb := NPUCoreDef.io.sram_enb
+        SRAMADef.io.addrb := NPUCoreDef.io.sram_addrb
+        NPUCoreDef.io.sram_doutb := SRAMADef.io.doutb
 
-        SRAMBDef.io.rstn :=  ~reset.asBool
-        SRAMBDef.io.clka := clock
-        SRAMBDef.io.ena := NPUCoreDef.io.sram_b_ena
-        SRAMBDef.io.wea := NPUCoreDef.io.sram_b_wea
-        SRAMBDef.io.addra := NPUCoreDef.io.sram_b_addra
-        SRAMBDef.io.dina := NPUCoreDef.io.sram_b_dina
-        SRAMBDef.io.clkb := clock
-        SRAMBDef.io.enb := NPUCoreDef.io.sram_b_enb
-        SRAMBDef.io.addrb := NPUCoreDef.io.sram_b_addrb
-        NPUCoreDef.io.sram_b_doutb := SRAMBDef.io.doutb
+        // SRAMBDef.io.rstn :=  ~reset.asBool
+        // SRAMBDef.io.clka := clock
+        // SRAMBDef.io.ena := NPUCoreDef.io.sram_b_ena
+        // SRAMBDef.io.wea := NPUCoreDef.io.sram_b_wea
+        // SRAMBDef.io.addra := NPUCoreDef.io.sram_b_addra
+        // SRAMBDef.io.dina := NPUCoreDef.io.sram_b_dina
+        // SRAMBDef.io.clkb := clock
+        // SRAMBDef.io.enb := NPUCoreDef.io.sram_b_enb
+        // SRAMBDef.io.addrb := NPUCoreDef.io.sram_b_addrb
+        // NPUCoreDef.io.sram_b_doutb := SRAMBDef.io.doutb
 
 
         val LoadStoreControllerDef = Module(new loadStoreController)
