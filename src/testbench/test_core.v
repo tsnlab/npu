@@ -26,10 +26,10 @@ reg clk;      // Clock signal
 reg rst;
 reg rstn;     // Reset signal
 
-reg [39:0] rocc_if_host_mem_offset = 40'd0; // ROCC Interface signals
-reg [15:0] rocc_if_size = 16'd4;
+reg [39:0] rocc_if_host_mem_offset = 40'd50; // ROCC Interface signals
+reg [15:0] rocc_if_size = 16'd40;
 reg [15:0] rocc_if_local_mem_offset = 16'd0;
-reg [6:0] rocc_if_funct = 7'd3;
+reg [6:0] rocc_if_funct = 7'd4;
 reg rocc_if_cmd_vld;
 wire rocc_if_fin;
 wire rocc_if_busy;
@@ -99,10 +99,10 @@ wire [127:0] _NPUTile3Def_LoadStoreControllerDef_dma_write_data;	// @[fpga/src/m
 wire         _NPUTile3Def_LoadStoreControllerDef_dma_read_ready;	
 
 wire         _DMAEngineDef_io_rcc_ready;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:103:34]
-wire         _DMAEngineDef_io_rcd_valid;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:103:34]
-wire [15:0]  _DMAEngineDef_io_rcd_bits_dpram_addr;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:103:34]
-wire [127:0] _DMAEngineDef_io_rcd_bits_data;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:103:34]
-wire [15:0]  _DMAEngineDef_io_rcd_bits_length;
+reg         _DMAEngineDef_io_rcd_valid;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:103:34]
+reg [15:0]  _DMAEngineDef_io_rcd_bits_dpram_addr;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:103:34]
+reg [127:0] _DMAEngineDef_io_rcd_bits_data=0;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:103:34]
+reg [15:0]  _DMAEngineDef_io_rcd_bits_length;
 wire [39:0]  _DMAPathControllerDef_rcc_dram_addr;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:145:38]
 wire [15:0]  _DMAPathControllerDef_rcc_dpram_addr;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:145:38]
 wire [15:0]  _DMAPathControllerDef_rcc_length;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:145:38]
@@ -113,6 +113,8 @@ wire [15:0]  _DMAPathControllerDef_wcc_dpram_addr;	// @[fpga/src/main/scala/nexy
 wire [15:0]  _DMAPathControllerDef_wcc_length;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:145:38]
 wire [127:0] _DMAPathControllerDef_wcc_write_data;	// @[fpga/src/main/scala/nexysvideo/NPU.scala:145:38]
 wire         _DMAPathControllerDef_wcc_valid;	
+
+
   // Clock generation
 initial begin
     clk = 1;
@@ -276,11 +278,55 @@ DMAPathController DMAPathControllerDef (	// @[fpga/src/main/scala/nexysvideo/NPU
     .dma_read_data_d   (_DMAPathControllerDef_dma_read_data_d)
 );
 
-
 //---- write operation
 always @(posedge clk) if(sram_a_ena && sram_a_wea) A[sram_a_addra] <= sram_a_dina;
 
 always @(posedge clk) if(sram_a_enb) sram_a_doutb <= A[sram_a_addrb];
+
+
+reg[15:0] rcc_len;
+reg[39:0] rcc_dram;
+reg[15:0] rcc_dpram;
+reg[15:0] rcc_cnt =0;
+reg set=0;
+
+
+always@(posedge clk) begin
+    if(_DMAPathControllerDef_rcc_valid) begin
+        set <= 1;
+        rcc_len <= _DMAPathControllerDef_rcc_length;
+        rcc_dram <= _DMAPathControllerDef_rcc_dram_addr;
+        rcc_dpram <= _DMAPathControllerDef_rcc_dpram_addr;
+    end
+    if(set==1) begin
+        if(rcc_cnt >=rcc_len) begin
+            _DMAEngineDef_io_rcd_valid <= 1'b0;
+            _DMAEngineDef_io_rcd_bits_length <= rcc_len;
+            _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_dpram;
+            _DMAEngineDef_io_rcd_bits_data <= 0;
+            rcc_cnt <= 0;
+            set <= 0;
+        
+        end
+        else begin
+            _DMAEngineDef_io_rcd_valid <= 1'b1;
+            _DMAEngineDef_io_rcd_bits_length <= rcc_len;
+            _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_dpram;
+            _DMAEngineDef_io_rcd_bits_data <= _DMAEngineDef_io_rcd_bits_data + 1;
+            rcc_cnt <= rcc_cnt + 1;
+        end
+    end
+    else begin
+        _DMAEngineDef_io_rcd_valid <= 1'b0;
+        _DMAEngineDef_io_rcd_bits_length <= rcc_len;
+        _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_dpram;
+        _DMAEngineDef_io_rcd_bits_data <= 0;
+        rcc_cnt <= 0;
+    end
+
+
+end
+
 
 //SRAM uut2(
 //    .clka(clk),      // Connect write clock

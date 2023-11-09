@@ -14,29 +14,29 @@
 ////////////////////////////////////////////////////////////////////////////////
 			
 module loadStoreController(
-    input wire clk,
-    input wire rst,
+	input wire clk,
+	input wire rst,
 
   //***** FPU Core block
-    input wire core_req,
-    output reg core_ready,
-    input wire core_rwn,
-    input wire [39:0] core_hostAddr,
-    input wire [11:0] core_localAddr,
-    input wire [15:0]core_transferLength,
-    output wire core_ack,
-    input wire [127:0] core_writeData,
-    output wire [127:0] core_readData,
+	input wire core_req,
+	output reg core_ready,
+  input wire core_rwn,
+	input wire [39:0] core_hostAddr,
+  input wire [13:0] core_localAddr,
+	input wire [15:0]core_transferLength,
+	output wire core_ack,
+	input wire [127:0] core_writeData,
+	output wire [127:0] core_readData,
 
   //***** DMA Path Controller block
-    output reg dma_req,
-    input wire dma_resp,
-    output wire dma_write_valid,
-    output reg [127:0] dma_write_data,
-    input wire dma_write_ready,
-    input wire dma_read_valid,
-    input wire [127:0] dma_read_data,
-    output wire dma_read_ready
+  output reg dma_req,
+  input wire dma_resp,
+  output wire dma_write_valid,
+  output reg [127:0] dma_write_data,
+  input wire dma_write_ready,
+  input wire dma_read_valid,
+  input wire [127:0] dma_read_data,
+	output wire dma_read_ready
 );
 
 //***** core fpu control state
@@ -110,6 +110,7 @@ localparam [3:0] dpc_rd_data = 4'd3;
 localparam [3:0] dpc_end = 4'd4;
 
 reg[3:0] dpcon;
+reg ack_en;
 reg wr_en;
 reg[15:0] dpcon_cnt;
 reg[15:0] dpcon_lengh;
@@ -120,6 +121,7 @@ reg rd_en;
 always@(posedge clk or posedge rst) begin
   if(rst) begin
     data_done <= 1'b0;
+    ack_en <= 1'b0;
     wr_en <= 1'b0;
     rd_en <= 1'b0;
     dpcon <= dpc_idle;
@@ -133,6 +135,7 @@ always@(posedge clk or posedge rst) begin
         dma_write_data <= 0;
         data_done <= 1'b0;
         wr_en <= 1'b0;
+        ack_en <= 1'b0;
         dpcon_cnt <=16'd0;
         rd_en <= 1'b0;
         if(data_st) begin
@@ -146,12 +149,14 @@ always@(posedge clk or posedge rst) begin
         end
       end
       dpc_wr_data0 : begin
-        wr_en <= 1'b1;
-        dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
         if(dma_write_ready) begin
           dpcon <= dpc_wr_data1;
+          wr_en <= 1'b1;
+          dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,2'b00,core_localAddr};
         end
         else begin
+          wr_en <= 1'b0;
+          dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,2'b00,core_localAddr};
           dpcon <= dpc_wr_data0;
         end
       end
@@ -163,6 +168,7 @@ always@(posedge clk or posedge rst) begin
         end
         else begin
           wr_en <= 1'b1;
+          ack_en <= 1'b1;
           dma_write_data <= core_writeData;
           if(dma_write_valid) begin
             dpcon_cnt <= dpcon_cnt + 1;
@@ -177,7 +183,7 @@ always@(posedge clk or posedge rst) begin
       dpc_rd_data : begin
         if(dma_write_ready) begin
           rd_en <= 1'b1;
-          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
+          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,2'b00,core_localAddr};
           dpcon <= dpc_end;
         end
       end
@@ -185,6 +191,7 @@ always@(posedge clk or posedge rst) begin
         dpcon_cnt <=16'd0;
         data_done <= 1'b1;
         wr_en <= 1'b0;
+        ack_en <= 1'b0;
         rd_en <= 1'b0;
         dpcon <= dpc_idle;
       end
@@ -205,7 +212,7 @@ always@(posedge clk or posedge rst) begin
 end
 
 
-assign core_ack = ((wr_en && dma_write_ready) || (dma_read_valid && read_valid));
+assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid && read_valid));
 assign dma_write_valid = ((wr_en || rd_en) && dma_write_ready);
 assign core_readData = dma_read_data;
 assign dma_read_ready = !rst;

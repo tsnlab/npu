@@ -815,7 +815,7 @@ always@(posedge fpu_clk or posedge reset) begin
 		dma_read_vld <= 1'b0;
 		rcd_ff_d_rd_en <= 1'b0;
 		dma_r_da <= 128'd0;
-		rcdcon_count<= 16'd0;
+		rcdcon_count<= 16'd1;
 		dma_mux <= 2'b00;
 		rcdcon <= rcd_st;
 
@@ -852,7 +852,7 @@ always@(posedge fpu_clk or posedge reset) begin
 					dma_read_vld <= 1'b0;
 					rcd_ff_d_rd_en <= 1'b0;
 					dma_r_da <= 128'd0;
-					rcdcon_count<= 16'd0;
+					rcdcon_count<= 16'd1;
 					rcdcon <= rcd_end;
 
 				end
@@ -878,7 +878,7 @@ always@(posedge fpu_clk or posedge reset) begin
 				dma_read_vld <= 1'b0;
 				rcd_ff_d_rd_en <= 1'b0;
 				dma_r_da <= 128'd0;
-				rcdcon_count<= 16'd0;
+				rcdcon_count<= 16'd1;
 				rcdcon <= rcd_st;
 			end
 			default : begin
