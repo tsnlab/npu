@@ -1,24 +1,60 @@
-# CONNX NPU
+# CONNX NPU - with RISC-V processor built on chipyard
+
+## Getting Started
+1. repository를 클론한다.
+```bash
+git clone https://github.com/tsnlab/npu.git --recursive
+```
+2. chipyard를 설치한다. 설치 방법과 순서는 아래 링크를 따른다. 이 때, 이미 npu repository는 chipyard를 submodule로 포함하고 있으므로 1.4.2 Setting up the Chipyard Repo 항목의 chipyard repository 클론 순서는 생략하고, 이후의 빌드 작업부터 다시 수행한다.
+    https://chipyard.readthedocs.io/en/stable/Chipyard-Basics/Initial-Repo-Setup.html#initial-repository-setup
+3. step 9에서 빌드가 실패 시, 아래 커맨드로 다시 빌드 시도한다.
+```bash
+./build-setup.sh riscv-tools -s 9
+```
 
 ## Generating Project
-1. Xiliinx Vivado 실행
-2. 메뉴바의 `Tools > Run Tcl Script...` 선택
-3. npu.tcl 선택 후 `open`
-4. `npu.tcl` 파일이 열리고 기다리면 `npu.xsa` 출력됨
-
-## Caution
-Tcl run을 하면 Vivado를 실행시킨 현재 디렉토리의 상위 디렉토리에서 프로젝트가 생성됩니다.
-Tcl 파일이 있는 위치에서 Vivado 실행을 해야 `File or Directory does not exist Error`가 발생하지 않습니다.
-
+1. npu 소스코드를 chipyard directory에 복사한다. 
+```bash
+make
+```
+2. env.sh를 실행한다.
+```bash
+cd chipyard
+source env.sh
+```
+3. bitstream file을 생성한다.
+```bash
+cd fpga
+make SUB_PROJECT=nexysvideo bitstream
+```
 
 ## RISC-V instruction extensions
- * store NPU ID, NPU address, Host address, size
- * load NPU ID, Host address, NPU address, size
- * exec NPU ID
- * set NPU ID, reg ID, value
- * get NPU ID, reg ID
+ * store 
+ * load 
+ * exec 
+ * set reg Idx, value
+ * get reg Idx
 
-## NPU Registers
+## NPU(RoCC) Registers
+```C
+Core {
+    0: unsigned long    // reserved
+    1: unsigned long    // host memory address for core#0 
+    2: unsigned long    // data size (16byte width) for core#0
+    3: unsigned long    // local memory address for core#0
+    4: unsigned long    // host memory address for core#1
+    5: unsigned long    // data size (16byte width) for core#1
+    6: unsigned long    // local memory address for core#1
+    7: unsigned long    // host memory address for core#2
+    8: unsigned long    // data size (16byte width) for core#2
+    9: unsigned long    // local memory address for core#2
+    10: unsigned long   // host memory address for core#3
+    11: unsigned long   // data size (16byte width) for core#3
+    12: unsigned long   // local memory address for core#3
+}
+```
+
+## NPU Core Registers
 ```C
 Core {
     zero: uint32 // reg 0 zero
@@ -369,3 +405,4 @@ pseudo code
 
 ## CONNX NPU Python implementation
 [README.md](asm/README.md)
+
