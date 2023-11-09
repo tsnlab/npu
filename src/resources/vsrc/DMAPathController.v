@@ -171,6 +171,7 @@ wire fpu_write_rdy;
 wire [127:0] fpu_write_data;
 wire fpu_write_vld;
 reg[15:0] fpu_write_length;
+reg[7:0] msg_form;
 reg[15:0] fpu_write_cnt;
 wire [3:0] dma_req;
 
@@ -398,6 +399,7 @@ always@(posedge fpu_clk or posedge reset) begin
 		fpu_resp <= 1'b0;
 		fpu_write_cnt <= 16'd0;
 		fpu_write_length <= 16'd0;
+		msg_form <= 8'd0;
 		fpu_resp_done <= 1'b0;
 		dpc_rdy <= 1'b0;
 
@@ -423,13 +425,19 @@ always@(posedge fpu_clk or posedge reset) begin
 				if(fpu_write_vld&&fpu_write_rdy)begin
 					fpu_write_cnt <= fpu_write_cnt + 1;
 					fpu_write_length <= fpu_write_data[71:56];
+					msg_form <= fpu_write_data[79:72];
 					fpu_resp <= 1'b0;
 					fwdcon <= fwdc_s1;
 				end
 				
 			end
 			fwdc_s1 : begin
-				if(fpu_write_cnt >= fpu_write_length) begin
+				if(msg_form==8'h01) begin
+					dpc_rdy <= 1'b0;
+					fwdcon <= fwdc_end;
+					fpu_resp <= 1'b0;
+				end
+				else if(fpu_write_cnt >= fpu_write_length) begin
 					dpc_rdy <= 1'b0;
 					fwdcon <= fwdc_end;
 					fpu_resp <= 1'b0;
