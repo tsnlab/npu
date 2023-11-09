@@ -156,6 +156,12 @@ localparam fwdc_st = 4'd0,
 			fwdc_end = 4'd3;
 reg[3:0] fwdcon = fwdc_st;
 
+
+wire[3:0] npu_addr;
+reg[7:0] ad_wr_ptr;
+reg[1:0]npu_ad_mem[0:255];
+reg[7:0] ad_rd_ptr;
+
 //***** Read Controller Data Signal
 reg[15:0] rcdcon_count;
 reg[15:0] rcdcon_length;
@@ -196,6 +202,7 @@ localparam dcc_st = 4'd0,
 
 reg[3:0] dcccon = dcc_st;
 
+reg[1:0] npu_mask;
 reg[15:0]dcc_length =0;
 reg[15:0]dcc_count=0;
 reg[127:0] dcc_header_r;
@@ -240,6 +247,7 @@ always@(posedge fpu_clk or posedge reset) begin
 		fpu_sel_b <= 1'b0;
 		fpu_sel_c <= 1'b0;
 		fpu_sel_d <= 1'b0;
+		ad_wr_ptr <= 8'd0;
 		dtpcon <= dtc_st;
 	end
 	else begin
@@ -355,18 +363,26 @@ always@(posedge fpu_clk or posedge reset) begin
 				if(fpu_resp_done) begin
 					if(fpu_sel_a)begin
 						fpu_sel_a <= 1'b0;
+						npu_ad_mem[ad_wr_ptr] <= 2'd0;
+						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s1;
 					end
 					else if(fpu_sel_b) begin
 						fpu_sel_b <= 1'b0;
+						npu_ad_mem[ad_wr_ptr] <= 2'd1;
+						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s2;
 					end
 					else if(fpu_sel_c) begin
 						fpu_sel_c <= 1'b0;
+						npu_ad_mem[ad_wr_ptr] <= 2'd2;
+						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s3;
 					end
 					else if(fpu_sel_d) begin
 						fpu_sel_d <= 1'b0;
+						npu_ad_mem[ad_wr_ptr] <= 2'd3;
+						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s0;
 					end
 					else begin
@@ -391,6 +407,8 @@ always@(posedge fpu_clk or posedge reset) begin
 		endcase
 	end
 end
+
+assign npu_addr = {fpu_sel_d,fpu_sel_c,fpu_sel_b,fpu_sel_a};
 
 //***** FPU DMA Write Data control 
 always@(posedge fpu_clk or posedge reset) begin
@@ -518,6 +536,7 @@ always@(posedge fpu_clk or posedge reset) begin
 		wcd_read_da_en <= 1'b0;
 		rcc_ff_wr_en <= 1'b0;
 		wcc_ff_wr_data <= 128'd0;
+		ad_rd_ptr <= 8'd0;
 	end
 	else begin
 		case(dcccon)
@@ -531,6 +550,8 @@ always@(posedge fpu_clk or posedge reset) begin
 					dcc_length <= fpu_ff_rd_data[71:56];
 					mess_form <= fpu_ff_rd_data[79:72];
 					dcc_header_r <= fpu_ff_rd_data;
+					npu_mask <= npu_ad_mem[ad_rd_ptr];
+					ad_rd_ptr <= ad_rd_ptr + 8'd1;
 					dcccon <= dcc_s0;
 				end
 				else begin
@@ -549,7 +570,7 @@ always@(posedge fpu_clk or posedge reset) begin
 			end
 			dcc_rc0 : begin
 				rcc_ff_wr_en <= 1'b1;
-				rcc_ff_wr_data <= dcc_header_r[71:0];
+				rcc_ff_wr_data <= {dcc_header_r[71:16],npu_mask,2'b00,dcc_header_r[11:0]};
 				dcccon <= dcc_rc1;
 			end
 			dcc_rc1 : begin
@@ -559,7 +580,7 @@ always@(posedge fpu_clk or posedge reset) begin
 			end
 			dcc_wc0 : begin
 				wcc_ff_wr_en <= 1'b1;
-				wcc_ff_wr_data <= dcc_header_r[71:0];
+				wcc_ff_wr_data <= {dcc_header_r[71:16],npu_mask,2'b00,dcc_header_r[11:0]};
 				dcccon <= dcc_wc1;
 			end
 			dcc_wc1 : begin
