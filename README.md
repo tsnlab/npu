@@ -11,161 +11,360 @@ Tcl run을 하면 Vivado를 실행시킨 현재 디렉토리의 상위 디렉토
 Tcl 파일이 있는 위치에서 Vivado 실행을 해야 `File or Directory does not exist Error`가 발생하지 않습니다.
 
 
-## Data Structure
+## RISC-V instruction extensions
+ * store NPU ID, NPU address, Host address, size
+ * load NPU ID, Host address, NPU address, size
+ * exec NPU ID
+ * set NPU ID, reg ID, value
+ * get NPU ID, reg ID
 
+## NPU Registers
 ```C
-load_and_start message {
-    offset: uint32 // Main memory에서 kernel의 위치
-    size: uint32  // kernel의 크기 (4 bytes로 정렬된 bytes 수)
-    core_id: uint16 // kernel을 실행할 Core ID
-    status: 4 bits // core의 상태 0: idle, 1: busy
-}
-
-kernel {
-    opcodes[]: uint32 // opcode 목록
-}
-
-Interpreter {
-    a: uint32  // reg1 a
-    b: uint32  // reg2 b
-    c: uint32  // reg3 c
-    d: uint32  // reg4 d
+Core {
+    zero: uint32 // reg 0 zero
+    a: uint32    // reg 1 a
+    b: uint32    // reg 2 b
+    c: uint32    // reg 3 c
+    d: uint32    // reg 4 d
+    e: uint32    // reg 5 e
+    f: uint32    // reg 6 f
+    g: uint32    // reg 7 g
+    ip: uint32   // reg 14 instruction pointer (ip * 4 is memory location)
+    csr: uint32  // reg 15 control status register
 }
 ```
 
-## Opcode
-모든 opcode는 32bit 단위로 zero padding 되어있음
-모든 opcode는 little endian으로 표기됨
+### CSR register bits
+ 0. running - 0: not running, 1: running
+ 1. loading - 1: loading or storing, 0: data is not moving b/w CPU and NPU
+ 2\~30. reserved
+ 31. error - 0: no error, 1: error
+
+## NPU Core instructions
+모든 instruction은 32bit 단위로 zero padding 되어있음.
+모든 instruction은 little endian으로 표기됨.
+아래는 NPU Core에서 지원하는 instruction 목록이자 opcode임.
+모든 opcode는 uint8 크기임.
+
+reg - unsigned 4 bits
+uint# - unsigned # bits
+int# - signed # bits
+
+ 00. nop
+ 01. set
+ 02. seti
+ 03. seti\_low
+ 04. seti\_high
+ 05. get
+ 06. mov
+ 07. load
+ 08. store
+ 09. vadd.bf16
+ 0a. vsub.bf16
+ 0b. vmul.bf16
+ 0c. vdiv.bf16
+ 0d. add.i32
+ 0e. sub.i32
+ 0f. ifz
+ 10. ifeq
+ 11. ifneq
+ 12. jmp
+ ff. return
+
+### for every opcode
+syntax
+    any opcode
+
+pseudo code
+    opcode = mem[ip * 4]
+    execute opcode
+    ip = ip + 1
 
 ### nop - no operator
 syntax
     nop
 
 parameters
-    nop: uint8 = 0x00
 
-### set\_high - register의 상위 16 bits를 설정함
+### set - local memory 값을 register로 복사함
 syntax
-    set_high %reg %value
+    set %dest %src
 
 parameters
-    set_high: uint8 = 0x01
-    %reg: uint8 // register 번호
-    %value: uint16 // register의 high에 입력할 값
+    %reg: reg    // register 번호
+    %mem: uint20 // align된 local memory 주소
 
 pseudo code
-    reg[%reg] = (%value << 16) | (reg[%reg] & 0xffff)
+    reg[%reg] = mem[%mem * 4]
 
-### set\_low - register의 상위 16 bits를 설정함
+### seti - register의 값을 설정함
 syntax
-    set_low %reg %value
+    seti %reg %value
 
 parameters
-    set_low: uint8 = 0x02
-    %reg: uint8 // register 번호
-    %value: uint16 // register의 low에 입력할 값
+    %dest: reg     // register 번호
+    %value: uint20 // register에 입력될 값
+
+pseudo code
+    reg[%dest] = (0x000 << 24) | (%value & 0xfffff)
+
+### seti\_low - register의 값을 설정함
+syntax
+    seti_low %reg %value padding
+
+parameters
+    %reg: reg      // register 번호
+    padding: u4
+    %value: uint16 // register에 입력될 값
 
 pseudo code
     reg[%reg] = (reg[%reg] & 0xffff0000) | (%value & 0xffff)
 
-### load - Host memory로부터 local memory로 데이터 복사
+### seti\_high - register의 값을 설정함
 syntax
-    load %count
+    seti_high %reg %value padding
 
 parameters
-    load: uint8 = 0x03
-    %count: uint16
+    %reg: reg      // register 번호
+    padding: u4
+    %value: uint16 // register에 입력될 값
 
 pseudo code
-    size = %count * 4
+    reg[%reg] = ((%value & 0xffff) << 16) | (reg[%reg] & 0xffff)
 
-    memcpy(B, A, size)
+### get - register의 값을 local memory로 복사함
+syntax
+    get %src %dest
+
+parameters
+    %src: reg     // register 번호
+    %dest: uint20 // align된 local memory 주소
+
+pseudo code
+    mem[%dest * 4] = reg[%src]
+
+### mov - register의 값을 register로 복사함
+syntax
+    mov %dest %src
+
+parameters
+    %dest: reg  // register 번호
+    %src: reg   // register 번호
+
+pseudo code
+    reg[%dest] = reg[%src]
+
+### load - Host memory로부터 local memory로 데이터 복사
+syntax
+    load %dest %src %count
+
+parameters
+    %dest: reg  
+    %src: reg  
+    %count: reg  
+
+pseudo code
+    dest = reg[%dest] * 4  // Local memory는 4 bytes 단위로 align 되어있다고 가정
+    src = reg[%src] * 128  // Host memory는 128 bytes 단위로 align 되어있다고 가정
+    size = reg[%count] * 4  // 4 bytes 단위로 roundup 되어있다고 가정
+
+    memcpy(dest, src, size)
 
 ### store - local memory로부터 host memory로 데이터 복사
 syntax
-    store %count
+    store %dest %src %count
 
 parameters
-    store: uint8 = 0x04
-    %count: uint16
+    %dest: reg  
+    %src: reg  
+    %count: reg  
 
 pseudo code
-    size = %count * 4
+    dest = reg[%dest] * 128 // Host memory는 128 bytes 단위로 align 되어있다고 가정
+    src = reg[%src] * 4     // Local memory는 4 bytes 단위로 align 되어있다고 가정
+    size = reg[%count] * 4  // 4 bytes 단위로 roundup 되어있다고 가정
 
-    memcpy(A, B, size)
+    memcpy(dest, src, size)
 
-### add.f32
+### vadd.bf16
 syntax
-    add.f32 %count
+    vadd.bf16 %c %a %b %count padding
 
 parameters
-    add.f32: uint8 = 0x05
-    %count: uint16
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
+    padding: uint8
 
 pseudo code
-    float32* A = Interpreter.s * 4 + Interpreter.a * 4
-    float32* B = Interpreter.s * 4 + Interpreter.b * 4
-    float32* C = Interpreter.s * 4 + Interpreter.c * 4
+    bf16* a = reg[%a] * 4
+    bf16* b = reg[%b] * 4
+    bf16* c = reg[%c] * 4
+    int32* count = reg[%count]
 
-    for i in 0..%count
-        C[i] = A[i] + B[i]
+    for i in 0..*count
+        c[i] = a[i] + b[i]
 
-### sub.f32
+### vsub.bf16
 syntax
-    sub.f32 %count
+    vsub.bf16 %c %a %b %count padding
 
 parameters
-    sub.f32: uint8 = 0x06
-    %count: uint16
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
+    padding: uint8
 
 pseudo code
-    float32* A = Interpreter.s * 4 + Interpreter.a * 4
-    float32* B = Interpreter.s * 4 + Interpreter.b * 4
-    float32* C = Interpreter.s * 4 + Interpreter.c * 4
+    bf16* a = reg[%a] * 4
+    bf16* b = reg[%b] * 4
+    bf16* c = reg[%c] * 4
+    int32* count = reg[%count]
 
-    for i in 0..%count
-        C[i] = A[i] - B[i]
+    for i in 0..*count
+        c[i] = a[i] - b[i]
 
-### mul.f32
+### vmul.bf16
 syntax
-    mul.f32 %count
+    vmul.bf16 %c %a %b %count padding
 
 parameters
-    mul.f32: uint8 = 0x07
-    %count: uint16
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
+    padding: uint8
 
 pseudo code
-    float32* A = Interpreter.s * 4 + Interpreter.a * 4
-    float32* B = Interpreter.s * 4 + Interpreter.b * 4
-    float32* C = Interpreter.s * 4 + Interpreter.c * 4
+    bf16* a = reg[%a] * 4
+    bf16* b = reg[%b] * 4
+    bf16* c = reg[%c] * 4
+    int32* count = reg[%count]
 
-    for i in 0..%count
-        C[i] = A[i] * B[i]
+    for i in 0..*count
+        c[i] = a[i] * b[i]
 
-### div.f32
+### vdiv.bf16
 syntax
-    div.f32 %count
+    vdiv.bf16 %c %a %b %count padding
 
 parameters
-    div.f32: uint8 = 0x08
-    %count: uint16
+    %c: reg  
+    %a: reg  
+    %b: reg  
+    %count: reg  
+    padding: uint8
 
 pseudo code
-    float32* A = Interpreter.s * 4 + Interpreter.a * 4
-    float32* B = Interpreter.s * 4 + Interpreter.b * 4
-    float32* C = Interpreter.s * 4 + Interpreter.c * 4
+    bf16* a = reg[%a] * 4
+    bf16* b = reg[%b] * 4
+    bf16* c = reg[%c] * 4
+    int32* count = reg[%count]
 
-    for i in 0..%count
-        C[i] = A[i] / B[i]
+    for i in 0..*count
+        c[i] = a[i] / b[i]
+
+### add.int32
+syntax
+    add.int32 %a %b %i
+
+parameters
+    %a: reg  
+    %b: reg  
+    %i: int16
+
+pseudo code
+    int32* a = reg[%a]
+    int32* b = reg[%a]
+    int32 i = (int32)%i
+
+    *a = *a + *b + i
+
+### sub.int32
+syntax
+    sub.int32 %a %b %i
+
+parameters
+    %a: reg  
+    %b: reg  
+    %i: int16
+
+pseudo code
+    int32* a = reg[%a]
+    int32* b = reg[%a]
+    int32 i = (int32)%i
+
+    *a = *a - *b - i
+
+### ifz
+syntax
+    ifz %reg %jump padding
+
+parameters
+    %reg: reg  
+    padding: reg  
+    %jump: int16
+
+pseudo code
+    uint32 condition = reg[%reg]
+    int32 jump = (int32)%jump
+
+    if condition == 0:
+        ip += jump
+
+### ifeq
+syntax
+    ifeq %a %b %jump
+
+parameters
+    %a: reg  
+    %b: reg  
+    %jump: int16
+
+pseudo code
+    uint32 a = reg[%a]
+    uint32 b = reg[%b]
+    int32 jump = (int32)%jump
+
+    if a == b:
+        ip += jump
+
+### ifneq
+syntax
+    ifneq %a %b %jump
+
+parameters
+    %a: reg  
+    %b: reg  
+    %jump: int16
+
+pseudo code
+    uint32 a = reg[%a]
+    uint32 b = reg[%b]
+    int32 jump = (int32)%jump
+
+    if a != b:
+        ip += jump
+
+### jmp
+syntax
+    jmp padding %jump
+
+parameters
+    padding: uint8
+    %jump: int16
+
+pseudo code
+    ip += jump
 
 ### return
 syntax
     return
 
-parameters
-    return: uint8 = 0x09
-
 pseudo code
+    csr.running = 0
     CPU에 Interrupt를 보냄
 
 ## CONNX NPU Python implementation

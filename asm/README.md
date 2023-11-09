@@ -4,20 +4,22 @@
  - poetry 1.6 is required
 
 ```bash
+asm$ curl -sSL https://install.python-poetry.org | python3 -
+asm$ pip install jax
+asm$ poetry add jax
 asm$ poetry install
 ```
 
 ## Assembler
 ```bash
-asm$ poetry run python asm.py ../examples/add.asm -o add
+asm$ poetry run python asm.py ../examples/vadd.asm
 ```
 
- - add.bin - kernel
- - add.200000.data - data for main memory at 0x200000
- - add.200800.data - data for main memory at 0x200800
- - add.201000.data - data for main memory at 0x201000
+Outputs
+ - vadd.bin : kernel
+ - vadd.script : script
 
 ## Interpreter
 ```bash
-asm$ poetry run python interpreter.py add
+asm$ poetry run python sim.py vadd
 ```
