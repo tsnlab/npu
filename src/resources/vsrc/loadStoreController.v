@@ -147,7 +147,7 @@ always@(posedge clk or posedge rst) begin
       end
       dpc_wr_data0 : begin
         wr_en <= 1'b1;
-        dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,core_localAddr};
+        dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,2'b00,core_localAddr};
         if(dma_write_ready) begin
           dpcon <= dpc_wr_data1;
         end
@@ -177,7 +177,7 @@ always@(posedge clk or posedge rst) begin
       dpc_rd_data : begin
         if(dma_write_ready) begin
           rd_en <= 1'b1;
-          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,core_localAddr};
+          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,2'b00,core_localAddr};
           dpcon <= dpc_end;
         end
       end

@@ -144,7 +144,9 @@ initial begin
 end
 
 //always @(posedge clk) if(dma_req) dma_ready <= 1; else dma_ready <= 0;
-  
+
+assign _DMAEngineDef_io_rcc_ready = 1'd1;
+
 NPUCore uut0 (
     .clk(clk),
     .rstn(rstn),
