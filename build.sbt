@@ -239,8 +239,7 @@ lazy val iocell = Project(id = "iocell", base = file("./tools/barstools/") / "io
   .settings(commonSettings)
 
 lazy val tapeout = (project in file("./tools/barstools/"))
-//   .dependsOn(fpga_platforms, connx_npu)
-  .dependsOn(fpga_platforms)
+  .dependsOn(fpga_platforms, fpga_shells)
   .settings(chiselSettings)
   .settings(commonSettings)
 
@@ -304,9 +303,3 @@ lazy val fpga_platforms = (project in file("./fpga"))
   .dependsOn(chipyard, fpga_shells, gemmini)
   .settings(chiselSettings)
   .settings(commonSettings)
-
-// lazy val connx_npu = (project in file("generators/connx-npu"))
-//   .dependsOn(chipyard, fpga_shells, gemmini)
-// //   .settings(libraryDependencies ++= rocketLibDeps.value)
-//   .settings(chiselSettings)
-//   .settings(commonSettings)
