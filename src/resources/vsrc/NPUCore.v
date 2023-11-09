@@ -5,7 +5,7 @@ module NPUCore
 
     input [39:0] rocc_if_host_mem_offset,
     input [15:0] rocc_if_size,
-    input [15:0] rocc_if_local_mem_offset,
+    input [11:0] rocc_if_local_mem_offset,
     input [6:0] rocc_if_funct,
     input rocc_if_cmd_vld,
     output reg rocc_if_fin,
@@ -26,7 +26,7 @@ module NPUCore
     input               dma_ready,
     output  reg         dma_rwn,
     output  reg [39:0]  dma_hostAddr,
-    output  reg [15:0]  dma_localAddr,
+    output  reg [11:0]  dma_localAddr,
     output  reg [15:0]  dma_transferLength,
     output      [127:0] dma_writeData,
     input       [127:0] dma_readData,
@@ -257,21 +257,21 @@ always @(negedge rstn or posedge clk) begin
 			dma_rwn		        <= opc == OPC_LOAD;
 			dma_localAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
                 opc == OPC_LOAD ? 
-                arg_ano == 1 ? rf[1] : 
-                arg_ano == 2 ? rf[2] :
-                arg_ano == 3 ? rf[3] :
-                arg_ano == 4 ? rf[4] :
-                arg_ano == 5 ? rf[5] :
-                arg_ano == 6 ? rf[6] :
-                arg_ano == 7 ? rf[7] : dma_localAddr :
+                arg_ano == 1 ? rf[1][11:0] : 
+                arg_ano == 2 ? rf[2][11:0] :
+                arg_ano == 3 ? rf[3][11:0] :
+                arg_ano == 4 ? rf[4][11:0] :
+                arg_ano == 5 ? rf[5][11:0] :
+                arg_ano == 6 ? rf[6][11:0] :
+                arg_ano == 7 ? rf[7][11:0] : dma_localAddr :
 
-                arg_bno == 1 ? rf[1] : 
-                arg_bno == 2 ? rf[2] :
-                arg_bno == 3 ? rf[3] :
-                arg_bno == 4 ? rf[4] :
-                arg_bno == 5 ? rf[5] :
-                arg_bno == 6 ? rf[6] :
-                arg_bno == 7 ? rf[7] : dma_localAddr : dma_localAddr;
+                arg_bno == 1 ? rf[1][11:0] : 
+                arg_bno == 2 ? rf[2][11:0] :
+                arg_bno == 3 ? rf[3][11:0] :
+                arg_bno == 4 ? rf[4][11:0] :
+                arg_bno == 5 ? rf[5][11:0] :
+                arg_bno == 6 ? rf[6][11:0] :
+                arg_bno == 7 ? rf[7][11:0] : dma_localAddr : dma_localAddr;
 
 			dma_hostAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
                 opc == OPC_LOAD ? 

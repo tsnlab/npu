@@ -14,29 +14,29 @@
 ////////////////////////////////////////////////////////////////////////////////
 			
 module loadStoreController(
-	input wire clk,
-	input wire rst,
+    input wire clk,
+    input wire rst,
 
   //***** FPU Core block
-	input wire core_req,
-	output reg core_ready,
-  input wire core_rwn,
-	input wire [39:0] core_hostAddr,
-  input wire [13:0] core_localAddr,
-	input wire [15:0]core_transferLength,
-	output wire core_ack,
-	input wire [127:0] core_writeData,
-	output wire [127:0] core_readData,
+    input wire core_req,
+    output reg core_ready,
+    input wire core_rwn,
+    input wire [39:0] core_hostAddr,
+    input wire [11:0] core_localAddr,
+    input wire [15:0]core_transferLength,
+    output wire core_ack,
+    input wire [127:0] core_writeData,
+    output wire [127:0] core_readData,
 
   //***** DMA Path Controller block
-  output reg dma_req,
-  input wire dma_resp,
-  output wire dma_write_valid,
-  output reg [127:0] dma_write_data,
-  input wire dma_write_ready,
-  input wire dma_read_valid,
-  input wire [127:0] dma_read_data,
-	output wire dma_read_ready
+    output reg dma_req,
+    input wire dma_resp,
+    output wire dma_write_valid,
+    output reg [127:0] dma_write_data,
+    input wire dma_write_ready,
+    input wire dma_read_valid,
+    input wire [127:0] dma_read_data,
+    output wire dma_read_ready
 );
 
 //***** core fpu control state
@@ -147,7 +147,7 @@ always@(posedge clk or posedge rst) begin
       end
       dpc_wr_data0 : begin
         wr_en <= 1'b1;
-        dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,2'b00,core_localAddr};
+        dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
         if(dma_write_ready) begin
           dpcon <= dpc_wr_data1;
         end
@@ -177,7 +177,7 @@ always@(posedge clk or posedge rst) begin
       dpc_rd_data : begin
         if(dma_write_ready) begin
           rd_en <= 1'b1;
-          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,2'b00,core_localAddr};
+          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
           dpcon <= dpc_end;
         end
       end

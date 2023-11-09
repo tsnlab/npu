@@ -18,7 +18,7 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
 
             val rocc_if_host_mem_offset = Input(Bits(40.W))
             val rocc_if_size = Input(Bits(16.W))
-            val rocc_if_local_mem_offset = Input(Bits(16.W))
+            val rocc_if_local_mem_offset = Input(Bits(12.W))
             val rocc_if_funct = Input(Bits(7.W))
             val rocc_if_cmd_vld = Input(Bool())
             val rocc_if_fin = Output(Bool())

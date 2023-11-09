@@ -15,7 +15,7 @@ class loadStoreController (implicit p: Parameters) extends BlackBox with HasBlac
     val core_ready = Output(Bool())
     val core_rwn = Input(Bool())
     val core_hostAddr = Input(Bits(40.W))
-    val core_localAddr = Input(Bits(14.W))
+    val core_localAddr = Input(Bits(12.W))
     val core_transferLength = Input(Bits(16.W))
     val core_writeData = Input(Bits(128.W))
     val core_readData = Output(Bits(128.W))
