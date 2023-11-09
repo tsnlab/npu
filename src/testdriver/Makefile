@@ -8,4 +8,4 @@ sim:
 	spike $(PROGRAM).riscv
 
 run:
-	../chipyard/generators/testchipip/uart_tsi/uart_tsi +tty=/dev/ttyUSB2 +selfcheck $(PROGRAM).riscv
+	sudo ../../chipyard/generators/testchipip/uart_tsi/uart_tsi +tty=/dev/ttyUSB2 +selfcheck $(PROGRAM).riscv

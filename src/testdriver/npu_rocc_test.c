@@ -42,17 +42,21 @@ int main(void)
 
     int cnt = 0;
 
-    printf("reg_write start. input = %lx \n", input); 
+    printf("regSet start. input = %lx \n", input); 
 	npu_regSet(1, input);
     result = npu_regGet(1);
-    printf("reg_write finished. result = %lx \n", result); 
+    printf("regGet finished. result = %lx \n", result); 
 
 	npu_regSet(1, (long unsigned int)data1);
 	npu_regSet(2, 2);
 	npu_regSet(3, 0);
+        printf("load start\n");
     npu_load();	
+        printf("load complete\n");
     npu_regSet(1, (long unsigned int)data2);
+        printf("store start\n");
     npu_store();
+        printf("store complete\n");
     if (data1[0] != data2[0]){
         printf("ERR!!");
 	    return 1;
