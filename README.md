@@ -3,11 +3,16 @@
 ## Getting Started
 1. repository를 클론한다.
 ```bash
-git clone https://github.com/tsnlab/npu.git --recursive
+git clone https://github.com/tsnlab/npu.git
 ```
-2. chipyard를 설치한다. 설치 방법과 순서는 아래 링크를 따른다. 이 때, 이미 npu repository는 chipyard를 submodule로 포함하고 있으므로 1.4.2 Setting up the Chipyard Repo 항목의 chipyard repository 클론 순서는 생략하고, 이후의 빌드 작업부터 다시 수행한다.
+2. chipyard 서브 모듈을 불러온다.
+```bash
+cd chipyard
+git submodule update --init
+```
+3. chipyard를 설치한다. 설치 방법과 순서는 아래 링크를 따른다. 이 때, 이미 npu repository는 chipyard를 submodule로 포함하고 있으므로 1.4.2 Setting up the Chipyard Repo 항목의 chipyard repository 클론 순서는 생략하고, 이후의 빌드 작업부터 다시 수행한다.
     https://chipyard.readthedocs.io/en/stable/Chipyard-Basics/Initial-Repo-Setup.html#initial-repository-setup
-3. step 9에서 빌드가 실패 시, 아래 커맨드로 다시 빌드 시도한다.
+4. step 9에서 빌드가 실패 시, 아래 커맨드로 다시 빌드 시도한다.
 ```bash
 ./build-setup.sh riscv-tools -s 9
 ```
