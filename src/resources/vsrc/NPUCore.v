@@ -119,6 +119,8 @@ wire    [3:0]   arg_bno = opcode[08+:4];
 wire    [3:0]   arg_cno = opcode[20+:4];
 wire    [3:0]   arg_dno = opcode[16+:4];
 
+reg     rocc_inst_flag;
+
 assign  opcode = opc_cnt == 2'b01 ? sram_doutb[31:0] :
                 opc_cnt == 2'b10 ? sram_doutb[63:32] :
                 opc_cnt == 2'b11 ? sram_doutb[95:64] : sram_doutb[127:96];
@@ -173,6 +175,7 @@ always @(negedge rstn or posedge clk) begin
 		bf16_isSqrt	<= 0;
 		bf16_kill	<= 0;
 //		opcode      <= 0;
+        rocc_inst_flag <= 0;
     end else begin
 		case (state)
 
@@ -192,6 +195,7 @@ always @(negedge rstn or posedge clk) begin
                     dma_localAddr   <= rocc_if_local_mem_offset;
                     dma_hostAddr    <= rocc_if_host_mem_offset;
                     dma_transferLength   <= rocc_if_size;
+                    rocc_inst_flag      <= 1;
                 end else if(rocc_if_funct == 7'd4) begin
                     state <= S_STORE_PRE;
                     dma_req     <= 0;
@@ -199,10 +203,17 @@ always @(negedge rstn or posedge clk) begin
                     dma_localAddr   <= rocc_if_local_mem_offset;
                     dma_hostAddr    <= rocc_if_host_mem_offset;
                     dma_transferLength   <= rocc_if_size;
+                    rocc_inst_flag      <= 1;
                 end else begin
                     state <= state;
                     dma_rwn		<= 0;
                 end
+            end else begin
+                state <= state;
+                localmem_rden   <= 0;
+                localmem_radr   <= 0;
+                localmem_wren   <= 0;
+                localmem_wadr   <= 0;
             end
 			scnt		<= 0;
             opc_cnt     <= 0;
@@ -328,18 +339,20 @@ always @(negedge rstn or posedge clk) begin
 			state		<= dma_ready ? S_LOAD_DATA : state;
 			dma_req		<= dma_ready ? 0 : 1;
             localmem_rden <= 0;
+            localmem_wadr <= rocc_inst_flag ? dma_localAddr : localmem_wadr;
 		end
 
 		S_LOAD_DATA:
 		begin
-			state		<= dma_ack && scnt == dma_transferLength - 1 ? S_OPC_READ : state;
+			state		<= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? S_IDLE : S_OPC_READ) : state;
 			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
             
             localmem_wren <= dma_ack;
             localmem_wadr <= localmem_wren ? localmem_wadr + 8 : localmem_wadr;
-            localmem_rden <= dma_ack && scnt == dma_transferLength - 1;
+            localmem_rden <= (dma_ack && scnt == dma_transferLength - 1) ? (rocc_inst_flag ? 0 : 1) : 0;
 
             sram_dina_reg <= dma_readData;
+            rocc_inst_flag <= (dma_ack && scnt == dma_transferLength - 1) ? 0 : 1;
 		end
 
 		S_STORE_PRE:
@@ -347,7 +360,7 @@ always @(negedge rstn or posedge clk) begin
 			state   <= S_STORE_REQ;
 			dma_req <= 1;
             localmem_rden   <= 0;
-            localmem_radr   <= localmem_rden ? localmem_radr + 8 : localmem_radr;
+            localmem_radr   <= rocc_inst_flag ? (localmem_rden ? dma_localAddr + 8 : dma_localAddr) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
 		end
 
 		S_STORE_REQ:
@@ -358,10 +371,11 @@ always @(negedge rstn or posedge clk) begin
 
 		S_STORE_DATA:
 		begin
-			state		<= dma_ack && scnt == dma_transferLength - 1 ? S_OPC_READ : state;
+			state		<= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? S_IDLE : S_OPC_READ) : state;
 			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
-            localmem_rden   <= 1;
-            localmem_radr   <= dma_ack && scnt == dma_transferLength - 1 ? opc_radr * 8 : (localmem_rden ? localmem_radr + 8 : localmem_radr);
+            localmem_rden   <= (dma_ack && scnt == dma_transferLength - 1) ? (rocc_inst_flag ? 0 : 1) : 1;
+            localmem_radr   <= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? localmem_radr : opc_radr * 8) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
+            rocc_inst_flag <= (dma_ack && scnt == dma_transferLength - 1) ? 0 : 1;
 		end
 
         S_BF16_1:
