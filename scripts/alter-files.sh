@@ -2,6 +2,7 @@
 
 FPGADIR=chipyard/fpga
 NPUDIR=$FPGADIR/src/main/scala/nexysvideo
+mkdir $FPGADIR/src/main/resources/vsrc
 VSRCDIR=$FPGADIR/src/main/resources/vsrc
 TCLDIR=$FPGADIR/fpga-shells/xilinx/nexys_video/tcl
 
@@ -13,9 +14,12 @@ cp -f src/scala/Harness.scala $NPUDIR
 cp -f src/scala/HarnessBinders.scala $NPUDIR
 cp -f src/scala/NPU.scala $NPUDIR
 cp -f src/scala/NPUCore.scala $NPUDIR
-cp -f src/scala/NPUtile.scala $NPUDIR
+cp -f src/scala/NPUtile.scala $NPUDIRgit 
 cp -f src/scala/SRAM.scala $NPUDIR
 cp -f src/scala/loadStoreController.scala $NPUDIR
+
+mkdir $NPUDIR/fudian
+
 cp -f src/scala/fudian/ArgParser.scala $NPUDIR/fudian
 cp -f src/scala/fudian/FADD.scala $NPUDIR/fudian
 cp -f src/scala/fudian/FCMA.scala $NPUDIR/fudian
