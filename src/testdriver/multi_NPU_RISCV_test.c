@@ -1,17 +1,21 @@
+#include "rocc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
-#define DATA_SIZE 2048            // Data Size
+//#define DATA_SIZE 2048            // Data Size
+#define DATA_SIZE 16            // Data Size
 #define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 #define NUMBER_OF_CORES 4         // Number f Cores used at the same time
 
 #define SYS_CLK 12500000
 
-#define KERNEL_WITH_LOAD_STORE 1
+#define KERNEL_WITH_LOAD_STORE 0
+#define NPU_REG_ID_OFFSET 3
 
-//#define __DEBUG_MODE__
+#define LOAD_STORE_TEST 1
+#define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
 #define trace_pc_position()  printf("%s - %d \n", __func__, __LINE__);
@@ -30,6 +34,34 @@ typedef struct {
     uint16_t sign : 1;
 } BF16;
 
+static inline void npu_regSet(int idx, unsigned long data)
+{
+    ROCC_INSTRUCTION_SS(3, data, idx, 0);
+}
+
+static inline unsigned long npu_regGet(int idx)
+{
+    unsigned long value;
+    ROCC_INSTRUCTION_DSS(3, value, 0, idx, 1);
+    return value;
+}
+
+static inline void npu_exec()
+{
+    ROCC_INSTRUCTION(3, 2);
+}
+
+static inline void npu_load()
+{
+    asm volatile ("fence");
+    ROCC_INSTRUCTION(3, 3);
+}
+
+static inline void npu_store()
+{
+    asm volatile ("fence");
+    ROCC_INSTRUCTION(3, 4);
+}
 
 uint64_t get_time() {
     uint64_t tmp;
@@ -39,6 +71,7 @@ uint64_t get_time() {
 }
 
 BF16 float_to_bf16(float value) {
+
     FloatUnion fu;
     fu.f = value;
     BF16 bf16;
@@ -62,6 +95,7 @@ BF16 float_to_bf16(float value) {
 }
 
 float bf16_to_float(BF16 bf16) {
+
     FloatUnion fu;
     int biased_exponent;
 
@@ -80,26 +114,31 @@ float bf16_to_float(BF16 bf16) {
 }
 
 BF16 bf16_add(BF16 a, BF16 b) {
+
     float result = bf16_to_float(a) + bf16_to_float(b);
     return float_to_bf16(result);
 }
 
 BF16 bf16_subtract(BF16 a, BF16 b) {
+
     float result = bf16_to_float(a) - bf16_to_float(b);
     return float_to_bf16(result);
 }
 
 BF16 bf16_multiply(BF16 a, BF16 b) {
+
     float result = bf16_to_float(a) * bf16_to_float(b);
     return float_to_bf16(result);
 }
 
 BF16 bf16_divide(BF16 a, BF16 b) {
+
     float result = bf16_to_float(a) / bf16_to_float(b);
     return float_to_bf16(result);
 }
 
 static void resize_converted_data_size_kernel(uint8_t* kernel, int size) {
+
     // Seperate Size Bytes Low and High
     uint8_t byte_low;
     uint8_t byte_high;
@@ -119,6 +158,7 @@ static void resize_converted_data_size_kernel(uint8_t* kernel, int size) {
 }
 
 static void resize_op_iteration_kernel(uint8_t* kernel, int size) {
+
     // Seperate Size Bytes Low and High
     uint8_t byte_low;
     uint8_t byte_high;
@@ -137,6 +177,7 @@ static void resize_op_iteration_kernel(uint8_t* kernel, int size) {
 }
 
 static void kernel_op_change(uint8_t* kernel, char* op) {
+
     uint8_t opcode;
     if (op == "vadd.bf16") {
         opcode = 0x09;
@@ -157,6 +198,7 @@ static void kernel_op_change(uint8_t* kernel, char* op) {
 }
 
 static void riscv_calculate(BF16* output, BF16* input_A, BF16* input_B, char* op, int size) {
+
     for (int i = 0; i < size; i++) {
         if (op == "vadd.bf16") {
             output[i] = bf16_add(input_A[i], input_B[i]);
@@ -184,6 +226,7 @@ static void floatToString(float floatValue, char* strValue, int maxLength) {
 }
 
 static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* out_npu_bf16, int count) {
+
     // Check How Many Are Correct
     int check = 0;
     int error_cnt = 0;
@@ -218,17 +261,27 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
 }
 
 /* riscv issues store command to npu */
-static void store_command_to_npu(int npu, int l_addr, int r_addr, int size) {
-    printf("%s npu: %d, l_addr: 0x%x, r_addr: 0x%x, size: %d\n",
-                                     __func__, npu, l_addr, r_addr, size);
-    printf("%s must be implemented\n", __func__);
+static void store_command_to_npu(int npu, long unsigned int l_addr, long unsigned int r_addr, int size) {
+
+    trace_pc_position()
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    trace_pc_position()
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    trace_pc_position()
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    trace_pc_position()
+    npu_load();
+    trace_pc_position()
+
 }
 
 /* riscv issues store command to npu */
-static void load_command_to_npu(int npu, int r_addr, int l_addr, int size) {
-    printf("%s npu: %d, r_addr: 0x%x, l_addr: 0x%x, size: %d\n",
-                                     __func__, npu, r_addr, l_addr, size);
-    printf("%s must be implemented\n", __func__);
+static void load_command_to_npu(int npu, long unsigned int r_addr, long unsigned int l_addr, int size) {
+
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    npu_store();
 }
 
 int main() {
@@ -290,7 +343,7 @@ int main() {
     printf("\nThe result values of risc-v for each function were calculated using input_A & input_B.\n");
 
     trace_pc_position()
-#if 0 // *** FAILED *** (tohost = 7)
+#if 1 // *** FAILED *** (tohost = 7)
     // Memory Input
     memcpy((BF16*)0x200000, input_A, sizeof(BF16) * DATA_SIZE);
     memcpy((BF16*)0x201000, input_B, sizeof(BF16) * DATA_SIZE);
@@ -357,29 +410,29 @@ int main() {
 
     trace_pc_position()
     // Load kernel code at address 0 of npu
-    store_command_to_npu(0, 0x00, (int)kernel_0, (int)sizeof(kernel_0));
-    store_command_to_npu(1, 0x00, (int)kernel_1, (int)sizeof(kernel_1));
-    store_command_to_npu(2, 0x00, (int)kernel_2, (int)sizeof(kernel_2));
-    store_command_to_npu(3, 0x00, (int)kernel_3, (int)sizeof(kernel_3));
+    store_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)kernel_0, (int)sizeof(kernel_0));
+    store_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)kernel_1, (int)sizeof(kernel_1));
+    store_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)kernel_2, (int)sizeof(kernel_2));
+    store_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)kernel_3, (int)sizeof(kernel_3));
 
     printf("Kernel images are stored in each NPU.\n\n");
 
     trace_pc_position()
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
     // Load input_A at address 0x80 of npu
-    store_command_to_npu(0, 0x80, 0x200000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(1, 0x80, 0x200000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(2, 0x80, 0x200000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(3, 0x80, 0x200000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(0, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(1, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(2, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(3, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
 
     printf("input_A is stored in all NPUs.\n\n");
 
     trace_pc_position()
     // Load input_B at address 0x1080 of npu
-    store_command_to_npu(0, 0x1080, 0x201000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(1, 0x1080, 0x201000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(2, 0x1080, 0x201000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(3, 0x1080, 0x201000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(0, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(1, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(2, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
 
     printf("input_B is stored in all NPUs.\n\n");
 #endif
@@ -430,17 +483,25 @@ int main() {
     trace_pc_position()
 
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
+#if LOAD_STORE_TEST
+    // Load input_A at address 0x202000 of riscv
+    load_command_to_npu(0, (long unsigned int)0x202000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(1, (long unsigned int)0x203000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(2, (long unsigned int)0x204000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(3, (long unsigned int)0x205000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
+#else
     // Load output_C at address 0x202000 of riscv
-    load_command_to_npu(0, 0x202000, 0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(1, 0x203000, 0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(2, 0x204000, 0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, 0x205000, 0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(0, (long unsigned int)0x202000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(1, (long unsigned int)0x203000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(2, (long unsigned int)0x204000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(3, (long unsigned int)0x205000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+#endif
 
     printf("The calculated result values were loaded into external memory.\n\n");
 #endif
 
     trace_pc_position()
-#if 0 // *** FAILED *** (tohost = 5)
+#if 1 // *** FAILED *** (tohost = 5)
     // Memory Output
     memcpy(output_npu_0, 0x202000, sizeof(BF16) * DATA_SIZE);
     memcpy(output_npu_1, 0x203000, sizeof(BF16) * DATA_SIZE);
