@@ -754,8 +754,8 @@ as72x32_ft rcc_fifo (
 
 assign rcc_ff_rd_en = (~rcc_ff_empty) && (rcc_ready);
 assign rcc_valid = (~rcc_ff_empty) && (rcc_ready);
-assign rcc_dram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[39:0] : rcc_dram_addr;
-assign rcc_dpram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[55:40] : rcc_dpram_addr;
+assign rcc_dram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[55:16] : rcc_dram_addr;
+assign rcc_dpram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[15:0] : rcc_dpram_addr;
 assign rcc_length = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[71:56] : rcc_length;
 
 //***** Read Controller Date Path Interface

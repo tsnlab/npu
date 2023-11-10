@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module test_core;
+module test_4core;
 
 reg clk;      // Clock signal
 reg rst;
@@ -296,6 +296,9 @@ reg [127:0] A [0:16*256-1];
   wire         _NPUTile0Def_NPUCoreDef_sram_enb;	// @[fpga/src/main/scala/nexysvideo/NPUtile.scala:39:32]
   wire [11:0]  _NPUTile0Def_NPUCoreDef_sram_addrb;	// @[fpga/src/main/scala/nexysvideo/NPUtile.scala:39:32]
 
+reg[71:0] rcc_arr[255:0];
+reg[7:0] wr_ptr = 0;
+reg[7:0] rd_ptr = 0;
 
   // Clock generation
 initial begin
@@ -733,36 +736,33 @@ reg[15:0] rcc_dpram;
 reg[15:0] rcc_cnt =0;
 reg set=0;
 
-
 always@(posedge clk) begin
     if(_DMAPathControllerDef_rcc_valid) begin
-        set <= 1;
-        rcc_len <= _DMAPathControllerDef_rcc_length;
-        rcc_dram <= _DMAPathControllerDef_rcc_dram_addr;
-        rcc_dpram <= _DMAPathControllerDef_rcc_dpram_addr;
+      rcc_arr[wr_ptr] <= {_DMAPathControllerDef_rcc_length,_DMAPathControllerDef_rcc_dram_addr,_DMAPathControllerDef_rcc_dpram_addr};
+      wr_ptr <= wr_ptr + 1;
     end
-    if(set==1) begin
-        if(rcc_cnt >=rcc_len) begin
+    if(rd_ptr != wr_ptr) begin
+        if(rcc_cnt >=rcc_arr[rd_ptr][71:56]) begin
             _DMAEngineDef_io_rcd_valid <= 1'b0;
-            _DMAEngineDef_io_rcd_bits_length <= rcc_len;
-            _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_dpram;
+            _DMAEngineDef_io_rcd_bits_length <= rcc_arr[rd_ptr][71:56];
+            _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_arr[rd_ptr][15:0];
             _DMAEngineDef_io_rcd_bits_data <= 0;
+            rd_ptr <= rd_ptr + 1;
             rcc_cnt <= 0;
-            set <= 0;
         
         end
         else begin
             _DMAEngineDef_io_rcd_valid <= 1'b1;
-            _DMAEngineDef_io_rcd_bits_length <= rcc_len;
-            _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_dpram;
+            _DMAEngineDef_io_rcd_bits_length <= rcc_arr[rd_ptr][71:56];
+            _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_arr[rd_ptr][15:0];
             _DMAEngineDef_io_rcd_bits_data <= _DMAEngineDef_io_rcd_bits_data + 1;
             rcc_cnt <= rcc_cnt + 1;
         end
     end
     else begin
         _DMAEngineDef_io_rcd_valid <= 1'b0;
-        _DMAEngineDef_io_rcd_bits_length <= rcc_len;
-        _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_dpram;
+        _DMAEngineDef_io_rcd_bits_length <= rcc_arr[rd_ptr][71:56];
+        _DMAEngineDef_io_rcd_bits_dpram_addr <= rcc_arr[rd_ptr][15:0];
         _DMAEngineDef_io_rcd_bits_data <= 0;
         rcc_cnt <= 0;
     end
