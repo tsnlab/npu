@@ -64,27 +64,27 @@ set_property -dict [list \
         CONFIG.Enable_Safety_Circuit {true} \
         ] [get_ips as72x32_ft]
 
-create_ip -vendor xilinx.com -library ip -name fifo_generator -module_name as32x32_ft -dir $ipdir -force
+create_ip -vendor xilinx.com -library ip -name fifo_generator -module_name as32x256_ft -dir $ipdir -force
 set_property -dict [list \
         CONFIG.Fifo_Implementation {Independent_Clocks_Block_RAM} \
         CONFIG.Performance_Options {First_Word_Fall_Through} \
         CONFIG.Input_Data_Width {32} \
-        CONFIG.Input_Depth {32} \
+        CONFIG.Input_Depth {256} \
         CONFIG.Output_Data_Width {32} \
-        CONFIG.Output_Depth {32} \
+        CONFIG.Output_Depth {256} \
         CONFIG.Reset_Type {Asynchronous_Reset} \
         CONFIG.Full_Flags_Reset_Value {1} \
-        CONFIG.Data_Count_Width {5} \
+        CONFIG.Data_Count_Width {8} \
         CONFIG.Write_Data_Count {true} \
-        CONFIG.Write_Data_Count_Width {5} \
+        CONFIG.Write_Data_Count_Width {8} \
         CONFIG.Read_Data_Count {true} \
-        CONFIG.Read_Data_Count_Width {5} \
-        CONFIG.Full_Threshold_Assert_Value {31} \
-        CONFIG.Full_Threshold_Negate_Value {30} \
+        CONFIG.Read_Data_Count_Width {8} \
+        CONFIG.Full_Threshold_Assert_Value {255} \
+        CONFIG.Full_Threshold_Negate_Value {254} \
         CONFIG.Empty_Threshold_Assert_Value {4} \
         CONFIG.Empty_Threshold_Negate_Value {5} \
         CONFIG.Enable_Safety_Circuit {true} \
-        ] [get_ips as32x32_ft]
+        ] [get_ips as32x256_ft]
 
 
 
