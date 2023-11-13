@@ -313,6 +313,8 @@ class NPU(threading.Thread):
                 result.append(read(16))
             elif kind == 'i20':
                 result.append(read(20))
+            elif kind == 'p4':
+                pass
             elif kind == 'p8':
                 pass
             elif kind == 'p16':
