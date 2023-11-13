@@ -212,7 +212,8 @@ always@(posedge clk or posedge rst) begin
 end
 
 
-assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid && read_valid));
+// assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid && read_valid));
+assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid));
 assign dma_write_valid = ((wr_en || rd_en) && dma_write_ready);
 assign core_readData = dma_read_data;
 assign dma_read_ready = !rst;
