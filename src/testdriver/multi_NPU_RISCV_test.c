@@ -122,9 +122,13 @@ static void load_command_to_npu(int npu, long unsigned int l_addr, long unsigned
 /* riscv issues store command to npu */
 static void store_command_to_npu(int npu, long unsigned int r_addr, long unsigned int l_addr, int size) {
 
+    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    trace_pc_position()
 }
 
 static inline uint64_t get_time() {
@@ -457,29 +461,29 @@ void adjust_kernel() {
 void load_kernel_data_into_npu() {
 
     // Load kernel code at address 0 of npu
-    load_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)(kernel_0/128), (int)sizeof(kernel_0));
-    load_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)(kernel_1/128), (int)sizeof(kernel_1));
-    load_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)(kernel_2/128), (int)sizeof(kernel_2));
-    load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)(kernel_3/128), (int)sizeof(kernel_3));
+    load_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)((int)kernel_0/128), (int)sizeof(kernel_0));
+    load_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)((int)kernel_1/128), (int)sizeof(kernel_1));
+    load_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)((int)kernel_2/128), (int)sizeof(kernel_2));
+    load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)((int)kernel_3/128), (int)sizeof(kernel_3));
     npu_load();
 
     printf("Kernel images are stored in each NPU.\n\n");
 
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
     // Load input_A at address 0x80 of npu
-    load_command_to_npu(0, (long unsigned int)0x80, (long unsigned int)(input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(1, (long unsigned int)0x80, (long unsigned int)(input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(2, (long unsigned int)0x80, (long unsigned int)(input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, (long unsigned int)0x80, (long unsigned int)(input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(0, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(1, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(2, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(3, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
     npu_load();
 
     printf("input_A is stored in all NPUs.\n\n");
 
     // Load input_B at address 0x1080 of npu
-    load_command_to_npu(0, (long unsigned int)0x1080, (long unsigned int)(input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(1, (long unsigned int)0x1080, (long unsigned int)(input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(2, (long unsigned int)0x1080, (long unsigned int)(input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)(input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(0, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(1, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(2, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)(i(int)nput_B/128), (int)(sizeof(BF16) * DATA_SIZE));
     npu_load();
 
     printf("input_B is stored in all NPUs.\n\n");
@@ -537,24 +541,31 @@ void load_store_test() {
     char *org;
     char *npu_ls;
 
+    printf("\n>>> %s\n\n", __func__);
     // Load kernel code at address 0 of npu
-    load_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)(kernel_0/128), (int)sizeof(kernel_0));
-    load_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)(kernel_1/128), (int)sizeof(kernel_1));
-    load_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)(kernel_2/128), (int)sizeof(kernel_2));
-    load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)(kernel_3/128), (int)sizeof(kernel_3));
+    load_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)((int)kernel_0/128), (int)sizeof(kernel_0));
+    load_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)((int)kernel_1/128), (int)sizeof(kernel_1));
+    load_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)((int)kernel_2/128), (int)sizeof(kernel_2));
+    load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)((int)kernel_3/128), (int)sizeof(kernel_3));
+    printf("\ncomplete all load_command_to_npu\n\n");
     npu_load();
+    printf("\ncomplete npu_load\n\n");
 
     delay_in_usec(1000000);
 
+    printf("\nstart all store_command_to_npu\n\n");
     // Store kernel code 
-    store_command_to_npu(0, (long unsigned int)(output_npu_0/128), (long unsigned int)0x00, (int)sizeof(kernel_0));
-    store_command_to_npu(1, (long unsigned int)(output_npu_1/128), (long unsigned int)0x00, (int)sizeof(kernel_1));
-    store_command_to_npu(2, (long unsigned int)(output_npu_2/128), (long unsigned int)0x00, (int)sizeof(kernel_2));
-    store_command_to_npu(3, (long unsigned int)(output_npu_3/128), (long unsigned int)0x00, (int)sizeof(kernel_3));
+    store_command_to_npu(0, (long unsigned int)((int)output_npu_0/128), (long unsigned int)0x00, (int)sizeof(kernel_0));
+    store_command_to_npu(1, (long unsigned int)((int)output_npu_1/128), (long unsigned int)0x00, (int)sizeof(kernel_1));
+    store_command_to_npu(2, (long unsigned int)((int)output_npu_2/128), (long unsigned int)0x00, (int)sizeof(kernel_2));
+    store_command_to_npu(3, (long unsigned int)((int)output_npu_3/128), (long unsigned int)0x00, (int)sizeof(kernel_3));
+    printf("\ncomplete all store_command_to_npu\n\n");
     npu_store();
+    printf("\ncomplete npu_store\n\n");
 
     delay_in_usec(1000000);
 
+    printf("\nstart all compare_load_store_data\n\n");
     org = (char *)kernel_0;
     npu_ls = (char *)output_npu_0;
     compare_load_store_data(0, org, npu_ls, (int)sizeof(kernel_0));
