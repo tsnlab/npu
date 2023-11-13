@@ -5,7 +5,7 @@
 //
 // Create Date: 2023-10-10
 // Design Name: TSN-NPU
-// Module Name: tsn_dgcl
+// Module Name: DMAPathController
 // Tool versions: vivado 2018.3
 // Description:
 //    <Description here>
@@ -107,18 +107,18 @@ wire rcd_ff_c_wr_en;
 reg rcd_ff_c_wr_en_d;
 reg [31:0] rcd_ff_c_wr_data;
 wire rcd_ff_c_full;
-wire [4:0] rcd_ff_c_wr_cnt;
-reg rcd_ff_c_rd_en;
+wire [7:0] rcd_ff_c_wr_cnt;
+wire rcd_ff_c_rd_en;
 wire [31:0] rcd_ff_c_rd_data;
 wire rcd_ff_c_empty;
-wire [4:0] rcd_ff_c_rd_cnt;
+wire [7:0] rcd_ff_c_rd_cnt;
 
 //***** Read Controller Data Path Data FIFO Signal
 wire rcd_ff_d_wr_en;
 wire [127:0] rcd_ff_d_wr_data;
 wire rcd_ff_d_full;
 wire [7:0] rcd_ff_d_wr_cnt;
-reg rcd_ff_d_rd_en;
+wire rcd_ff_d_rd_en;
 wire [127:0] rcd_ff_d_rd_data;
 wire rcd_ff_d_empty;
 wire [7:0] rcd_ff_d_rd_cnt;
@@ -165,9 +165,9 @@ reg[7:0] ad_rd_ptr;
 //***** Read Controller Data Signal
 reg[15:0] rcdcon_count;
 reg[15:0] rcdcon_length;
-reg dma_read_vld;
+wire dma_read_vld;
 wire[127:0] dma_read_data;
-reg[1:0] dma_mux;
+wire[1:0] dma_mux;
 wire dma_read_ready_mux;
 
 //***** FPU Token Control Signal
@@ -772,12 +772,13 @@ always@(posedge risc_clk or posedge reset) begin
 	end
 end
 
-assign rcd_ff_c_wr_en = (~rcd_cmd_valid_d)&&(rcd_valid);
-assign rcd_ff_d_wr_en = (rcd_valid && (~rcd_ff_d_full));
+// assign rcd_ff_c_wr_en = (~rcd_cmd_valid_d)&&(rcd_valid);
+assign rcd_ff_c_wr_en = (rcd_valid)&&(rcd_ready);
+assign rcd_ff_d_wr_en = (rcd_valid && (rcd_ready));
 assign rcd_ready = ((~rcd_ff_d_full) && (~rcd_ff_c_full));
 assign rcd_ff_d_wr_data = rcd_read_data;
 
-as32x32_ft rcd_com_fifo (
+as32x256_ft rcd_com_fifo (
 	.rst			(reset),           // input wire rst
 
 	.wr_clk			(risc_clk),        // input wire wr_clk
@@ -810,85 +811,91 @@ as128x256_ft rcd_data_fifo (
 );
 
 
-always@(posedge fpu_clk or posedge reset) begin
-	if(reset) begin
-		dma_read_vld <= 1'b0;
-		rcd_ff_d_rd_en <= 1'b0;
-		dma_r_da <= 128'd0;
-		rcdcon_count<= 16'd1;
-		dma_mux <= 2'b00;
-		rcdcon <= rcd_st;
+// always@(posedge fpu_clk or posedge reset) begin
+// 	if(reset) begin
+// 		dma_read_vld <= 1'b0;
+// 		rcd_ff_d_rd_en <= 1'b0;
+// 		dma_r_da <= 128'd0;
+// 		rcdcon_count<= 16'd1;
+// 		dma_mux <= 2'b00;
+// 		rcdcon <= rcd_st;
 
-	end
-	else begin
-		case(rcdcon)
-			rcd_st : begin
-				if((~rcd_ff_c_empty)&&(~rcd_ff_d_empty)) begin
-					rcd_ff_c_rd_en <= 1'b1;
-					rcdcon_length <= rcd_ff_c_rd_data[31:16]+1;
+// 	end
+// 	else begin
+// 		case(rcdcon)
+// 			rcd_st : begin
+// 				if((~rcd_ff_c_empty)&&(~rcd_ff_d_empty)) begin
+// 					rcd_ff_c_rd_en <= 1'b1;
+// 					rcdcon_length <= rcd_ff_c_rd_data[31:16]+1;
 
-					dma_r_da[15:0] <= rcd_ff_c_rd_data[15:0];
-					dma_r_da[55:0] <= 0;
-					dma_r_da[71:56] <= rcd_ff_c_rd_data[31:16];
-					dma_r_da[79:72] <= 8'h02;
-					dma_r_da[127:80] <= 0;
-					dma_mux <= rcd_ff_c_rd_data[15:14];
+// 					dma_r_da[15:0] <= rcd_ff_c_rd_data[15:0];
+// 					dma_r_da[55:0] <= 0;
+// 					dma_r_da[71:56] <= rcd_ff_c_rd_data[31:16];
+// 					dma_r_da[79:72] <= 8'h02;
+// 					dma_r_da[127:80] <= 0;
+// 					dma_mux <= rcd_ff_c_rd_data[15:14];
 
-					dma_read_vld <= 1'b1;
-					rcdcon <= rcd_s0;
-				end
-				else begin
-					rcd_ff_c_rd_en <= 1'b0;
-					rcdcon_length <= 0;
-					dma_read_vld <= 1'b0;
-					dma_r_da <= 0;
-					rcdcon <= rcd_st;
-				end
-			end
-			rcd_s0 : begin
+// 					dma_read_vld <= 1'b1;
+// 					rcdcon <= rcd_s0;
+// 				end
+// 				else begin
+// 					rcd_ff_c_rd_en <= 1'b0;
+// 					rcdcon_length <= 0;
+// 					dma_read_vld <= 1'b0;
+// 					dma_r_da <= 0;
+// 					rcdcon <= rcd_st;
+// 				end
+// 			end
+// 			rcd_s0 : begin
 				
-				rcd_ff_c_rd_en <= 1'b0;
-				if(rcdcon_length == rcdcon_count)begin
-					dma_read_vld <= 1'b0;
-					rcd_ff_d_rd_en <= 1'b0;
-					dma_r_da <= 128'd0;
-					rcdcon_count<= 16'd1;
-					rcdcon <= rcd_end;
+// 				rcd_ff_c_rd_en <= 1'b0;
+// 				if(rcdcon_length == rcdcon_count)begin
+// 					dma_read_vld <= 1'b0;
+// 					rcd_ff_d_rd_en <= 1'b0;
+// 					dma_r_da <= 128'd0;
+// 					rcdcon_count<= 16'd1;
+// 					rcdcon <= rcd_end;
 
-				end
-				else begin
-					if(dma_read_ready_mux) begin
-						dma_read_vld <= 1'b1;
-						rcd_ff_d_rd_en <= 1'b1;
-						dma_r_da <= rcd_ff_d_rd_data;
-						rcdcon_count<= rcdcon_count + 1;
-						rcdcon <= rcd_s0;
+// 				end
+// 				else begin
+// 					if(dma_read_ready_mux) begin
+// 						dma_read_vld <= 1'b1;
+// 						rcd_ff_d_rd_en <= 1'b1;
+// 						dma_r_da <= rcd_ff_d_rd_data;
+// 						rcdcon_count<= rcdcon_count + 1;
+// 						rcdcon <= rcd_s0;
 
-					end
-					else begin
-						dma_read_vld <= 1'b1;
-						rcd_ff_d_rd_en <= 1'b0;
-						dma_r_da <= rcd_ff_d_rd_data;
-						rcdcon_count<= rcdcon_count;
-						rcdcon <= rcd_s0;
-					end
-				end
-			end
-			rcd_end : begin
-				dma_read_vld <= 1'b0;
-				rcd_ff_d_rd_en <= 1'b0;
-				dma_r_da <= 128'd0;
-				rcdcon_count<= 16'd1;
-				rcdcon <= rcd_st;
-			end
-			default : begin
-			end
-		endcase
+// 					end
+// 					else begin
+// 						dma_read_vld <= 1'b1;
+// 						rcd_ff_d_rd_en <= 1'b0;
+// 						dma_r_da <= rcd_ff_d_rd_data;
+// 						rcdcon_count<= rcdcon_count;
+// 						rcdcon <= rcd_s0;
+// 					end
+// 				end
+// 			end
+// 			rcd_end : begin
+// 				dma_read_vld <= 1'b0;
+// 				rcd_ff_d_rd_en <= 1'b0;
+// 				dma_r_da <= 128'd0;
+// 				rcdcon_count<= 16'd1;
+// 				rcdcon <= rcd_st;
+// 			end
+// 			default : begin
+// 			end
+// 		endcase
 
-	end
-end
+// 	end
+// end
 
-assign dma_read_data = (rcd_ff_d_rd_en)? rcd_ff_d_rd_data : dma_r_da;
+assign dma_mux = rcd_ff_c_rd_data[15:14];
+assign dma_read_vld = (~rcd_ff_d_empty && ~rcd_ff_c_empty && dma_read_ready_mux)? 1'b1 : 1'b0;
+assign rcd_ff_c_rd_en = (~rcd_ff_d_empty && ~rcd_ff_c_empty && dma_read_ready_mux)? 1'b1 : 1'b0;
+assign rcd_ff_d_rd_en = (~rcd_ff_d_empty && ~rcd_ff_c_empty && dma_read_ready_mux)? 1'b1 : 1'b0;
+
+// assign dma_read_data = (rcd_ff_d_rd_en)? rcd_ff_d_rd_data : dma_r_da;
+assign dma_read_data = rcd_ff_d_rd_data;
 
 assign dma_read_valid_a = (dma_mux==2'b00)? dma_read_vld : 1'b0;
 assign dma_read_data_a = dma_read_data;
