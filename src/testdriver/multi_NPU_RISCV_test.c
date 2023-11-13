@@ -4,17 +4,15 @@
 #include <stdint.h>
 #include <string.h>
 
-//#define DATA_SIZE 2048            // Data Size
-#define DATA_SIZE 16            // Data Size
+#define DATA_SIZE 2048            // Data Size
 #define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 #define NUMBER_OF_CORES 4         // Number f Cores used at the same time
 
-#define SYS_CLK 12500000
+#define SYS_CLK 26000000 // RISC-V: 26MHz 26,000,000
 
-#define KERNEL_WITH_LOAD_STORE 0
+#define KERNEL_WITH_LOAD_STORE 1
 #define NPU_REG_ID_OFFSET 3
 
-#define LOAD_STORE_TEST 1
 #define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
@@ -33,6 +31,55 @@ typedef struct {
     uint16_t exponent : 8;
     uint16_t sign : 1;
 } BF16;
+
+// 4096 Size Input data
+__attribute__ ((aligned (128))) volatile BF16 input_A[DATA_SIZE];
+__attribute__ ((aligned (128))) volatile BF16 input_B[DATA_SIZE];
+
+__attribute__ ((aligned (128))) volatile BF16 output_npu_0[DATA_SIZE]; // NPU 0 Output
+__attribute__ ((aligned (128))) volatile BF16 output_npu_1[DATA_SIZE]; // NPU 1 Output
+__attribute__ ((aligned (128))) volatile BF16 output_npu_2[DATA_SIZE]; // NPU 2 Output
+__attribute__ ((aligned (128))) volatile BF16 output_npu_3[DATA_SIZE]; // NPU 3 Output
+
+__attribute__ ((aligned (64))) volatile BF16 output_riscv_add[DATA_SIZE];
+__attribute__ ((aligned (64))) volatile BF16 output_riscv_sub[DATA_SIZE];
+__attribute__ ((aligned (64))) volatile BF16 output_riscv_mul[DATA_SIZE];
+__attribute__ ((aligned (64))) volatile BF16 output_riscv_div[DATA_SIZE];
+
+  // Kernel: need to align by 8bytes                              0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19
+  //                                                             20    21    22    23    24    25    26    27    28    29    30    31    32    33    34    35    36    37    38    39
+  //                                                             40    41    42    43    44    45    46    47    48    49    50    51    52    53    54    55    56    57    58    59
+  //                                                             60    61    62    63    64    65    66    67    68    69    70    71    72    73    74    75    76    77    78    79
+  //                                                             80    81    82    83    84    85    86    87    88    89    90    91    92    93    94    95    96    97    98    99
+#if KERNEL_WITH_LOAD_STORE
+// With load/store, vadd.bf16
+__attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
+                                                               0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
+                                                               0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0x40, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
+                                                               0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_1[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
+                                                               0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
+                                                               0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0x60, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
+                                                               0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_2[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
+                                                               0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
+                                                               0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0x80, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
+                                                               0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
+                                                               0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
+                                                               0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0xa0, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
+                                                               0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
+#else
+    // Without load/store, vadd.bf16
+__attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
+                                                               0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_1[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
+                                                               0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_2[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
+                                                               0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
+                                                               0x00, 0x00, 0x00, 0xff};
+#endif
 
 static inline void npu_regSet(int idx, unsigned long data)
 {
@@ -63,10 +110,30 @@ static inline void npu_store()
     ROCC_INSTRUCTION(3, 4);
 }
 
-uint64_t get_time() {
+/* riscv issues store command to npu */
+static void load_command_to_npu(int npu, long unsigned int l_addr, long unsigned int r_addr, int size) {
+
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    trace_pc_position()
+    npu_load();
+
+}
+
+/* riscv issues store command to npu */
+static void store_command_to_npu(int npu, long unsigned int r_addr, long unsigned int l_addr, int size) {
+
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    npu_store();
+}
+
+static inline uint64_t get_time() {
     uint64_t tmp;
 
-    asm volatile("csrr %0,time":"=r"(tmp));
+    asm volatile("csrrs %0, cycle, x0":"=r"(tmp));
     return tmp;
 }
 
@@ -197,6 +264,63 @@ static void kernel_op_change(uint8_t* kernel, char* op) {
 #endif
 }
 
+static void kernel_input_a_addr_change(uint8_t* kernel, BF16* data) {
+
+    unsigned long addr;
+    uint8_t byte_low;
+    uint8_t byte_high;
+
+    addr = (unsigned long)data;
+    addr = (addr + 127)/128;
+
+    // Devide Size
+    byte_low = addr & 0xff;
+    byte_high = (addr >> 8) & 0xFF;
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+    kernel[4] = byte_low;
+    kernel[5] = byte_high;
+#endif
+}
+
+static void kernel_input_b_addr_change(uint8_t* kernel, BF16* data) {
+
+    unsigned long addr;
+    uint8_t byte_low;
+    uint8_t byte_high;
+
+    addr = (unsigned long)data;
+    addr = (addr + 127)/128;
+
+    // Devide Size
+    byte_low = addr & 0xff;
+    byte_high = (addr >> 8) & 0xFF;
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+    kernel[20] = byte_low;
+    kernel[21] = byte_high;
+#endif
+}
+
+static void kernel_input_c_addr_change(uint8_t* kernel, BF16* data) {
+
+    unsigned long addr;
+    uint8_t byte_low;
+    uint8_t byte_high;
+
+    addr = (unsigned long)data;
+    addr = (addr + 127)/128;
+
+    // Devide Size
+    byte_low = addr & 0xff;
+    byte_high = (addr >> 8) & 0xFF;
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+    kernel[52] = byte_low;
+    kernel[53] = byte_high;
+#endif
+}
+
 static void riscv_calculate(BF16* output, BF16* input_A, BF16* input_B, char* op, int size) {
 
     for (int i = 0; i < size; i++) {
@@ -235,6 +359,7 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
     char riscvStrValue[50]; 
     char npuStrValue[50]; 
     char diffStrValue[50]; 
+
     for (int i = 0; i < count; i++) {
         out_risc_flt = bf16_to_float(out_risc_bf16[i]);
         out_npu_flt = bf16_to_float(out_npu_bf16[i]);
@@ -260,47 +385,125 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
     return check;
 }
 
-/* riscv issues store command to npu */
-static void store_command_to_npu(int npu, long unsigned int l_addr, long unsigned int r_addr, int size) {
+void init_variavles() {
 
-    trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
-    trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
-    trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
-    trace_pc_position()
-    npu_load();
-    trace_pc_position()
-
-}
-
-/* riscv issues store command to npu */
-static void load_command_to_npu(int npu, long unsigned int r_addr, long unsigned int l_addr, int size) {
-
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
-    npu_store();
-}
-
-int main() {
-    // 4096 Size Input data
-    BF16 input_A[DATA_SIZE];
-    BF16 input_B[DATA_SIZE];
-    
     float f_val_A;
     float f_val_B;
 
-    BF16 output_riscv_add[DATA_SIZE];
-    BF16 output_riscv_sub[DATA_SIZE];
-    BF16 output_riscv_mul[DATA_SIZE];
-    BF16 output_riscv_div[DATA_SIZE];
+    memset(output_riscv_add, 0, sizeof(output_riscv_add));
+    memset(output_riscv_sub, 0, sizeof(output_riscv_sub));
+    memset(output_riscv_mul, 0, sizeof(output_riscv_mul));
+    memset(output_riscv_div, 0, sizeof(output_riscv_div));
+    
+    memset(output_npu_0, 0, sizeof(output_npu_0));
+    memset(output_npu_1, 0, sizeof(output_npu_1));
+    memset(output_npu_2, 0, sizeof(output_npu_2));
+    memset(output_npu_3, 0, sizeof(output_npu_3));
 
-    BF16 output_npu_0[DATA_SIZE]; // NPU 0 Output
-    BF16 output_npu_1[DATA_SIZE]; // NPU 1 Output
-    BF16 output_npu_2[DATA_SIZE]; // NPU 2 Output
-    BF16 output_npu_3[DATA_SIZE]; // NPU 3 Output
+    // Random Data Input
+    for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++) {
+        f_val_A = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        f_val_B = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+
+        input_A[temp_count] = float_to_bf16(f_val_A);
+        input_B[temp_count] = float_to_bf16(f_val_B);
+    }
+}
+
+void riscv_calculate_result() {
+
+    riscv_calculate(output_riscv_add, input_A, input_B, "vadd.bf16", DATA_SIZE);
+    riscv_calculate(output_riscv_sub, input_A, input_B, "vsub.bf16", DATA_SIZE);
+    riscv_calculate(output_riscv_mul, input_A, input_B, "vmul.bf16", DATA_SIZE);
+    riscv_calculate(output_riscv_div, input_A, input_B, "vdiv.bf16", DATA_SIZE);
+}
+
+void adjust_kernel() {
+
+    resize_op_iteration_kernel(kernel_0, DATA_SIZE);
+    resize_op_iteration_kernel(kernel_1, DATA_SIZE);
+    resize_op_iteration_kernel(kernel_2, DATA_SIZE);
+    resize_op_iteration_kernel(kernel_3, DATA_SIZE);
+
+    // Change Kernel's Opcode
+    kernel_op_change(kernel_0, TEST_OP_TYPE);
+    kernel_op_change(kernel_1, TEST_OP_TYPE);
+    kernel_op_change(kernel_2, TEST_OP_TYPE);
+    kernel_op_change(kernel_3, TEST_OP_TYPE);
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+    // Change Kernel's input_A address
+    kernel_input_a_addr_change(kernel_0, input_A);
+    kernel_input_a_addr_change(kernel_1, input_A);
+    kernel_input_a_addr_change(kernel_2, input_A);
+    kernel_input_a_addr_change(kernel_3, input_A);
+
+    // Change Kernel's input_A address
+    kernel_input_b_addr_change(kernel_0, input_B);
+    kernel_input_b_addr_change(kernel_1, input_B);
+    kernel_input_b_addr_change(kernel_2, input_B);
+    kernel_input_b_addr_change(kernel_3, input_B);
+
+    // Change Kernel's input_A address
+    kernel_input_c_addr_change(kernel_0, output_npu_0);
+    kernel_input_c_addr_change(kernel_1, output_npu_1);
+    kernel_input_c_addr_change(kernel_2, output_npu_2);
+    kernel_input_c_addr_change(kernel_3, output_npu_3);
+
+    resize_converted_data_size_kernel(kernel_0, (int)((DATA_SIZE * 2 + 3)/4));
+    resize_converted_data_size_kernel(kernel_1, (int)((DATA_SIZE * 2 + 3)/4));
+    resize_converted_data_size_kernel(kernel_2, (int)((DATA_SIZE * 2 + 3)/4));
+    resize_converted_data_size_kernel(kernel_3, (int)((DATA_SIZE * 2 + 3)/4));
+#endif
+}
+
+void load_kernel_data_into_npu() {
+
+    // Load kernel code at address 0 of npu
+    load_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)kernel_0, (int)sizeof(kernel_0));
+    load_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)kernel_1, (int)sizeof(kernel_1));
+    load_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)kernel_2, (int)sizeof(kernel_2));
+    load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)kernel_3, (int)sizeof(kernel_3));
+
+    printf("Kernel images are stored in each NPU.\n\n");
+
+#if !KERNEL_WITH_LOAD_STORE // without-load-store
+    // Load input_A at address 0x80 of npu
+    load_command_to_npu(0, (long unsigned int)0x80, (long unsigned int)input_A, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(1, (long unsigned int)0x80, (long unsigned int)input_A, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(2, (long unsigned int)0x80, (long unsigned int)input_A, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(3, (long unsigned int)0x80, (long unsigned int)input_A, (int)(sizeof(BF16) * DATA_SIZE));
+
+    printf("input_A is stored in all NPUs.\n\n");
+
+    // Load input_B at address 0x1080 of npu
+    load_command_to_npu(0, (long unsigned int)0x1080, (long unsigned int)input_B, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(1, (long unsigned int)0x1080, (long unsigned int)input_B, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(2, (long unsigned int)0x1080, (long unsigned int)input_B, (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)input_B, (int)(sizeof(BF16) * DATA_SIZE));
+
+    printf("input_B is stored in all NPUs.\n\n");
+#endif
+}
+
+void store_result_into_ddr() {
+
+    // Load output_C at address 0x202000 of riscv
+    store_command_to_npu(0, (long unsigned int)output_npu_0, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(1, (long unsigned int)output_npu_1, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(2, (long unsigned int)output_npu_2, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+    store_command_to_npu(3, (long unsigned int)output_npu_3, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
+}
+
+int main() {
+    
+    uint64_t cycle_start;
+    uint64_t cycle_end;
+    int check0 = 0;
+    int check1 = 0;
+    int check2 = 0;
+    int check3 = 0;
+    char elapsedTimeStrValue[50]; 
 
     printf("\n========Init========\n\n");
     printf("Multi NAU Test\n");
@@ -311,138 +514,21 @@ int main() {
         printf("    Kernel with load/store functions\n\n");
     }
 
-    memset(output_riscv_add, 0, sizeof(output_riscv_add));
-    memset(output_riscv_sub, 0, sizeof(output_riscv_sub));
-    memset(output_riscv_mul, 0, sizeof(output_riscv_mul));
-    memset(output_riscv_div, 0, sizeof(output_riscv_div));
-    
-    trace_pc_position()
-    memset(output_npu_0, 0, sizeof(output_npu_0));
-    memset(output_npu_1, 0, sizeof(output_npu_1));
-    memset(output_npu_2, 0, sizeof(output_npu_2));
-    memset(output_npu_3, 0, sizeof(output_npu_3));
-
-    trace_pc_position()
-    // Random Data Input
-    for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++) {
-        f_val_A = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
-        f_val_B = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
-
-        input_A[temp_count] = float_to_bf16(f_val_A);
-        input_B[temp_count] = float_to_bf16(f_val_B);
-    }
-
+    init_variavles();
     printf("\ninput_A & input_B are filled with random data.\n");
 
-    trace_pc_position()
-    riscv_calculate(output_riscv_add, input_A, input_B, "vadd.bf16", DATA_SIZE);
-    riscv_calculate(output_riscv_sub, input_A, input_B, "vsub.bf16", DATA_SIZE);
-    riscv_calculate(output_riscv_mul, input_A, input_B, "vmul.bf16", DATA_SIZE);
-    riscv_calculate(output_riscv_div, input_A, input_B, "vdiv.bf16", DATA_SIZE);
-
+    riscv_calculate_result();
     printf("\nThe result values of risc-v for each function were calculated using input_A & input_B.\n");
 
-    trace_pc_position()
-#if 1 // *** FAILED *** (tohost = 7)
-    // Memory Input
-    memcpy((BF16*)0x200000, input_A, sizeof(BF16) * DATA_SIZE);
-    memcpy((BF16*)0x201000, input_B, sizeof(BF16) * DATA_SIZE);
-#endif
-
-    trace_pc_position()
-    // Kernel: need to align by 8bytes                              0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19    20    21    22    23    24    25    26    27    28    29    30    31    32    33    34    35    36    37    38    39    40    41    42    43    44    45    46    47    48    49    50    51    52    53    54    55    56    57    58    59    60    61    62    63    64    65    66    67    68    69    70    71    72    73    74    75    76    77    78    79    80    81    82    83    84    85    86    87    88    89    90    91    92    93    94    95
-    // Kernel: need to align by 8bytes                              0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19  
-    //                                                             20    21    22    23    24    25    26    27    28    29    30    31    32    33    34    35    36    37    38    39  
-    //                                                             40    41    42    43    44    45    46    47    48    49    50    51    52    53    54    55    56    57    58    59  
-    //                                                             60    61    62    63    64    65    66    67    68    69    70    71    72    73    74    75    76    77    78    79  
-    //                                                             80    81    82    83    84    85    86    87    88    89    90    91    92    93    94    95    96    97    98    99
-#if KERNEL_WITH_LOAD_STORE
-    // With load/store, vadd.bf16
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_0[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
-                                                                 0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
-                                                                 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0x40, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
-                                                                 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_1[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
-                                                                 0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
-                                                                 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0x60, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
-                                                                 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_2[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
-                                                                 0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
-                                                                 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0x80, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
-                                                                 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_3[] = {0x20, 0x00, 0x10, 0x02, 0x00, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x04, 0x10, 0x02,
-                                                                 0x20, 0x40, 0x20, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x07, 0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02,
-                                                                 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09, 0xa0, 0x40, 0x10, 0x02, 0x20, 0x08, 0x20, 0x02,
-                                                                 0x00, 0x04, 0x30, 0x02, 0x00, 0x30, 0x12, 0x08, 0x00, 0x00, 0x00, 0xff};
-#else
-    // Without load/store, vadd.bf16
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_0[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
-                                                                 0x00, 0x00, 0x00, 0xff};
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_1[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
-                                                                 0x00, 0x00, 0x00, 0xff};
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_2[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
-                                                                 0x00, 0x00, 0x00, 0xff};
-    __attribute__ ((aligned (8))) volatile uint8_t kernel_3[] = {0x20, 0x00, 0x10, 0x02, 0x20, 0x04, 0x20, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x08, 0x40, 0x02, 0x00, 0x24, 0x31, 0x09,
-                                                                 0x00, 0x00, 0x00, 0xff};
-#endif
-
-    trace_pc_position()
-    resize_op_iteration_kernel(kernel_0, DATA_SIZE);
-    resize_op_iteration_kernel(kernel_1, DATA_SIZE);
-    resize_op_iteration_kernel(kernel_2, DATA_SIZE);
-    resize_op_iteration_kernel(kernel_3, DATA_SIZE);
-    
-    trace_pc_position()
-    // Change Kernel's Opcode
-    kernel_op_change(kernel_0, TEST_OP_TYPE);
-    kernel_op_change(kernel_1, TEST_OP_TYPE);
-    kernel_op_change(kernel_2, TEST_OP_TYPE);
-    kernel_op_change(kernel_3, TEST_OP_TYPE);
-
-#if KERNEL_WITH_LOAD_STORE // with-load-store
-    resize_converted_data_size_kernel(kernel_0, (int)((DATA_SIZE * 2 + 3)/4));
-    resize_converted_data_size_kernel(kernel_1, (int)((DATA_SIZE * 2 + 3)/4));
-    resize_converted_data_size_kernel(kernel_2, (int)((DATA_SIZE * 2 + 3)/4));
-    resize_converted_data_size_kernel(kernel_3, (int)((DATA_SIZE * 2 + 3)/4));
-#endif
-
+    adjust_kernel();
     printf("\nKernel images for each NPU have been prepared.\n\n");
 
-    trace_pc_position()
-    // Load kernel code at address 0 of npu
-    store_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)kernel_0, (int)sizeof(kernel_0));
-    store_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)kernel_1, (int)sizeof(kernel_1));
-    store_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)kernel_2, (int)sizeof(kernel_2));
-    store_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)kernel_3, (int)sizeof(kernel_3));
 
-    printf("Kernel images are stored in each NPU.\n\n");
-
-    trace_pc_position()
-#if !KERNEL_WITH_LOAD_STORE // without-load-store
-    // Load input_A at address 0x80 of npu
-    store_command_to_npu(0, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(1, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(2, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(3, (long unsigned int)0x80, (long unsigned int)0x200000, (int)(sizeof(BF16) * DATA_SIZE));
-
-    printf("input_A is stored in all NPUs.\n\n");
-
-    trace_pc_position()
-    // Load input_B at address 0x1080 of npu
-    store_command_to_npu(0, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(1, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(2, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)0x201000, (int)(sizeof(BF16) * DATA_SIZE));
-
-    printf("input_B is stored in all NPUs.\n\n");
-#endif
-
-    trace_pc_position()
-    // sys-clk time_start, time_end;
-    //uint32_t time_start, time_end;
-    uint64_t time_start, time_end;
+    load_kernel_data_into_npu();
 
     printf("\nRuns all NPUs.\n");
+    cycle_start = get_time();
+
 #if 0
     // NPU Set
     volatile uint32_t *npu_base = (uint32_t*)0x43C00000; // kernel offset
@@ -450,8 +536,7 @@ int main() {
     npu_base[0] = (uint32_t)kernel_0;// the address of kernel in main memory
     npu_base[1] = sizeof(kernel_0); // the size of kernel, also need to align by 8bytes
     
-    //XTime_GetTime(&time_start); // Start Measuring Time when core 0 is Start
-    time_start = get_time();
+    cycle_start = get_time();
     npu_base[2] = 0; // Core Id
     //Core 1
     npu_base[0] = (uint32_t)kernel_1;
@@ -470,55 +555,19 @@ int main() {
         //Xil_DCacheInvalidateRange(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
         //invalidate_data_cache(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
     }; 
-    // XTime_GetTime(&time_end); // Get End Time
+    // XTime_GetTime(&cycle_end); // Get End Time
 #endif
-    trace_pc_position()
-    //time_start = get_time();
 
-    trace_pc_position()
-    //time_end = get_time();
-    
+    cycle_end = get_time();
     printf("\nAll NPUs have completed calculations.\n\n");
 
-    trace_pc_position()
-
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
-#if LOAD_STORE_TEST
-    // Load input_A at address 0x202000 of riscv
-    load_command_to_npu(0, (long unsigned int)0x202000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(1, (long unsigned int)0x203000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(2, (long unsigned int)0x204000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, (long unsigned int)0x205000, (long unsigned int)0x0080, (int)(sizeof(BF16) * DATA_SIZE));
-#else
-    // Load output_C at address 0x202000 of riscv
-    load_command_to_npu(0, (long unsigned int)0x202000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(1, (long unsigned int)0x203000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(2, (long unsigned int)0x204000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, (long unsigned int)0x205000, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-#endif
-
+    store_result_into_ddr();
     printf("The calculated result values were loaded into external memory.\n\n");
 #endif
 
-    trace_pc_position()
-#if 1 // *** FAILED *** (tohost = 5)
-    // Memory Output
-    memcpy(output_npu_0, 0x202000, sizeof(BF16) * DATA_SIZE);
-    memcpy(output_npu_1, 0x203000, sizeof(BF16) * DATA_SIZE);
-    memcpy(output_npu_2, 0x204000, sizeof(BF16) * DATA_SIZE);
-    memcpy(output_npu_3, 0x205000, sizeof(BF16) * DATA_SIZE);
-
-    printf("Copy the result values loaded in external memory to local variables of risc-v.\n\n");
-#endif
-
-    trace_pc_position()
-
     printf("\nCompare the results calculated by risc-v and the results calculated by NPUs.\n");
     // Check RISCV's Outpus & NPUs's Outputs Are Same, Input RISCV's OP Output Array in 1st Parameter
-    int check0 = 0;
-    int check1 = 0;
-    int check2 = 0;
-    int check3 = 0;
     if (TEST_OP_TYPE == "vadd.bf16") {
         check0 = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_add, output_npu_0, DATA_SIZE);
         check1 = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_add, output_npu_1, DATA_SIZE);
@@ -541,7 +590,6 @@ int main() {
         check3 = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_div, output_npu_3, DATA_SIZE);
     }
 
-    trace_pc_position()
     // If All Pass, Print
     if (check0 == DATA_SIZE) {
         printf("[NPU 0 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
@@ -556,8 +604,7 @@ int main() {
         printf("[NPU 3 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
 
-    char elapsedTimeStrValue[50]; 
-    floatToString(2.0 * (time_end - time_start) / (SYS_CLK / 1000000), 
+    floatToString(2.0 * (cycle_end - cycle_start) / (SYS_CLK / 1000000), 
                  elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
 
     printf("\nRISC-V Time: %s us.\n", elapsedTimeStrValue);
