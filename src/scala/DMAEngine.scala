@@ -43,8 +43,8 @@ class DMAEngine[T <: Data, U <: Data, V <: Data] (config: GemminiArrayConfig[T, 
     val spad_w = 128
     val acc_w = 128
     // val aligned_to = 1
-    val sp_bank_entries = 128
-    val acc_bank_entries = 128
+    val sp_bank_entries = 65536
+    val acc_bank_entries = 65536
     val block_rows = 1
     val block_cols = 1
     // val mstatus = Output(new MStatus)
