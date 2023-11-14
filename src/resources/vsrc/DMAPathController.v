@@ -778,7 +778,7 @@ assign rcd_ff_d_wr_en = (rcd_valid && (rcd_ready));
 assign rcd_ready = ((~rcd_ff_d_full) && (~rcd_ff_c_full));
 assign rcd_ff_d_wr_data = rcd_read_data;
 
-as32x256_ftt rcd_com_fifo (
+as32x256_ft rcd_com_fifo (
 	.rst			(reset),           // input wire rst
 
 	.wr_clk			(risc_clk),        // input wire wr_clk
