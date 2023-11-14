@@ -684,8 +684,8 @@ always@(posedge risc_clk or posedge reset)begin
 						wcc_ff_rd_en <= 1;
 						gwcdcon <= gwcd_s0;
 						gwcd_length <= wcc_ff_rd_data[71:56];
-						gwcd_daddr <= wcc_ff_rd_data[39:0];
-						gwcd_dpaddr <= wcc_ff_rd_data[55:40];
+						gwcd_daddr <= wcc_ff_rd_data[55:16];
+						gwcd_dpaddr <= wcc_ff_rd_data[15:0];
 					end
 					else begin
 						gwcdcon <= gwcd_st;
@@ -778,7 +778,7 @@ assign rcd_ff_d_wr_en = (rcd_valid && (rcd_ready));
 assign rcd_ready = ((~rcd_ff_d_full) && (~rcd_ff_c_full));
 assign rcd_ff_d_wr_data = rcd_read_data;
 
-as32x32_ft rcd_com_fifo (
+as32x256_ftt rcd_com_fifo (
 	.rst			(reset),           // input wire rst
 
 	.wr_clk			(risc_clk),        // input wire wr_clk
