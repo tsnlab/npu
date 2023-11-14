@@ -32,7 +32,7 @@ module loadStoreController(
   output reg dma_req,
   input wire dma_resp,
   output wire dma_write_valid,
-  output reg [127:0] dma_write_data,
+  output wire [127:0] dma_write_data,
   input wire dma_write_ready,
   input wire dma_read_valid,
   input wire [127:0] dma_read_data,
@@ -116,7 +116,7 @@ reg[15:0] dpcon_cnt;
 reg[15:0] dpcon_lengh;
 reg read_valid;
 reg rd_en;
-
+reg [127:0] header_reg;
 //***** DMA data Path Control
 always@(posedge clk or posedge rst) begin
   if(rst) begin
@@ -126,13 +126,14 @@ always@(posedge clk or posedge rst) begin
     rd_en <= 1'b0;
     dpcon <= dpc_idle;
     dpcon_lengh <= 0;
-    dma_write_data <= 0;
+    // dma_write_data <= 0;
+    header_reg <= 128'd0;
     dpcon_cnt <=16'd0;
   end
   else begin
     case(dpcon)
       dpc_idle : begin
-        dma_write_data <= 0;
+        // dma_write_data <= 0;
         data_done <= 1'b0;
         wr_en <= 1'b0;
         ack_en <= 1'b0;
@@ -152,24 +153,26 @@ always@(posedge clk or posedge rst) begin
         if(dma_write_ready) begin
           dpcon <= dpc_wr_data1;
           wr_en <= 1'b1;
-          dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
+          // dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
+          header_reg <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
         end
         else begin
           wr_en <= 1'b0;
-          dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
+          // dma_write_data <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
+          header_reg <= {48'd0,8'h03,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
           dpcon <= dpc_wr_data0;
         end
       end
       dpc_wr_data1 : begin
         if(dpcon_cnt >= dpcon_lengh) begin
           wr_en <= 1'b0;
-          dma_write_data <= core_writeData;
+          // dma_write_data <= core_writeData;
           dpcon <= dpc_end;
         end
         else begin
           wr_en <= 1'b1;
           ack_en <= 1'b1;
-          dma_write_data <= core_writeData;
+          // dma_write_data <= core_writeData;
           if(dma_write_valid) begin
             dpcon_cnt <= dpcon_cnt + 1;
           end
@@ -183,7 +186,7 @@ always@(posedge clk or posedge rst) begin
       dpc_rd_data : begin
         if(dma_write_ready) begin
           rd_en <= 1'b1;
-          dma_write_data <= {48'd0,8'h01,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
+          header_reg <= {48'd0,8'h01,core_transferLength,core_hostAddr,4'b0000,core_localAddr};
           dpcon <= dpc_end;
         end
       end
@@ -211,7 +214,7 @@ always@(posedge clk or posedge rst) begin
   end
 end
 
-
+assign dma_write_data = (ack_en == 1)? core_writeData : header_reg;
 // assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid && read_valid));
 assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid));
 assign dma_write_valid = ((wr_en || rd_en) && dma_write_ready);

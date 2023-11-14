@@ -684,8 +684,8 @@ always@(posedge risc_clk or posedge reset)begin
 						wcc_ff_rd_en <= 1;
 						gwcdcon <= gwcd_s0;
 						gwcd_length <= wcc_ff_rd_data[71:56];
-						gwcd_daddr <= wcc_ff_rd_data[39:0];
-						gwcd_dpaddr <= wcc_ff_rd_data[55:40];
+						gwcd_daddr <= wcc_ff_rd_data[55:16];
+						gwcd_dpaddr <= wcc_ff_rd_data[15:0];
 					end
 					else begin
 						gwcdcon <= gwcd_st;
