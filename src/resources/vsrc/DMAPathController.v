@@ -669,7 +669,7 @@ always@(posedge risc_clk or posedge reset)begin
 		gwcd_length <= 0;
 		wcc_ff_rd_en <= 1'b0;
 		gwcd_length <= 0;
-		gwcd_count <= 1;
+		gwcd_count <= 16'd0;
 		gwcd_en <= 1'b0; 
 		gwcd_daddr <= 40'd0;
 		gwcd_dpaddr <= 16'd0;
@@ -678,14 +678,14 @@ always@(posedge risc_clk or posedge reset)begin
 		case(gwcdcon)
 			gwcd_st : begin
 				
-				gwcd_count <= 1;
+				gwcd_count <= 16'd0;
 				if((~wcc_ff_empty)&&(~wcd_ff_empty)) begin
 					if(wcc_ready) begin
 						wcc_ff_rd_en <= 1;
 						gwcdcon <= gwcd_s0;
 						gwcd_length <= wcc_ff_rd_data[71:56];
-						gwcd_daddr <= wcc_ff_rd_data[55:16];
-						gwcd_dpaddr <= wcc_ff_rd_data[15:0];
+						gwcd_daddr <= wcc_ff_rd_data[39:0];
+						gwcd_dpaddr <= wcc_ff_rd_data[55:40];
 					end
 					else begin
 						gwcdcon <= gwcd_st;
@@ -698,9 +698,9 @@ always@(posedge risc_clk or posedge reset)begin
 			end
 			gwcd_s0 : begin
 				wcc_ff_rd_en <= 1'b0;
-				if(gwcd_count==gwcd_length) begin
+				if(gwcd_count>=gwcd_length) begin
 					gwcd_en <= 1'b0; 
-					gwcd_count <= 1;
+					gwcd_count <= 16'd0;
 					gwcdcon <= gwcd_end;
 				end
 				else begin
@@ -714,13 +714,13 @@ always@(posedge risc_clk or posedge reset)begin
 			gwcd_end: begin
 				wcc_ff_rd_en <= 1'b0;
 				gwcd_length <= 0;
-				gwcd_count <= 1;
+				gwcd_count <= 16'd0;
 				gwcdcon <= gwcd_st;
 			end
 			default : begin
 				wcc_ff_rd_en <= 1'b0;
 				gwcd_length <= 0;
-				gwcd_count <= 1;
+				gwcd_count <= 16'd0;
 				gwcdcon <= gwcd_st;
 			end
 		endcase
@@ -778,7 +778,7 @@ assign rcd_ff_d_wr_en = (rcd_valid && (rcd_ready));
 assign rcd_ready = ((~rcd_ff_d_full) && (~rcd_ff_c_full));
 assign rcd_ff_d_wr_data = rcd_read_data;
 
-as32x256_ft rcd_com_fifo (
+as32x32_ft rcd_com_fifo (
 	.rst			(reset),           // input wire rst
 
 	.wr_clk			(risc_clk),        // input wire wr_clk
