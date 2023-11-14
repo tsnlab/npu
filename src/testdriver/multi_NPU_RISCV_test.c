@@ -10,10 +10,10 @@
 
 #define SYS_CLK 26000000 // RISC-V: 26MHz 26,000,000
 
-#define KERNEL_WITH_LOAD_STORE 1
+#define KERNEL_WITH_LOAD_STORE 0
 #define NPU_REG_ID_OFFSET 3
 
-#define _NPU_LOAD_STORE_TEST_MODE_
+//#define _NPU_LOAD_STORE_TEST_MODE_
 #define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
@@ -127,9 +127,13 @@ static inline void npu_store()
 /* riscv issues store command to npu */
 static void load_command_to_npu(int npu, long unsigned int l_addr, long unsigned int r_addr, int size) {
 
+    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    trace_pc_position()
 }
 
 /* riscv issues store command to npu */
@@ -149,6 +153,21 @@ static inline uint64_t get_time() {
 
     asm volatile("csrrs %0, cycle, x0":"=r"(tmp));
     return tmp;
+}
+
+void delay_in_usec(int us) {
+
+    uint64_t cycle_start;
+    uint64_t cycle_end;
+    int elapsedTime;
+
+    cycle_start = get_time();
+    cycle_end = get_time();
+    elapsedTime = (cycle_end - cycle_start) / (SYS_CLK / 1000000); 
+    while(elapsedTime < us) {
+        cycle_end = get_time();
+        elapsedTime = (cycle_end - cycle_start) / (SYS_CLK / 1000000); 
+    }
 }
 
 BF16 float_to_bf16(float value) {
@@ -498,6 +517,7 @@ void load_kernel_data_into_npu() {
     load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)((int)kernel_3/128), (int)sizeof(kernel_3));
     npu_load();
 
+    delay_in_usec(1000000);
     printf("Kernel images are stored in each NPU.\n\n");
 
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
@@ -508,15 +528,17 @@ void load_kernel_data_into_npu() {
     load_command_to_npu(3, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
     npu_load();
 
+    delay_in_usec(1000000);
     printf("input_A is stored in all NPUs.\n\n");
 
     // Load input_B at address 0x1080 of npu
     load_command_to_npu(0, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
     load_command_to_npu(1, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
     load_command_to_npu(2, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)(i(int)nput_B/128), (int)(sizeof(BF16) * DATA_SIZE));
+    load_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
     npu_load();
 
+    delay_in_usec(1000000);
     printf("input_B is stored in all NPUs.\n\n");
 #endif
 }
@@ -532,20 +554,6 @@ void store_result_into_ddr() {
 }
 
 #ifdef _NPU_LOAD_STORE_TEST_MODE_
-
-void delay_in_usec(int us) {
-    uint64_t cycle_start;
-    uint64_t cycle_end;
-    int elapsedTime;
-
-    cycle_start = get_time();
-    cycle_end = get_time();
-    elapsedTime = (cycle_end - cycle_start) / (SYS_CLK / 1000000); 
-    while(elapsedTime < us) {
-        cycle_end = get_time();
-        elapsedTime = (cycle_end - cycle_start) / (SYS_CLK / 1000000); 
-    }
-}
 
 void compare_load_store_data(int npu, char *org, char *npu_ls, int size) {
 
@@ -656,34 +664,7 @@ int main() {
     printf("\nRuns all NPUs.\n");
     cycle_start = get_time();
 
-#if 0
-    // NPU Set
-    volatile uint32_t *npu_base = (uint32_t*)0x43C00000; // kernel offset
-    //Core 0
-    npu_base[0] = (uint32_t)kernel_0;// the address of kernel in main memory
-    npu_base[1] = sizeof(kernel_0); // the size of kernel, also need to align by 8bytes
-    
-    cycle_start = get_time();
-    npu_base[2] = 0; // Core Id
-    //Core 1
-    npu_base[0] = (uint32_t)kernel_1;
-    npu_base[1] = sizeof(kernel_1);
-    npu_base[2] = 1;
-    //Core 2
-    npu_base[0] = (uint32_t)kernel_2;
-    npu_base[1] = sizeof(kernel_2);
-    npu_base[2] = 2;
-    //Core 3
-    npu_base[0] = (uint32_t)kernel_3;
-    npu_base[1] = sizeof(kernel_3);
-    npu_base[2] = 3;
-
-    while(npu_base[3] & 0b1111) { // wait until operation is done (not busy)
-        //Xil_DCacheInvalidateRange(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
-        //invalidate_data_cache(&npu_base[3], (uint32_t)sizeof(npu_base[3]));
-    }; 
-    // XTime_GetTime(&cycle_end); // Get End Time
-#endif
+    npu_exec();
 
     cycle_end = get_time();
     printf("\nAll NPUs have completed calculations.\n\n");
