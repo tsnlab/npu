@@ -39,10 +39,14 @@ class BF16Unit extends Module with DontTouch{
     bfMul.io.b := b_b
     bfMul.io.rm := 1.U
 
-    val bfDiv = Module(new FDIV(exp, sig))
-    val y_div = bfDiv.io.result
-    bfDiv.io.a := io.a
-    bfDiv.io.b := b_b
+    // val bfDiv = Module(new FDIV(exp, sig))
+    val bfDiv = Module(new FDIV(exp, sig+3))
+    // val y_div = bfDiv.io.result
+    val y_div = bfDiv.io.result(exp+sig+3 - 1,3)
+    // bfDiv.io.a := io.a
+    bfDiv.io.a := Cat(io.a,0.U(3.W)) 
+    // bfDiv.io.b := b_b
+    bfDiv.io.b :=Cat(b_b,0.U(3.W)) 
     bfDiv.io.rm := 1.U
     bfDiv.io.specialIO.isSqrt := io.isSqrt
     bfDiv.io.specialIO.kill := io.kill
