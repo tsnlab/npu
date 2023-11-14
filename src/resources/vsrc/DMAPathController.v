@@ -669,7 +669,7 @@ always@(posedge risc_clk or posedge reset)begin
 		gwcd_length <= 0;
 		wcc_ff_rd_en <= 1'b0;
 		gwcd_length <= 0;
-		gwcd_count <= 1;
+		gwcd_count <= 16'd0;
 		gwcd_en <= 1'b0; 
 		gwcd_daddr <= 40'd0;
 		gwcd_dpaddr <= 16'd0;
@@ -678,7 +678,7 @@ always@(posedge risc_clk or posedge reset)begin
 		case(gwcdcon)
 			gwcd_st : begin
 				
-				gwcd_count <= 1;
+				gwcd_count <= 16'd0;
 				if((~wcc_ff_empty)&&(~wcd_ff_empty)) begin
 					if(wcc_ready) begin
 						wcc_ff_rd_en <= 1;
@@ -698,9 +698,9 @@ always@(posedge risc_clk or posedge reset)begin
 			end
 			gwcd_s0 : begin
 				wcc_ff_rd_en <= 1'b0;
-				if(gwcd_count==gwcd_length) begin
+				if(gwcd_count>=gwcd_length) begin
 					gwcd_en <= 1'b0; 
-					gwcd_count <= 1;
+					gwcd_count <= 16'd0;
 					gwcdcon <= gwcd_end;
 				end
 				else begin
@@ -714,13 +714,13 @@ always@(posedge risc_clk or posedge reset)begin
 			gwcd_end: begin
 				wcc_ff_rd_en <= 1'b0;
 				gwcd_length <= 0;
-				gwcd_count <= 1;
+				gwcd_count <= 16'd0;
 				gwcdcon <= gwcd_st;
 			end
 			default : begin
 				wcc_ff_rd_en <= 1'b0;
 				gwcd_length <= 0;
-				gwcd_count <= 1;
+				gwcd_count <= 16'd0;
 				gwcdcon <= gwcd_st;
 			end
 		endcase
