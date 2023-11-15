@@ -13,6 +13,13 @@
 #define KERNEL_WITH_LOAD_STORE 0
 #define NPU_REG_ID_OFFSET 3
 
+
+#define DDR_M   128 // DDR_ADDR_MAGNIFICATION
+#define SRAM_M    4 // SRAM_ADDR_MAGNIFICATION
+#define SIZE_M    4 // SIZE_MAGNIFICATION
+
+#define MAX_LOAD_STORE_CHUNK_SIZE 64 // must be >= 128
+
 //#define _NPU_LOAD_STORE_TEST_MODE_
 #define __DEBUG_MODE__
 
@@ -128,11 +135,11 @@ static inline void npu_store()
 static void load_command_to_npu(int npu, long unsigned int l_addr, long unsigned int r_addr, int size) {
 
     trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)((r_addr + DDR_M - 1) / DDR_M));
     trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), (int)((size + SIZE_M - 1) / SIZE_M));
     trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)((l_addr + SRAM_M - 1) / SRAM_M));
     trace_pc_position()
 }
 
@@ -140,11 +147,11 @@ static void load_command_to_npu(int npu, long unsigned int l_addr, long unsigned
 static void store_command_to_npu(int npu, long unsigned int r_addr, long unsigned int l_addr, int size) {
 
     trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)r_addr);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)((r_addr + DDR_M - 1) / DDR_M));
     trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), size);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 2), (int)((size + SIZE_M - 1) / SIZE_M));
     trace_pc_position()
-    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)l_addr);
+    npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)((l_addr + SRAM_M - 1) / SRAM_M));
     trace_pc_position()
 }
 
@@ -508,49 +515,167 @@ void adjust_kernel() {
 #endif
 }
 
+void load_kernel_into_npu() {
+
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size =  (int)sizeof(kernel_0);
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        sram_a = 0x00 + len;
+
+        ddr_a = (long unsigned int)kernel_0 + len;
+        load_command_to_npu(0, sram_a, ddr_a, loadSize);
+        ddr_a = (long unsigned int)kernel_1 + len;
+        load_command_to_npu(1, sram_a, ddr_a, loadSize);
+        ddr_a = (long unsigned int)kernel_2 + len;
+        load_command_to_npu(2, sram_a, ddr_a, loadSize);
+        ddr_a = (long unsigned int)kernel_3 + len;
+        load_command_to_npu(3, sram_a, ddr_a, loadSize);
+
+        npu_load();
+
+        printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
+        delay_in_usec(1000000);
+    }
+}
+
+void load_input_A_into_npu() {
+
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size = (int)(sizeof(BF16) * DATA_SIZE);
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        sram_a = 0x200 + len;
+
+        ddr_a = (long unsigned int)input_A + len;
+        load_command_to_npu(0, sram_a, ddr_a, loadSize);
+        load_command_to_npu(1, sram_a, ddr_a, loadSize);
+        load_command_to_npu(2, sram_a, ddr_a, loadSize);
+        load_command_to_npu(3, sram_a, ddr_a, loadSize);
+
+        npu_load();
+
+        printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
+        delay_in_usec(1000000);
+    }
+}
+
+void load_input_B_into_npu() {
+
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size = (int)(sizeof(BF16) * DATA_SIZE);
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        sram_a = 0x4200 + len;
+
+        ddr_a = (long unsigned int)input_B + len;
+        load_command_to_npu(0, sram_a, ddr_a, loadSize);
+        load_command_to_npu(1, sram_a, ddr_a, loadSize);
+        load_command_to_npu(2, sram_a, ddr_a, loadSize);
+        load_command_to_npu(3, sram_a, ddr_a, loadSize);
+
+        npu_load();
+
+        printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
+        delay_in_usec(1000000);
+    }
+}
+
 void load_kernel_data_into_npu() {
 
     // Load kernel code at address 0 of npu
-    load_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)((int)kernel_0/128), (int)sizeof(kernel_0));
-    load_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)((int)kernel_1/128), (int)sizeof(kernel_1));
-    load_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)((int)kernel_2/128), (int)sizeof(kernel_2));
-    load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)((int)kernel_3/128), (int)sizeof(kernel_3));
-    npu_load();
-
-    delay_in_usec(1000000);
+    load_kernel_into_npu();
     printf("Kernel images are stored in each NPU.\n\n");
 
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
-    // Load input_A at address 0x80 of npu
-    load_command_to_npu(0, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(1, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(2, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, (long unsigned int)0x80, (long unsigned int)((int)input_A/128), (int)(sizeof(BF16) * DATA_SIZE));
-    npu_load();
 
-    delay_in_usec(1000000);
+    load_input_A_into_npu();
     printf("input_A is stored in all NPUs.\n\n");
 
-    // Load input_B at address 0x1080 of npu
-    load_command_to_npu(0, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(1, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(2, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    load_command_to_npu(3, (long unsigned int)0x1080, (long unsigned int)((int)input_B/128), (int)(sizeof(BF16) * DATA_SIZE));
-    npu_load();
-
-    delay_in_usec(1000000);
+    load_input_B_into_npu();
     printf("input_B is stored in all NPUs.\n\n");
 #endif
 }
 
 void store_result_into_ddr() {
 
-    // Load output_C at address 0x202000 of riscv
-    store_command_to_npu(0, (long unsigned int)output_npu_0, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(1, (long unsigned int)output_npu_1, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(2, (long unsigned int)output_npu_2, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    store_command_to_npu(3, (long unsigned int)output_npu_3, (long unsigned int)0x2080, (int)(sizeof(BF16) * DATA_SIZE));
-    npu_store();
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size =  (int)(sizeof(BF16) * DATA_SIZE);
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        sram_a = 0x8200 + len;
+
+        ddr_a = (long unsigned int)output_npu_0 + len;
+        store_command_to_npu(0, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_1 + len;
+        store_command_to_npu(1, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_2 + len;
+        store_command_to_npu(2, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_3 + len;
+        store_command_to_npu(3, ddr_a, sram_a, loadSize);
+
+        npu_store();
+
+        delay_in_usec(1000000);
+    }
+}
+
+void store_kernel_into_ddr() {
+
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size =  (int)sizeof(kernel_0);
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        sram_a = 0x00 + len;
+
+        ddr_a = (long unsigned int)output_npu_0 + len;
+        store_command_to_npu(0, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_1 + len;
+        store_command_to_npu(1, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_2 + len;
+        store_command_to_npu(2, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_3 + len;
+        store_command_to_npu(3, ddr_a, sram_a, loadSize);
+
+        npu_store();
+
+        delay_in_usec(1000000);
+    }
 }
 
 #ifdef _NPU_LOAD_STORE_TEST_MODE_
@@ -581,25 +706,11 @@ void load_store_test() {
     char *npu_ls;
 
     printf("\n>>> %s\n\n", __func__);
-    // Load kernel code at address 0 of npu
-    load_command_to_npu(0, (long unsigned int)0x00, (long unsigned int)((int)kernel_0/128), (int)sizeof(kernel_0));
-    load_command_to_npu(1, (long unsigned int)0x00, (long unsigned int)((int)kernel_1/128), (int)sizeof(kernel_1));
-    load_command_to_npu(2, (long unsigned int)0x00, (long unsigned int)((int)kernel_2/128), (int)sizeof(kernel_2));
-    load_command_to_npu(3, (long unsigned int)0x00, (long unsigned int)((int)kernel_3/128), (int)sizeof(kernel_3));
-    printf("\ncomplete all load_command_to_npu\n\n");
-    npu_load();
+
+    load_kernel_into_npu();
     printf("\ncomplete npu_load\n\n");
 
-    delay_in_usec(1000000);
-
-    printf("\nstart all store_command_to_npu\n\n");
-    // Store kernel code 
-    store_command_to_npu(0, (long unsigned int)((int)output_npu_0/128), (long unsigned int)0x00, (int)sizeof(kernel_0));
-    store_command_to_npu(1, (long unsigned int)((int)output_npu_1/128), (long unsigned int)0x00, (int)sizeof(kernel_1));
-    store_command_to_npu(2, (long unsigned int)((int)output_npu_2/128), (long unsigned int)0x00, (int)sizeof(kernel_2));
-    store_command_to_npu(3, (long unsigned int)((int)output_npu_3/128), (long unsigned int)0x00, (int)sizeof(kernel_3));
-    printf("\ncomplete all store_command_to_npu\n\n");
-    npu_store();
+    store_kernel_into_ddr();
     printf("\ncomplete npu_store\n\n");
 
     delay_in_usec(1000000);
