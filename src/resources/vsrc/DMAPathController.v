@@ -165,17 +165,17 @@ reg[7:0] ad_rd_ptr;
 //***** Read Controller Data Signal
 reg[15:0] rcdcon_count;
 reg[15:0] rcdcon_length;
-(* MARK_DEBUG = "TRUE" *) wire dma_read_vld;
-(* MARK_DEBUG = "TRUE" *) wire[139:0] dma_read_data;
-(* MARK_DEBUG = "TRUE" *) wire[1:0] dma_mux;
-(* MARK_DEBUG = "TRUE" *) wire dma_read_ready_mux;
+wire dma_read_vld;
+wire[139:0] dma_read_data;
+wire[1:0] dma_mux;
+wire dma_read_ready_mux;
 
 //***** FPU Token Control Signal
 reg[1:0] fpu_sel =2'd0;
 reg fpu_resp;
-(* MARK_DEBUG = "TRUE" *)wire fpu_write_rdy;
-(* MARK_DEBUG = "TRUE" *)wire [127:0] fpu_write_data;
-(* MARK_DEBUG = "TRUE" *)wire fpu_write_vld;
+wire fpu_write_rdy;
+wire [127:0] fpu_write_data;
+wire fpu_write_vld;
 reg[15:0] fpu_write_length;
 reg[7:0] msg_form;
 reg[15:0] fpu_write_cnt;
