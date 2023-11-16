@@ -51,7 +51,7 @@ module DMAPathController(
 	output wire dma_write_ready_a,
 	
 	output wire dma_read_valid_a,
-	output wire [127:0] dma_read_data_a,
+	output wire [139:0] dma_read_data_a,
 	input wire dma_read_ready_a,
 	
 	// TSN-DMA Signal B
@@ -63,7 +63,7 @@ module DMAPathController(
 	output wire dma_write_ready_b,
 	
 	output wire dma_read_valid_b,
-	output wire [127:0] dma_read_data_b,
+	output wire [139:0] dma_read_data_b,
 	input wire dma_read_ready_b,
 
 	// TSN-DMA Signal C
@@ -75,7 +75,7 @@ module DMAPathController(
 	output wire dma_write_ready_c,
 	
 	output wire dma_read_valid_c,
-	output wire [127:0] dma_read_data_c,
+	output wire [139:0] dma_read_data_c,
 	input wire dma_read_ready_c,
 	
 	// TSN-DMA Signal D
@@ -87,7 +87,7 @@ module DMAPathController(
 	output wire dma_write_ready_d,
 	
 	output wire dma_read_valid_d,
-	output wire [127:0] dma_read_data_d,
+	output wire [139:0] dma_read_data_d,
 	input wire dma_read_ready_d
 );
 
@@ -96,7 +96,7 @@ reg rcc_ff_wr_en;
 reg [71:0] rcc_ff_wr_data;
 wire rcc_ff_full;
 wire [4:0] rcc_ff_wr_cnt;
-wire rcc_ff_rd_en;
+reg rcc_ff_rd_en;
 wire [71:0] rcc_ff_rd_data;
 wire rcc_ff_empty;
 wire [4:0] rcc_ff_rd_cnt;
@@ -105,7 +105,7 @@ wire [4:0] rcc_ff_rd_cnt;
 //***** Read Controller Data Path Header FIFO Signal
 wire rcd_ff_c_wr_en;
 reg rcd_ff_c_wr_en_d;
-reg [31:0] rcd_ff_c_wr_data;
+wire [31:0] rcd_ff_c_wr_data;
 wire rcd_ff_c_full;
 wire [7:0] rcd_ff_c_wr_cnt;
 wire rcd_ff_c_rd_en;
@@ -165,17 +165,17 @@ reg[7:0] ad_rd_ptr;
 //***** Read Controller Data Signal
 reg[15:0] rcdcon_count;
 reg[15:0] rcdcon_length;
-wire dma_read_vld;
-wire[127:0] dma_read_data;
-wire[1:0] dma_mux;
-wire dma_read_ready_mux;
+(* MARK_DEBUG = "TRUE" *) wire dma_read_vld;
+(* MARK_DEBUG = "TRUE" *) wire[139:0] dma_read_data;
+(* MARK_DEBUG = "TRUE" *) wire[1:0] dma_mux;
+(* MARK_DEBUG = "TRUE" *) wire dma_read_ready_mux;
 
 //***** FPU Token Control Signal
 reg[1:0] fpu_sel =2'd0;
 reg fpu_resp;
-wire fpu_write_rdy;
-wire [127:0] fpu_write_data;
-wire fpu_write_vld;
+(* MARK_DEBUG = "TRUE" *)wire fpu_write_rdy;
+(* MARK_DEBUG = "TRUE" *)wire [127:0] fpu_write_data;
+(* MARK_DEBUG = "TRUE" *)wire fpu_write_vld;
 reg[15:0] fpu_write_length;
 reg[7:0] msg_form;
 reg[15:0] fpu_write_cnt;
@@ -239,6 +239,22 @@ reg[3:0] gwcdcon;
 reg[15:0] gwcd_length;
 reg[15:0] gwcd_count;
 reg gwcd_en;
+
+reg [39:0] gwcd_daddr;
+reg [15:0] gwcd_dpaddr;
+
+
+//***** Group Read Control State Machine
+localparam grcc_st = 4'd0,
+			grcc_s0 = 4'd1,
+			grcc_end = 4'd2;
+reg[3:0] grcccon;
+reg[15:0] grcc_length;
+reg[15:0] grcc_count;
+reg grcc_en;
+
+reg [39:0] grcc_daddr;
+reg [15:0] grcc_dpaddr;
 
 //***** FPU DMA Token Control
 always@(posedge fpu_clk or posedge reset) begin
@@ -661,15 +677,12 @@ as128x256_ft wcd_ff (
 );
 
 //***** Risc-v Stream Write inter face
-reg [39:0] gwcd_daddr;
-reg [15:0] gwcd_dpaddr;
 always@(posedge risc_clk or posedge reset)begin
 	if(reset)begin
 		gwcdcon <= gwcd_st;
 		gwcd_length <= 0;
 		wcc_ff_rd_en <= 1'b0;
-		gwcd_length <= 0;
-		gwcd_count <= 16'd0;
+		gwcd_count <= 16'd1;
 		gwcd_en <= 1'b0; 
 		gwcd_daddr <= 40'd0;
 		gwcd_dpaddr <= 16'd0;
@@ -678,7 +691,7 @@ always@(posedge risc_clk or posedge reset)begin
 		case(gwcdcon)
 			gwcd_st : begin
 				
-				gwcd_count <= 16'd0;
+				gwcd_count <= 16'd1;
 				if((~wcc_ff_empty)&&(~wcd_ff_empty)) begin
 					if(wcc_ready) begin
 						wcc_ff_rd_en <= 1;
@@ -698,29 +711,31 @@ always@(posedge risc_clk or posedge reset)begin
 			end
 			gwcd_s0 : begin
 				wcc_ff_rd_en <= 1'b0;
-				if(gwcd_count>=gwcd_length) begin
+				if((gwcd_count>=gwcd_length &&(wcc_ready&&gwcd_en))||(gwcd_count>=(gwcd_length+1))) begin
 					gwcd_en <= 1'b0; 
-					gwcd_count <= 16'd0;
+					gwcd_count <= 16'd1;
 					gwcdcon <= gwcd_end;
 				end
 				else begin
 					gwcd_en <= 1'b1; 
 					gwcdcon <= gwcd_s0;
-					if(wcc_ready)begin
+					if(wcc_ready&&gwcd_en)begin
 						gwcd_count <= gwcd_count + 1;
+						gwcd_daddr <= gwcd_daddr + 40'h0000000010;
+						gwcd_dpaddr <= gwcd_dpaddr + 16'd1;
 					end
 				end
 			end
 			gwcd_end: begin
 				wcc_ff_rd_en <= 1'b0;
 				gwcd_length <= 0;
-				gwcd_count <= 16'd0;
+				gwcd_count <= 16'd1;
 				gwcdcon <= gwcd_st;
 			end
 			default : begin
 				wcc_ff_rd_en <= 1'b0;
 				gwcd_length <= 0;
-				gwcd_count <= 16'd0;
+				gwcd_count <= 16'd1;
 				gwcdcon <= gwcd_st;
 			end
 		endcase
@@ -730,10 +745,9 @@ end
 assign wcd_ff_rd_en = (gwcd_en &&wcc_ready);
 assign wcc_dram_addr = gwcd_daddr;
 assign wcc_dpram_addr = gwcd_dpaddr;
-assign wcc_length = gwcd_length;
+assign wcc_length = 16'h0010;
 assign wcc_write_data = wcd_ff_rd_data;
 assign wcc_valid = gwcd_en;
-
 
 
 as72x32_ft rcc_fifo (
@@ -751,28 +765,86 @@ as72x32_ft rcc_fifo (
 	.empty			(rcc_ff_empty),         // output wire empty
 	.rd_data_count	(rcc_ff_rd_cnt)  // output wire [8 : 0] rd_data_count
 );
-
-assign rcc_ff_rd_en = (~rcc_ff_empty) && (rcc_ready);
-assign rcc_valid = (~rcc_ff_empty) && (rcc_ready);
-assign rcc_dram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[55:16] : rcc_dram_addr;
-assign rcc_dpram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[15:0] : rcc_dpram_addr;
-assign rcc_length = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[71:56] : rcc_length;
-
-//***** Read Controller Date Path Interface
-always@(posedge risc_clk or posedge reset) begin
+//***** Risc-v Stream Write inter face
+always@(posedge risc_clk or posedge reset)begin
 	if(reset)begin
-		rcd_cmd_valid_d <= 1'b0;
-		rcd_ff_c_wr_data <= 32'd0;
+		rcc_ff_rd_en <= 1'b0;
+		grcc_daddr <= 40'd0;
+		grcc_dpaddr <= 16'd0;
+		grcc_length <= 16'd0;
+		grcc_count <= 16'd1;
+		grcccon <= grcc_st;
 	end
 	else begin
-		rcd_cmd_valid_d <= rcd_valid&&(~rcd_ff_c_full);
-		rcd_ff_c_wr_en_d <= rcd_ff_c_wr_en;
-		rcd_ff_c_wr_data[15:0] <= rcd_dpram_addr;
-		rcd_ff_c_wr_data[31:16] <= rcd_length;
+		case(grcccon)
+			grcc_st : begin
+				grcc_count <= 16'd1;
+				if(~rcc_ff_empty) begin
+					rcc_ff_rd_en <= 1'b1;
+					grcc_daddr <= rcc_ff_rd_data[55:16];
+					grcc_dpaddr <= rcc_ff_rd_data[15:0];
+					grcc_length <= rcc_ff_rd_data[71:56];
+					grcccon <= grcc_s0;
+					
+				end
+				
+			end
+			grcc_s0 : begin
+				rcc_ff_rd_en <= 1'b0;
+				if((grcc_count>=grcc_length &&(rcc_ready && grcc_en))||(grcc_count>=(grcc_length+1))) begin
+					grcc_en <= 1'b0; 
+					grcc_count <= 16'd1;
+					grcccon <= grcc_end;
+				end
+				else begin
+					grcc_en <= 1'b1; 
+					grcccon <= grcc_s0;
+					if(rcc_ready && grcc_en)begin
+						grcc_count <= grcc_count + 1;
+						grcc_daddr <= grcc_daddr + 40'h0000000010;
+						grcc_dpaddr <= grcc_dpaddr + 16'd1;
+					end
+				end
+			end
+			grcc_end : begin
+				grcc_en <= 1'b0;
+				rcc_ff_rd_en <= 1'b0;
+				grcc_length <= 0;
+				grcc_count <= 16'd1;
+				grcccon <= grcc_st;
+			end
+		endcase
 	end
 end
 
+assign rcc_dram_addr = grcc_daddr;
+assign rcc_dpram_addr = grcc_dpaddr;
+assign rcc_length = 16'h0001;
+assign rcc_valid = grcc_en;
+
+// assign rcc_ff_rd_en = (~rcc_ff_empty) && (rcc_ready);
+// assign rcc_valid = (~rcc_ff_empty) && (rcc_ready);
+// assign rcc_dram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[55:16] : rcc_dram_addr;
+// assign rcc_dpram_addr = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[15:0] : rcc_dpram_addr;
+// assign rcc_length = ((~rcc_ff_empty) && (rcc_ready))? rcc_ff_rd_data[71:56] : rcc_length;
+
+//***** Read Controller Date Path Interface
+// always@(posedge risc_clk or posedge reset) begin
+// 	if(reset)begin
+// 		rcd_cmd_valid_d <= 1'b0;
+// 		rcd_ff_c_wr_data <= 32'd0;
+// 	end
+// 	else begin
+// 		rcd_cmd_valid_d <= rcd_valid&&(~rcd_ff_c_full);
+// 		rcd_ff_c_wr_en_d <= rcd_ff_c_wr_en;
+// 		rcd_ff_c_wr_data[15:0] <= rcd_dpram_addr;
+// 		rcd_ff_c_wr_data[31:16] <= rcd_length;
+// 	end
+// end
+
 // assign rcd_ff_c_wr_en = (~rcd_cmd_valid_d)&&(rcd_valid);
+assign rcd_ff_c_wr_data[15:0] = rcd_dpram_addr;
+assign rcd_ff_c_wr_data[31:16] = rcd_length;
 assign rcd_ff_c_wr_en = (rcd_valid)&&(rcd_ready);
 assign rcd_ff_d_wr_en = (rcd_valid && (rcd_ready));
 assign rcd_ready = ((~rcd_ff_d_full) && (~rcd_ff_c_full));
@@ -782,7 +854,7 @@ as32x256_ft rcd_com_fifo (
 	.rst			(reset),           // input wire rst
 
 	.wr_clk			(risc_clk),        // input wire wr_clk
-	.wr_en			(rcd_ff_c_wr_en_d),         // input wire wr_en
+	.wr_en			(rcd_ff_c_wr_en),         // input wire wr_en
 	.din			(rcd_ff_c_wr_data),           // input wire [31 : 0] din
 	.full			(rcd_ff_c_full),          // output wire full
 	.wr_data_count	(rcd_ff_c_wr_cnt), // output wire [8 : 0] wr_data_count
@@ -895,7 +967,7 @@ assign rcd_ff_c_rd_en = (~rcd_ff_d_empty && ~rcd_ff_c_empty && dma_read_ready_mu
 assign rcd_ff_d_rd_en = (~rcd_ff_d_empty && ~rcd_ff_c_empty && dma_read_ready_mux)? 1'b1 : 1'b0;
 
 // assign dma_read_data = (rcd_ff_d_rd_en)? rcd_ff_d_rd_data : dma_r_da;
-assign dma_read_data = rcd_ff_d_rd_data;
+assign dma_read_data = {rcd_ff_c_rd_data[11:0],rcd_ff_d_rd_data};
 
 assign dma_read_valid_a = (dma_mux==2'b00)? dma_read_vld : 1'b0;
 assign dma_read_data_a = dma_read_data;
