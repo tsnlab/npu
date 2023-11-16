@@ -27,6 +27,7 @@ module loadStoreController(
   output wire core_ack,
   input wire [127:0] core_writeData,
   output wire [127:0] core_readData,
+  output wire [11:0] core_readAddr,
 
   //***** DMA Path Controller block
   output reg dma_req,
@@ -35,7 +36,7 @@ module loadStoreController(
   output wire [127:0] dma_write_data,
   input wire dma_write_ready,
   input wire dma_read_valid,
-  input wire [127:0] dma_read_data,
+  input wire [139:0] dma_read_data,
   output wire dma_read_ready
 );
 
@@ -218,7 +219,8 @@ assign dma_write_data = (ack_en == 1)? core_writeData : header_reg;
 // assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid && read_valid));
 assign core_ack = ((ack_en && dma_write_ready) || (dma_read_valid));
 assign dma_write_valid = ((wr_en || rd_en) && dma_write_ready);
-assign core_readData = dma_read_data;
+assign core_readData = dma_read_data[127:0];
+assign core_readAddr = dma_read_data[139:128];
 assign dma_read_ready = !rst;
 
 endmodule

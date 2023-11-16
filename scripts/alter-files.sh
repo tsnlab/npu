@@ -14,7 +14,7 @@ cp -f src/scala/Harness.scala $NPUDIR
 cp -f src/scala/HarnessBinders.scala $NPUDIR
 cp -f src/scala/NPU.scala $NPUDIR
 cp -f src/scala/NPUCore.scala $NPUDIR
-cp -f src/scala/NPUtile.scala $NPUDIRgit 
+cp -f src/scala/NPUtile.scala $NPUDIR 
 cp -f src/scala/SRAM.scala $NPUDIR
 cp -f src/scala/loadStoreController.scala $NPUDIR
 

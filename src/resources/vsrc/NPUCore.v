@@ -30,6 +30,7 @@ module NPUCore
     output  reg [15:0]  dma_transferLength,
     output      [127:0] dma_writeData,
     input       [127:0] dma_readData,
+    input       [11:0]  dma_readAddr,
     input               dma_ack,
 
     //----| write signals
@@ -348,7 +349,7 @@ always @(negedge rstn or posedge clk) begin
 			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
             
             localmem_wren <= dma_ack;
-            localmem_wadr <= localmem_wren ? localmem_wadr + 8 : localmem_wadr;
+            localmem_wadr <= dma_readAddr*8;
             localmem_rden <= (dma_ack && scnt == dma_transferLength - 1) ? (rocc_inst_flag ? 0 : 1) : 0;
 
             sram_dina_reg <= dma_readData;

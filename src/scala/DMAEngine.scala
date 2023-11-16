@@ -43,8 +43,8 @@ class DMAEngine[T <: Data, U <: Data, V <: Data] (config: GemminiArrayConfig[T, 
     val spad_w = 128
     val acc_w = 128
     // val aligned_to = 1
-    val sp_bank_entries = 128
-    val acc_bank_entries = 128
+    val sp_bank_entries = 65536
+    val acc_bank_entries = 65536
     val block_rows = 1
     val block_cols = 1
     // val mstatus = Output(new MStatus)
@@ -129,7 +129,7 @@ class DMAEngine[T <: Data, U <: Data, V <: Data] (config: GemminiArrayConfig[T, 
         writer.module.io.req.bits.block := 16.U
         writer.module.io.req.bits.status := io.mstatus
         writer.module.io.req.bits.pool_en := false.B 
-        writer.module.io.req.bits.store_en := false.B
+        writer.module.io.req.bits.store_en := true.B
 
         // implicit val edge = id_node.edges.out.head
         // val tlb = Module(new FrontendTLB(2, dummyConfig.tlb_size, dummyConfig.dma_maxbytes, use_tlb_register_filter, use_firesim_simulation_counters, use_shared_tlb))

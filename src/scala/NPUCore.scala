@@ -34,6 +34,7 @@ class NPUCore extends BlackBox with HasBlackBoxResource {
     val dma_transferLength = Output(Bits(16.W))
     val dma_writeData = Output(Bits(128.W))
     val dma_readData = Input(Bits(128.W))
+    val dma_readAddr = Input(Bits(12.W))
     val dma_ack = Input(Bool())
     
     val sram_ena = Output(Bool())

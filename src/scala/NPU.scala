@@ -131,8 +131,23 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val doExec = funct === 2.U
     val doLoad = funct === 3.U
     val doStore = funct === 4.U
+    val runCore0 = 0
 
+    val cmdReg1 = RegInit(false.B)
+    val cmdReg2 = RegInit(false.B)
+    val cmdReg3 = RegInit(false.B)
 
+    val funct7Reg1 = RegInit(0.U(7.W))
+    val funct7Reg2 = RegInit(0.U(7.W))
+    val funct7Reg3 = RegInit(0.U(7.W))
+
+    cmdReg1 := cmd.fire()
+    cmdReg2 := cmdReg1
+    cmdReg3 := cmdReg2
+
+    funct7Reg1 := funct
+    funct7Reg2 := funct7Reg1
+    funct7Reg3 := funct7Reg2
     // datapath
     when (cmd.fire() && doSetReg) {
         regfile(addr) := cmd.bits.rs1
@@ -160,8 +175,8 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     NPUTile1Def.module.io.rocc_if_host_mem_offset := regfile(4)(40, 0)
     NPUTile1Def.module.io.rocc_if_size := regfile(5)(16, 0)
     NPUTile1Def.module.io.rocc_if_local_mem_offset := regfile(6)(12, 0)
-    NPUTile1Def.module.io.rocc_if_funct := funct
-    NPUTile1Def.module.io.rocc_if_cmd_vld := cmd.fire()
+    NPUTile1Def.module.io.rocc_if_funct := funct7Reg1
+    NPUTile1Def.module.io.rocc_if_cmd_vld := cmdReg1
     val NPUTile1Fin = NPUTile1Def.module.io.rocc_if_fin
     val NPUTile1Busy = NPUTile1Def.module.io.rocc_if_busy
 
@@ -170,8 +185,8 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     NPUTile2Def.module.io.rocc_if_host_mem_offset := regfile(7)(40, 0)
     NPUTile2Def.module.io.rocc_if_size := regfile(8)(16, 0)
     NPUTile2Def.module.io.rocc_if_local_mem_offset := regfile(9)(12, 0)
-    NPUTile2Def.module.io.rocc_if_funct := funct
-    NPUTile2Def.module.io.rocc_if_cmd_vld := cmd.fire()
+    NPUTile2Def.module.io.rocc_if_funct := funct7Reg2
+    NPUTile2Def.module.io.rocc_if_cmd_vld := cmdReg2
     val NPUTile2Fin = NPUTile2Def.module.io.rocc_if_fin
     val NPUTile2Busy = NPUTile2Def.module.io.rocc_if_busy
 
@@ -180,8 +195,8 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     NPUTile3Def.module.io.rocc_if_host_mem_offset := regfile(10)(40, 0)
     NPUTile3Def.module.io.rocc_if_size := regfile(11)(16, 0)
     NPUTile3Def.module.io.rocc_if_local_mem_offset := regfile(12)(12, 0)
-    NPUTile3Def.module.io.rocc_if_funct := funct
-    NPUTile3Def.module.io.rocc_if_cmd_vld := cmd.fire()
+    NPUTile3Def.module.io.rocc_if_funct := funct7Reg3
+    NPUTile3Def.module.io.rocc_if_cmd_vld := cmdReg3
     val NPUTile3Fin = NPUTile3Def.module.io.rocc_if_fin
     val NPUTile3Busy = NPUTile3Def.module.io.rocc_if_busy
 
