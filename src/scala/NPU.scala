@@ -7,7 +7,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.util.HasBlackBoxResource
 import chisel3.experimental.IntParam
-import gemmini._
+// import gemmini._
 import chisel3.experimental.hierarchy.{Definition, Instance, instantiable, public}
 import org.chipsalliance.cde.config._
 import freechips.rocketchip.diplomacy._
@@ -18,103 +18,42 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util.InOrderArbiter
 
 
-class DMAWrite extends Bundle() {
-  val data = Bits(128.W)
-}
-class DMARead extends Bundle() {
-  val data = Bits(128.W)
-}
+// class DMAWrite extends Bundle() {
+//   val data = Bits(128.W)
+// }
+// class DMARead extends Bundle() {
+//   val data = Bits(128.W)
+// }
 
-class DMAIO extends Bundle() {
-    val req = Input(Bool())
-    val resp = Output(Bool())
-    val write = Decoupled(new DMAWrite)
-    val read = Flipped(Decoupled(new DMARead))
-}
+// class DMAIO extends Bundle() {
+//     val req = Input(Bool())
+//     val resp = Output(Bool())
+//     val write = Decoupled(new DMAWrite)
+//     val read = Flipped(Decoupled(new DMARead))
+// }
 
-class NPU(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opcodes, nPTWPorts = 1) {
+class NPU(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opcodes) {
 
-    val defaultConfig = GemminiCustomConfigs.defaultConfig
-
-    val dummyConfig = GemminiArrayConfig[DummySInt, Float, Float](
-        opcodes = opcodes,
-        inputType = DummySInt(128),
-        accType = DummySInt(128),
-        spatialArrayOutputType = DummySInt(128),
-        tileRows     = 1,
-        tileColumns  = 1,
-        meshRows     = 2,
-        meshColumns  = 2,
-        dataflow     = defaultConfig.dataflow,
-        sp_capacity  = CapacityInKilobytes(128),
-        acc_capacity = CapacityInKilobytes(64),
-        sp_banks     = defaultConfig.sp_banks,
-        acc_banks    = defaultConfig.acc_banks,
-        sp_singleported = defaultConfig.sp_singleported,
-        acc_singleported = defaultConfig.acc_singleported,
-        has_training_convs = false,
-        has_max_pool = false,
-        has_nonlinear_activations = false,
-        reservation_station_entries_ld = defaultConfig.reservation_station_entries_ld,
-        reservation_station_entries_st = defaultConfig.reservation_station_entries_st,
-        reservation_station_entries_ex = defaultConfig.reservation_station_entries_ex,
-        ld_queue_length = defaultConfig.ld_queue_length,
-        st_queue_length = defaultConfig.st_queue_length,
-        ex_queue_length = defaultConfig.ex_queue_length,
-        max_in_flight_mem_reqs = 16,
-        dma_maxbytes = 64,
-        dma_buswidth = 128,
-        shifter_banks = 1,
-        aligned_to = 1,
-        tlb_size = defaultConfig.tlb_size,
-
-        mvin_scale_args = Some(ScaleArguments(
-        (t: DummySInt, f: Float) => t.dontCare,
-        4, Float(28, 100), 4,
-        identity = "1.0",
-        c_str = "()"
-        )),
-
-        mvin_scale_acc_args = None,
-        mvin_scale_shared = defaultConfig.mvin_scale_shared,
-
-        acc_scale_args = Some(ScaleArguments(
-        (t: DummySInt, f: Float ) => t.dontCare,
-        1, Float(28, 100), -1,
-        identity = "1.0",
-        c_str = "()"
-        )),
-
-        num_counter = 0,
-
-        acc_read_full_width = false,
-        acc_read_small_width = defaultConfig.acc_read_small_width,
-
-        ex_read_from_spad = defaultConfig.ex_read_from_spad,
-        ex_read_from_acc = false,
-        ex_write_to_spad = false,
-        ex_write_to_acc = defaultConfig.ex_write_to_acc,
-    )
     val xLen = p(XLen)
     val NPUTile0Def = LazyModule(new NPUTile)
     val NPUTile1Def = LazyModule(new NPUTile)
     val NPUTile2Def = LazyModule(new NPUTile)
     val NPUTile3Def = LazyModule(new NPUTile)
-    val DMAEngineDef = LazyModule(new DMAEngine(dummyConfig))
+    // val DMAEngineDef = LazyModule(new DMAEngine(dummyConfig))
     // lazy val DMAEngineDef = new DMAEngine(dummyConfig)
     override lazy val module = new NPUModuleImp(this)
-    override val tlNode = DMAEngineDef.id_node
+    // override val tlNode = DMAEngineDef.id_node
     // override val tlNode = module.id_node
     // override val atlNode = TLIdentityNode()
-    val node = tlNode
+    // val node = tlNode
     val n = 16
 }
 // class NPUModuleImp(outer: NPU)(implicit p: Parameters) extends LazyRoCCModuleImp(outer)
 class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     with HasCoreParameters {
 
-    import outer.dummyConfig._
-    import outer.DMAEngineDef
+    // import outer.dummyConfig._
+    // import outer.DMAEngineDef
     import outer.NPUTile0Def
     import outer.NPUTile1Def
     import outer.NPUTile2Def
@@ -131,7 +70,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val doExec = funct === 2.U
     val doLoad = funct === 3.U
     val doStore = funct === 4.U
-    val runCore0 = 0
+    // val runCore0 = 0
 
     val cmdReg1 = RegInit(false.B)
     val cmdReg2 = RegInit(false.B)
@@ -140,6 +79,18 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val funct7Reg1 = RegInit(0.U(7.W))
     val funct7Reg2 = RegInit(0.U(7.W))
     val funct7Reg3 = RegInit(0.U(7.W))
+
+    val cmd_vld_core0 = cmd.bits.rs2(15, 14) === 0.U
+    val cmd_vld_core1 = cmd.bits.rs2(15, 14) === 1.U
+    val cmd_vld_core2 = cmd.bits.rs2(15, 14) === 2.U
+    val cmd_vld_core3 = cmd.bits.rs2(15, 14) === 3.U
+    // val load_data = Wire(UInt(64.W))
+    // val local_mem_addr = Wire(UInt(13.W))
+    // val local_mem_addr = Wire(13.W)
+    // val load_data: UInt = Wire(UInt(64.W))
+    // val local_mem_addr: UInt = Wire(UInt(13.W))
+    val load_data: UInt = WireInit(0.U(64.W))
+    val local_mem_addr: UInt = WireInit(0.U(13.W))
 
     cmdReg1 := cmd.fire()
     cmdReg2 := cmdReg1
@@ -152,169 +103,75 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     when (cmd.fire() && doSetReg) {
         regfile(addr) := cmd.bits.rs1
     }
+    when (cmd.fire() && doLoad) {
+        load_data := cmd.bits.rs1
+        local_mem_addr := cmd.bits.rs2(12, 0)
+    }
+    when (cmd.fire() && doStore) {
+        local_mem_addr := cmd.bits.rs2(12, 0)
+    }
 
-    // val NPUTile0Def = Module(new NPUTile)
-    // val NPUTile1Def = Module(new NPUTile)
-    // val NPUTile2Def = Module(new NPUTile)
-    // val NPUTile3Def = Module(new NPUTile)
-    val DMAPathControllerDef = Module(new DMAPathController)
-    // val DMAEngineDef = LazyModule(new DMAEngine()(p))
 
-    // NPUTile0Def.io.clk := clock
-    // NPUTile0Def.io.rst := reset
-    NPUTile0Def.module.io.rocc_if_host_mem_offset := regfile(1)(40, 0)
-    NPUTile0Def.module.io.rocc_if_size := regfile(2)(16, 0)
-    NPUTile0Def.module.io.rocc_if_local_mem_offset := regfile(3)(12, 0)
-    NPUTile0Def.module.io.rocc_if_funct := funct
-    NPUTile0Def.module.io.rocc_if_cmd_vld := cmd.fire()
+    NPUTile0Def.module.io.local_mem_addr := local_mem_addr
+    NPUTile0Def.module.io.load_data := load_data
+    NPUTile0Def.module.io.core_cmd_funct7 := cmd.bits.inst.funct
+    NPUTile0Def.module.io.core_cmd_vld := cmd_vld_core0 && cmd.fire()
+    // io.resp.bits.data := NPUTile0Def.module.io.store_data
     val NPUTile0Fin = NPUTile0Def.module.io.rocc_if_fin
     val NPUTile0Busy = NPUTile0Def.module.io.rocc_if_busy
+    regfile.write(1.U, NPUTile0Def.module.io.bf16_y_addr)
+    // regfile(1) = NPUTile0Def.module.io.bf16_y_addr
+    val NPUTile0_respValid = NPUTile0Def.module.io.core_resp_vld
 
-    // NPUTile1Def.io.clk := clock
-    // NPUTile1Def.io.rst := reset
-    NPUTile1Def.module.io.rocc_if_host_mem_offset := regfile(4)(40, 0)
-    NPUTile1Def.module.io.rocc_if_size := regfile(5)(16, 0)
-    NPUTile1Def.module.io.rocc_if_local_mem_offset := regfile(6)(12, 0)
-    NPUTile1Def.module.io.rocc_if_funct := funct7Reg1
-    NPUTile1Def.module.io.rocc_if_cmd_vld := cmdReg1
+    NPUTile1Def.module.io.local_mem_addr := local_mem_addr
+    NPUTile1Def.module.io.load_data := load_data
+    NPUTile1Def.module.io.core_cmd_funct7 := cmd.bits.inst.funct
+    NPUTile1Def.module.io.core_cmd_vld := cmd_vld_core1 && cmd.fire()
+    // io.resp.bits.data := NPUTile1Def.module.io.store_data
     val NPUTile1Fin = NPUTile1Def.module.io.rocc_if_fin
     val NPUTile1Busy = NPUTile1Def.module.io.rocc_if_busy
+    regfile.write(2.U, NPUTile1Def.module.io.bf16_y_addr)
+    // regfile(2) = NPUTile1Def.module.io.bf16_y_addr
+    val NPUTile1_respValid = NPUTile1Def.module.io.core_resp_vld
 
-    // NPUTile2Def.io.clk := clock
-    // NPUTile2Def.io.rst := reset
-    NPUTile2Def.module.io.rocc_if_host_mem_offset := regfile(7)(40, 0)
-    NPUTile2Def.module.io.rocc_if_size := regfile(8)(16, 0)
-    NPUTile2Def.module.io.rocc_if_local_mem_offset := regfile(9)(12, 0)
-    NPUTile2Def.module.io.rocc_if_funct := funct7Reg2
-    NPUTile2Def.module.io.rocc_if_cmd_vld := cmdReg2
+    NPUTile2Def.module.io.local_mem_addr := local_mem_addr
+    NPUTile2Def.module.io.load_data := load_data
+    NPUTile2Def.module.io.core_cmd_funct7 := cmd.bits.inst.funct
+    NPUTile2Def.module.io.core_cmd_vld := cmd_vld_core2 && cmd.fire()
+    // io.resp.bits.data := NPUTile0Def.module.io.store_data
     val NPUTile2Fin = NPUTile2Def.module.io.rocc_if_fin
     val NPUTile2Busy = NPUTile2Def.module.io.rocc_if_busy
+    regfile.write(3.U, NPUTile2Def.module.io.bf16_y_addr)
+    // regfile(3) = NPUTile2Def.module.io.bf16_y_addr
+    val NPUTile2_respValid = NPUTile2Def.module.io.core_resp_vld
 
-    // NPUTile3Def.io.clk := clock
-    // NPUTile3Def.io.rst := reset
-    NPUTile3Def.module.io.rocc_if_host_mem_offset := regfile(10)(40, 0)
-    NPUTile3Def.module.io.rocc_if_size := regfile(11)(16, 0)
-    NPUTile3Def.module.io.rocc_if_local_mem_offset := regfile(12)(12, 0)
-    NPUTile3Def.module.io.rocc_if_funct := funct7Reg3
-    NPUTile3Def.module.io.rocc_if_cmd_vld := cmdReg3
+    NPUTile3Def.module.io.local_mem_addr := local_mem_addr
+    NPUTile3Def.module.io.load_data := load_data
+    NPUTile3Def.module.io.core_cmd_funct7 := cmd.bits.inst.funct
+    NPUTile3Def.module.io.core_cmd_vld := cmd_vld_core3 && cmd.fire()
+    // io.resp.bits.data := NPUTile3Def.module.io.store_data
     val NPUTile3Fin = NPUTile3Def.module.io.rocc_if_fin
     val NPUTile3Busy = NPUTile3Def.module.io.rocc_if_busy
+    regfile.write(4.U, NPUTile3Def.module.io.bf16_y_addr)
+    // regfile(4) = NPUTile3Def.module.io.bf16_y_addr
+    val NPUTile3_respValid = NPUTile3Def.module.io.core_resp_vld
 
-    DMAPathControllerDef.io.risc_clk := clock
-    DMAPathControllerDef.io.fpu_clk := clock
-    DMAPathControllerDef.io.reset := reset
-    DMAPathControllerDef.io.dma_req_a := NPUTile0Def.module.io.dma_req 
-    NPUTile0Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_a
-    DMAPathControllerDef.io.dma_write_valid_a := NPUTile0Def.module.io.dma_write_valid
-    DMAPathControllerDef.io.dma_write_data_a := NPUTile0Def.module.io.dma_write_data
-    NPUTile0Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_a
-    NPUTile0Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_a
-    NPUTile0Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_a
-    DMAPathControllerDef.io.dma_read_ready_a := NPUTile0Def.module.io.dma_read_ready
+    when(NPUTile0_respValid) {
+        io.resp.bits.data := NPUTile0Def.module.io.store_data
+    }.elsewhen(NPUTile1_respValid) {
+        io.resp.bits.data := NPUTile1Def.module.io.store_data
+    }.elsewhen(NPUTile2_respValid) {
+        io.resp.bits.data := NPUTile2Def.module.io.store_data
+    }.elsewhen(NPUTile3_respValid) {
+        io.resp.bits.data := NPUTile3Def.module.io.store_data
+    }.otherwise {
+        io.resp.bits.data := regfile(addr)
+    }
 
-    DMAPathControllerDef.io.dma_req_b := NPUTile1Def.module.io.dma_req 
-    NPUTile1Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_b
-    DMAPathControllerDef.io.dma_write_valid_b := NPUTile1Def.module.io.dma_write_valid
-    DMAPathControllerDef.io.dma_write_data_b := NPUTile1Def.module.io.dma_write_data
-    NPUTile1Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_b
-    NPUTile1Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_b
-    NPUTile1Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_b
-    DMAPathControllerDef.io.dma_read_ready_b := NPUTile1Def.module.io.dma_read_ready
-
-    DMAPathControllerDef.io.dma_req_c := NPUTile2Def.module.io.dma_req 
-    NPUTile2Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_c
-    DMAPathControllerDef.io.dma_write_valid_c := NPUTile2Def.module.io.dma_write_valid
-    DMAPathControllerDef.io.dma_write_data_c := NPUTile2Def.module.io.dma_write_data
-    NPUTile2Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_c
-    NPUTile2Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_c
-    NPUTile2Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_c
-    DMAPathControllerDef.io.dma_read_ready_c := NPUTile2Def.module.io.dma_read_ready
-
-    DMAPathControllerDef.io.dma_req_d := NPUTile3Def.module.io.dma_req 
-    NPUTile3Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_d
-    DMAPathControllerDef.io.dma_write_valid_d := NPUTile3Def.module.io.dma_write_valid
-    DMAPathControllerDef.io.dma_write_data_d := NPUTile3Def.module.io.dma_write_data
-    NPUTile3Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_d
-    NPUTile3Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_d
-    NPUTile3Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_d
-    DMAPathControllerDef.io.dma_read_ready_d := NPUTile3Def.module.io.dma_read_ready
-
-    DMAEngineDef.module.io.rcc.valid :=DMAPathControllerDef.io.rcc_valid
-    DMAPathControllerDef.io.rcc_ready :=DMAEngineDef.module.io.rcc.ready
-    DMAEngineDef.module.io.rcc.bits.dram_addr :=DMAPathControllerDef.io.rcc_dram_addr
-    DMAEngineDef.module.io.rcc.bits.dpram_addr :=DMAPathControllerDef.io.rcc_dpram_addr
-    DMAEngineDef.module.io.rcc.bits.length :=DMAPathControllerDef.io.rcc_length
-    
-    DMAPathControllerDef.io.rcd_valid :=DMAEngineDef.module.io.rcd.valid
-    DMAEngineDef.module.io.rcd.ready :=DMAPathControllerDef.io.rcd_ready
-    DMAPathControllerDef.io.rcd_dpram_addr :=DMAEngineDef.module.io.rcd.bits.dpram_addr
-    DMAPathControllerDef.io.rcd_read_data :=DMAEngineDef.module.io.rcd.bits.data
-    DMAPathControllerDef.io.rcd_length :=DMAEngineDef.module.io.rcd.bits.length
-
-    DMAEngineDef.module.io.wcc.valid :=DMAPathControllerDef.io.wcc_valid
-    DMAPathControllerDef.io.wcc_ready :=DMAEngineDef.module.io.wcc.ready
-    DMAEngineDef.module.io.wcc.bits.dram_addr :=DMAPathControllerDef.io.wcc_dram_addr
-    DMAEngineDef.module.io.wcc.bits.data :=DMAPathControllerDef.io.wcc_write_data
-    DMAEngineDef.module.io.wcc.bits.length :=DMAPathControllerDef.io.wcc_length
-
-    // io.ptw <> DMAEngineDef.module.io.ptw
-
-    // val mstatus = new MStatus
-    DMAEngineDef.module.io.mstatus := cmd.bits.status
-
-    // Counters
-    // val counters = Module(new CounterController(outer.dummyConfig.num_counter, outer.xLen))
-    // io.resp <> counters.io.out  // Counter access command will be committed immediately
-    // counters.io.event_io.external_values(0) := 0.U
-    // counters.io.event_io.event_signal(0) := false.B
-    // counters.io.in.valid := false.B
-    // counters.io.in.bits := DontCare
-    // counters.io.event_io.collect(DMAEngineDef.module.io.counter)
-    // TLB
-
-    val use_tlb_register_filter = true
-    val use_firesim_simulation_counters = false
-    val use_shared_tlb = true
-
-    implicit val edge = outer.DMAEngineDef.id_node.edges.out.head
-    val tlb = Module(new FrontendTLB(2, tlb_size, dma_maxbytes, use_tlb_register_filter, use_firesim_simulation_counters, use_shared_tlb))
-    (tlb.io.clients zip outer.DMAEngineDef.module.io.tlb).foreach(t => t._1 <> t._2)
-    tlb.io.counter.external_reset := reset
-    tlb.io.exp.foreach(_.flush_skip := false.B)
-    tlb.io.exp.foreach(_.flush_retry := false.B)
-
-    io.ptw <> tlb.io.ptw
-
-    // counters.io.event_io.collect(tlb.io.counter)
-
-    DMAEngineDef.module.io.flush := tlb.io.exp.map(_.flush()).reduce(_ || _)
-
-    val clock_en_reg = RegInit(true.B)
-    val gated_clock = if (clock_gate) ClockGate(clock, clock_en_reg, "gemmini_clock_gate") else clock
-    outer.DMAEngineDef.module.clock := gated_clock
-
-    // val id_node = DMAEngineDef.tlNode
-
-
-    // val xbar_node = TLXbar()
-    // id_node := TLWidthWidget(16) := TLBuffer() := xbar_node
-    // xbar_node := DMAEngineDef.io.readerNode
-    // xbar_node := DMAEngineDef.io.writerNode
-
-    // when (io.mem.resp.valid) {
-    //     regfile(memRespTag) := io.mem.resp.bits.data
-    //     busy(memRespTag) := false.B
-    // }
-
-    // control
-    // when (io.mem.req.fire()) {
-    //     busy(addr) := true.B
-    // }
-
-  val doResp = cmd.bits.inst.xd
+//   val doResp = cmd.bits.inst.xd
 //   val stallReg = busy(addr)
 //   val stallLoad = doLoad && !io.mem.req.ready
-//   val stallResp = doResp && !io.resp.ready
+//   val doResp = NPUTile0_respValid || NPUTile1_respValid ||NPUTile2_respValid || NPUTile3_respValid
 
 //   cmd.ready := !stallReg && !stallLoad && !stallResp
   cmd.ready := !NPUTile0Busy && !NPUTile1Busy && !NPUTile2Busy && !NPUTile3Busy
@@ -322,12 +179,17 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     // command resolved if no stalls AND not issuing a load that will need a request
 
   // PROC RESPONSE INTERFACE
-  io.resp.valid := cmd.valid && doResp && !NPUTile0Busy && !NPUTile1Busy && !NPUTile2Busy && !NPUTile3Busy
+//   io.resp.valid := cmd.valid && doResp && !NPUTile0Busy && !NPUTile1Busy && !NPUTile2Busy && !NPUTile3Busy
+  io.resp.valid := NPUTile0_respValid || NPUTile1_respValid ||NPUTile2_respValid || NPUTile3_respValid
     // valid response if valid command, need a response, and no stalls
-  io.resp.bits.rd := cmd.bits.inst.rd
+  val cmd_rd_reg = RegInit(0.U(64.W))
+  when(cmd.valid){
+    cmd_rd_reg := cmd.bits.inst.rd
+  }
+  io.resp.bits.rd := cmd_rd_reg
     // Must respond with the appropriate tag or undefined behavior
 //   io.resp.bits.data := accum
-  io.resp.bits.data := regfile(addr)
+//   io.resp.bits.data := regfile(addr)
     // Semantics is to always send out prior accumulator register value
 
   io.busy := cmd.valid || busy.reduce(_||_)

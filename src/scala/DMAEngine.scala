@@ -22,7 +22,7 @@ class RCDIO extends Bundle() {
   val data = Bits(128.W)
   val length = Bits(16.W)
 }
-class WCCIO extends Bundle() {
+class WCCIO (implicit p: Parameters) extends CoreBundle() {
   val data = Bits(128.W)
   val dram_addr = Bits(40.W)
   val length = Bits(16.W)
@@ -37,8 +37,8 @@ class DMAEngine[T <: Data, U <: Data, V <: Data] (config: GemminiArrayConfig[T, 
     val xbar_node = TLXbar()
 
     // val max_in_flight_mem_reqs = 16
-    val dataBits = 128 // dma_buswidth
-    val maxBytes = 64 // dma_maxbytes
+    val dataBits = dma_buswidth
+    val maxBytes = dma_maxbytes
 
     val spad_w = 128
     val acc_w = 128
@@ -49,12 +49,17 @@ class DMAEngine[T <: Data, U <: Data, V <: Data] (config: GemminiArrayConfig[T, 
     val block_cols = 1
     // val mstatus = Output(new MStatus)
 
+    val use_tlb_register_filter = true
     val reader = LazyModule(new StreamReader(config, max_in_flight_mem_reqs, dataBits, maxBytes, spad_w, acc_w, aligned_to,
         sp_bank_entries, acc_bank_entries, block_rows, use_tlb_register_filter,
         use_firesim_simulation_counters))
     val writer = LazyModule(new StreamWriter(max_in_flight_mem_reqs, dataBits, maxBytes,
-        spad_w, aligned_to, Float(28, 100), block_cols, use_tlb_register_filter,
+        spad_w, aligned_to, DummySInt(128), block_cols, use_tlb_register_filter,
         use_firesim_simulation_counters))
+
+// class StreamWriter[T <: Data: Arithmetic](nXacts: Int, beatBits: Int, maxBytes: Int, dataWidth: Int, aligned_to: Int,
+//                                           inputType: T, block_cols: Int, use_tlb_register_filter: Boolean,
+//                                           use_firesim_simulation_counters: Boolean)
 
     xbar_node := TLBuffer() := reader.node
     xbar_node := TLBuffer() := writer.node
@@ -104,14 +109,14 @@ class DMAEngine[T <: Data, U <: Data, V <: Data] (config: GemminiArrayConfig[T, 
         io.rcc.ready := reader.module.io.req.ready
         reader.module.io.req.bits.vaddr := io.rcc.bits.dram_addr
         reader.module.io.req.bits.spaddr := io.rcc.bits.dpram_addr
-        reader.module.io.req.bits.len := io.rcc.bits.length
+        reader.module.io.req.bits.len := io.rcc.bits.length * 16.U
         reader.module.io.req.bits.repeats := 0.U
         reader.module.io.req.bits.pixel_repeats := 0.U
         reader.module.io.req.bits.scale := 1.U
         reader.module.io.req.bits.is_acc := false.B
         reader.module.io.req.bits.accumulate := false.B
         reader.module.io.req.bits.has_acc_bitwidth := false.B
-        reader.module.io.req.bits.block_stride := 1.U
+        reader.module.io.req.bits.block_stride := 4.U
         reader.module.io.req.bits.status := io.mstatus
         reader.module.io.req.bits.cmd_id := 0.U
 
@@ -119,17 +124,17 @@ class DMAEngine[T <: Data, U <: Data, V <: Data] (config: GemminiArrayConfig[T, 
         reader.module.io.resp.ready := io.rcd.ready
         io.rcd.bits.data := reader.module.io.resp.bits.data
         io.rcd.bits.dpram_addr := reader.module.io.resp.bits.addr
-        io.rcd.bits.length := reader.module.io.resp.bits.len
+        io.rcd.bits.length := reader.module.io.resp.bits.len / 16.U
 
         writer.module.io.req.valid := io.wcc.valid
         io.wcc.ready := writer.module.io.req.ready
         writer.module.io.req.bits.vaddr := io.wcc.bits.dram_addr
-        writer.module.io.req.bits.len := io.wcc.bits.length
+        writer.module.io.req.bits.len := io.wcc.bits.length * 16.U
         writer.module.io.req.bits.data := io.wcc.bits.data
-        writer.module.io.req.bits.block := 16.U
+        writer.module.io.req.bits.block := 32.U
         writer.module.io.req.bits.status := io.mstatus
         writer.module.io.req.bits.pool_en := false.B 
-        writer.module.io.req.bits.store_en := false.B
+        writer.module.io.req.bits.store_en := true.B
 
         // implicit val edge = id_node.edges.out.head
         // val tlb = Module(new FrontendTLB(2, dummyConfig.tlb_size, dummyConfig.dma_maxbytes, use_tlb_register_filter, use_firesim_simulation_counters, use_shared_tlb))

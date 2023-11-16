@@ -17,6 +17,7 @@ import testchipip.{SerialTLKey}
 import chipyard.{BuildSystem}
 
 import connx_npu._
+import gemmini._
 
 // don't use FPGAShell's DesignKey
 class WithNoDesignKey extends Config((site, here, up) => {
@@ -50,6 +51,13 @@ class RocketNexysVideoConfig extends Config(
   new NPURoCCConfig ++
   new chipyard.RocketConfig)
 // DOC include end: WithNexysVideoTweaks and Rocket
+
+class RocketNexysVideoGemminiConfig extends Config(
+  new WithNexysVideoTweaks ++
+//   new chipyard.config.WithBroadcastManager ++ // no l2
+  new chipyard.config.WithSystemBusWidth(128) ++
+  new DefaultGemminiConfig ++
+  new chipyard.RocketConfig)
 
 // DOC include start: WithTinyNexysVideoTweaks and Rocket
 class WithTinyNexysVideoTweaks extends Config(

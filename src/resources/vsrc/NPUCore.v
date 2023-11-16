@@ -3,13 +3,15 @@ module NPUCore
     input clk,
     input rstn,
 
-    input [39:0] rocc_if_host_mem_offset,
-    input [15:0] rocc_if_size,
-    input [11:0] rocc_if_local_mem_offset,
-    input [6:0] rocc_if_funct,
-    input rocc_if_cmd_vld,
+    input [12:0] local_mem_addr,
+    input [63:0] load_data,
+    output reg [63:0] store_data,
+    input [6:0] core_cmd_funct7,
+    input core_cmd_vld,
     output reg rocc_if_fin,
     output rocc_if_busy,
+    output reg [15:0] bf16_y_addr,
+    output reg core_resp_vld,
 
     output reg [1:0] bf16_opc,
     output reg [15:0] bf16_a, 
@@ -21,16 +23,6 @@ module NPUCore
     input bf16_ir,
     output reg bf16_isSqrt,
     output reg bf16_kill,
-
-    output  reg         dma_req,
-    input               dma_ready,
-    output  reg         dma_rwn,
-    output  reg [39:0]  dma_hostAddr,
-    output  reg [11:0]  dma_localAddr,
-    output  reg [15:0]  dma_transferLength,
-    output      [127:0] dma_writeData,
-    input       [127:0] dma_readData,
-    input               dma_ack,
 
     //----| write signals
     output	sram_ena,		// write enable
@@ -46,20 +38,16 @@ module NPUCore
 //---- state
 
 localparam S_IDLE	= 1 << 0;
-localparam S_COPY_REQ	= 1 << 1;
-localparam S_COPY_DATA	= 1 << 2;
-localparam S_OPC_READ	= 1 << 3;
-localparam S_EXEC	= 1 << 4;
-localparam S_LOAD_REQ	= 1 << 5;
-localparam S_LOAD_DATA	= 1 << 6;
-localparam S_STORE_PRE	= 1 << 7;
-localparam S_STORE_REQ	= 1 << 8;
-localparam S_STORE_DATA	= 1 << 9;
-localparam S_BF16_1	= 1 << 10;
-localparam S_BF16_2	= 1 << 11;
-localparam S_BF16_OP = 1 << 12;
-localparam S_FIN	= 1 << 13;
-localparam S_RETURN	= 1 << 14;
+localparam S_OPC_READ	= 1 << 1;
+localparam S_EXEC	= 1 << 2;
+localparam S_LOAD_DATA	= 1 << 3;
+localparam S_STORE_DATA1	= 1 << 4;
+localparam S_STORE_DATA2	= 1 << 5;
+localparam S_BF16_1	= 1 << 6;
+localparam S_BF16_2	= 1 << 7;
+localparam S_BF16_OP = 1 << 8;
+localparam S_FIN	= 1 << 9;
+localparam S_RETURN	= 1 << 10;
 //---- opcode
 localparam OPC_NOP	        = 8'h00;
 localparam OPC_SET	        = 8'h01;
@@ -86,7 +74,8 @@ reg	[14:0]	state;
 reg	[15:0]	scnt;
 reg [1:0]   opc_cnt;
 reg	[31:0]	rf[0:15];
-reg [31:0]  bf16_a_addr, bf16_b_addr, bf16_y_addr;
+reg [31:0]  bf16_a_addr, bf16_b_addr;
+
 reg	[7:0]	opc_cmd;
 wire		opc_div		= opc_cmd == OPC_VDIV_BF16;
 
@@ -95,6 +84,12 @@ reg     localmem_rden;
 reg [11:0]  localmem_radr;
 reg     localmem_wren;
 reg [11:0]  localmem_wadr;
+
+reg [11:0]  rocc_local_mem_waddr;
+reg         rocc_local_mem_wen;
+reg [12:0]  rocc_local_mem_raddr;
+reg         rocc_local_mem_ren;
+
 
 
 wire [15:0] sram_doutb_7 = sram_doutb[127:112];
@@ -107,7 +102,6 @@ wire [15:0] sram_doutb_1 = sram_doutb[31:16];
 wire [15:0] sram_doutb_0 = sram_doutb[15:0];
 
 reg [127:0] sram_dina_reg;
-reg [127:0] sram_b_dina_reg;
 reg bf16_alat, bf16_blat, bf16_ylat;
 reg	[31:0]	fpu_cnt;
 wire    [31:0]  opcode;
@@ -130,23 +124,23 @@ always @(negedge rstn or posedge clk) begin
 		state		<= S_IDLE;
 		scnt		<= 0;
         opc_cnt     <= 0;
-		dma_req		<= 0;
-		dma_rwn		<= 0;
-		dma_hostAddr    <= 0;
-		dma_localAddr    <= 0;
-		dma_transferLength   <= 0;
         opc_radr        <= 0;
         localmem_rden   <= 0;
         localmem_radr   <= 0;
         localmem_wren   <= 0;
         localmem_wadr   <= 0;
+        rocc_local_mem_wen <= 0;
+        rocc_local_mem_ren <= 0;
+        rocc_local_mem_waddr <= 0;
+        rocc_local_mem_raddr <= 0;
+        store_data <= 0;
 		opc_cmd		<= 0;
 		bf16_opc		<= 0;
 		fpu_cnt		<= 0;
 		bf16_a		<= 0;
 		bf16_b		<= 0;
         sram_dina_reg <= 0;
-        sram_b_dina_reg <= 0;
+        core_resp_vld <= 0;
 		bf16_iv		<= 0;
 		bf16_or		<= 1;
 		rocc_if_fin	<= 0;
@@ -181,32 +175,26 @@ always @(negedge rstn or posedge clk) begin
 
 		S_IDLE:
 		begin
-            if (rocc_if_cmd_vld) begin
-                if (rocc_if_funct == 7'd2) begin
+            if (core_cmd_vld) begin
+                if (core_cmd_funct7 == 7'd2) begin
                     state <= S_OPC_READ;
-                    dma_rwn		<= 0;
                     opc_radr	<= 0;
                     localmem_rden   <= 1;
                     localmem_radr   <= 0;
-                end else if(rocc_if_funct == 7'd3) begin
-                    state <= S_LOAD_REQ;
-                    dma_req     <= 1;
-                    dma_rwn		<= 1;
-                    dma_localAddr   <= rocc_if_local_mem_offset;
-                    dma_hostAddr    <= rocc_if_host_mem_offset;
-                    dma_transferLength   <= rocc_if_size;
-                    rocc_inst_flag      <= 1;
-                end else if(rocc_if_funct == 7'd4) begin
-                    state <= S_STORE_PRE;
-                    dma_req     <= 0;
-                    dma_rwn		<= 0;
-                    dma_localAddr   <= rocc_if_local_mem_offset;
-                    dma_hostAddr    <= rocc_if_host_mem_offset;
-                    dma_transferLength   <= rocc_if_size;
-                    rocc_inst_flag      <= 1;
+                end else if(core_cmd_funct7 == 7'd3) begin
+                    state <= local_mem_addr[0] ? S_LOAD_DATA : state;
+                    sram_dina_reg[63:0] <= local_mem_addr[0] ? sram_dina_reg[63:0] : load_data;
+                    sram_dina_reg[127:64] <= local_mem_addr[0] ? load_data : sram_dina_reg[127:64];
+                    rocc_local_mem_wen <= local_mem_addr[0] ? 1 : 0;
+                    rocc_local_mem_waddr <= local_mem_addr[12:1];
+                end else if(core_cmd_funct7 == 7'd4) begin
+                    state <= S_STORE_DATA1;
+                    rocc_local_mem_ren <= 1;
+                    rocc_local_mem_wen <= 0;
+                    rocc_local_mem_raddr <= local_mem_addr;
+                    core_resp_vld <= 0;
                 end else begin
                     state <= state;
-                    dma_rwn		<= 0;
                 end
             end else begin
                 state <= state;
@@ -214,6 +202,9 @@ always @(negedge rstn or posedge clk) begin
                 localmem_radr   <= 0;
                 localmem_wren   <= 0;
                 localmem_wadr   <= 0;
+                rocc_local_mem_wen <= 0;
+                rocc_local_mem_ren <= 0;
+                core_resp_vld <= 0;
             end
 			scnt		<= 0;
             opc_cnt     <= 0;
@@ -231,7 +222,7 @@ always @(negedge rstn or posedge clk) begin
 
 		S_EXEC:
 		begin
-			state	    <= opc == OPC_LOAD ? S_LOAD_REQ : opc == OPC_STORE ? S_STORE_PRE : opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? S_BF16_1 : opc == OPC_RETURN ? S_RETURN : S_OPC_READ;
+			state	    <= opc == opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? S_BF16_1 : opc == OPC_RETURN ? S_RETURN : S_OPC_READ;
 			rf[1]		<= opc == OPC_SETI && arg_ano == 1 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 1 ? {rval, rf[1][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 1 ? {rf[1][16+:16], rval} : rf[1];
 			rf[2]		<= opc == OPC_SETI && arg_ano == 2 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 2 ? {rval, rf[2][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 2 ? {rf[2][16+:16], rval} : rf[2];
 			rf[3]		<= opc == OPC_SETI && arg_ano == 3 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 3 ? {rval, rf[3][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 3 ? {rf[3][16+:16], rval} : rf[3];
@@ -264,52 +255,6 @@ always @(negedge rstn or posedge clk) begin
                 arg_ano == 6 ? rf[6] / 2 :
                 arg_ano == 7 ? rf[7] / 2 : localmem_wadr;
 
-			dma_req		        <= opc == OPC_LOAD ? 1 : 0;
-			dma_rwn		        <= opc == OPC_LOAD;
-			dma_localAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
-                opc == OPC_LOAD ? 
-                arg_ano == 1 ? rf[1][11:0] : 
-                arg_ano == 2 ? rf[2][11:0] :
-                arg_ano == 3 ? rf[3][11:0] :
-                arg_ano == 4 ? rf[4][11:0] :
-                arg_ano == 5 ? rf[5][11:0] :
-                arg_ano == 6 ? rf[6][11:0] :
-                arg_ano == 7 ? rf[7][11:0] : dma_localAddr :
-
-                arg_bno == 1 ? rf[1][11:0] : 
-                arg_bno == 2 ? rf[2][11:0] :
-                arg_bno == 3 ? rf[3][11:0] :
-                arg_bno == 4 ? rf[4][11:0] :
-                arg_bno == 5 ? rf[5][11:0] :
-                arg_bno == 6 ? rf[6][11:0] :
-                arg_bno == 7 ? rf[7][11:0] : dma_localAddr : dma_localAddr;
-
-			dma_hostAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
-                opc == OPC_LOAD ? 
-                arg_bno == 1 ? rf[1] : 
-                arg_bno == 2 ? rf[2] :
-                arg_bno == 3 ? rf[3] :
-                arg_bno == 4 ? rf[4] :
-                arg_bno == 5 ? rf[5] :
-                arg_bno == 6 ? rf[6] :
-                arg_bno == 7 ? rf[7] : dma_hostAddr :
-                
-                arg_ano == 1 ? rf[1] : 
-                arg_ano == 2 ? rf[2] :
-                arg_ano == 3 ? rf[3] :
-                arg_ano == 4 ? rf[4] :
-                arg_ano == 5 ? rf[5] :
-                arg_ano == 6 ? rf[6] :
-                arg_ano == 7 ? rf[7] : dma_hostAddr : dma_hostAddr;
-
-			dma_transferLength	<= opc == OPC_LOAD || opc == OPC_STORE ? 
-                arg_cno == 1 ? rf[1][15:0]/16 : 
-                arg_cno == 2 ? rf[2][15:0]/16 :
-                arg_cno == 3 ? rf[3][15:0]/16 :
-                arg_cno == 4 ? rf[4][15:0]/16 :
-                arg_cno == 5 ? rf[5][15:0]/16 :
-                arg_cno == 6 ? rf[6][15:0]/16 :
-                arg_cno == 7 ? rf[7][15:0]/16 : dma_transferLength : dma_transferLength;
 
 			opc_cmd		<= opc;
 			bf16_opc	<= opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? opc - OPC_VADD_BF16 : bf16_opc;
@@ -324,7 +269,7 @@ always @(negedge rstn or posedge clk) begin
             localmem_rden   <= (opc >= OPC_NOP && opc <= OPC_SETI_HIGH) || (opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16) || (opc == OPC_STORE);
             
 
-            localmem_radr	<= (opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16) || (opc == OPC_STORE) ? 
+            localmem_radr	<= (opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16)? 
                 arg_bno == 1 ? rf[1] / 2 : 
                 arg_bno == 2 ? rf[2] / 2 :
                 arg_bno == 3 ? rf[3] / 2 :
@@ -334,48 +279,25 @@ always @(negedge rstn or posedge clk) begin
                 arg_bno == 7 ? rf[7] / 2 : localmem_radr : localmem_radr;
 		end
 
-		S_LOAD_REQ:
-		begin
-			state		<= dma_ready ? S_LOAD_DATA : state;
-			dma_req		<= dma_ready ? 0 : 1;
-            localmem_rden <= 0;
-            localmem_wadr <= rocc_inst_flag ? dma_localAddr : localmem_wadr;
-		end
-
 		S_LOAD_DATA:
 		begin
-			state		<= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? S_IDLE : S_OPC_READ) : state;
-			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
-            
-            localmem_wren <= dma_ack;
-            localmem_wadr <= localmem_wren ? localmem_wadr + 8 : localmem_wadr;
-            localmem_rden <= (dma_ack && scnt == dma_transferLength - 1) ? (rocc_inst_flag ? 0 : 1) : 0;
-
-            sram_dina_reg <= dma_readData;
-            rocc_inst_flag <= (dma_ack && scnt == dma_transferLength - 1) ? 0 : 1;
+			state		<= S_IDLE;
+            // sram_dina_reg[127:64] <= load_data;
+            rocc_local_mem_wen <= 0;
 		end
 
-		S_STORE_PRE:
+		S_STORE_DATA1:
 		begin
-			state   <= S_STORE_REQ;
-			dma_req <= 1;
-            localmem_rden   <= 0;
-            localmem_radr   <= rocc_inst_flag ? (localmem_rden ? dma_localAddr + 8 : dma_localAddr) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
+			state		<= S_STORE_DATA2;
+            rocc_local_mem_ren <= 0;
+//            store_data <= local_mem_addr[0] ? sram_doutb[63:0] : sram_doutb[127:64];
 		end
 
-		S_STORE_REQ:
+		S_STORE_DATA2:
 		begin
-			state		<= dma_ready ? S_STORE_DATA : state;
-			dma_req		<= dma_ready ? 0 : 1;
-		end
-
-		S_STORE_DATA:
-		begin
-			state		<= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? S_IDLE : S_OPC_READ) : state;
-			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
-            localmem_rden   <= (dma_ack && scnt == dma_transferLength - 1) ? (rocc_inst_flag ? 0 : 1) : 1;
-            localmem_radr   <= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? localmem_radr : opc_radr * 8) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
-            rocc_inst_flag <= (dma_ack && scnt == dma_transferLength - 1) ? 0 : 1;
+			state		<= S_IDLE;
+            store_data <= rocc_local_mem_raddr[0] ? sram_doutb[127:64] : sram_doutb[63:0];
+            core_resp_vld <= 1;
 		end
 
         S_BF16_1:
@@ -454,7 +376,6 @@ always @(negedge rstn or posedge clk) begin
 			bf16_ylat	<= 0;
 
 			localmem_wren   <= bf16_ylat;
-			// lh_wdat		<= fpu_ylat ? fpu_y : lh_wdat;
             
             sram_dina_reg[15:0] <= bf16_ylat ? (localmem_wadr[2:0] == 3'b000 ? bf16_y : sram_dina_reg[15:0]) : sram_dina_reg[15:0];
             sram_dina_reg[31:16] <= bf16_ylat ? (localmem_wadr[2:0] == 3'b001 ? bf16_y : sram_dina_reg[31:16]) : sram_dina_reg[31:16];
@@ -485,17 +406,16 @@ always @(negedge rstn or posedge clk) begin
 	end
 end
 
-assign		dma_writeData	= sram_doutb;
 
-
-assign		sram_ena	= localmem_wren;
-assign		sram_wea	= localmem_wren;
-assign		sram_addra	= localmem_wadr / 8;
+assign		sram_ena	= rocc_local_mem_wen ? rocc_local_mem_wen : localmem_wren;
+assign		sram_wea	= rocc_local_mem_wen ? rocc_local_mem_wen : localmem_wren;
+assign		sram_addra	= rocc_local_mem_wen ? rocc_local_mem_waddr : localmem_wadr / 8;
 assign		sram_dina	= sram_dina_reg;
-assign		sram_enb	= localmem_rden;
-assign		sram_addrb	= localmem_radr / 8;
+assign		sram_enb	= rocc_local_mem_ren;
+assign		sram_addrb	= rocc_local_mem_ren ? rocc_local_mem_raddr[12:1] : localmem_radr / 8;
 
 //----| output mapping |--------------------------------------------------------
 assign		rocc_if_busy		= state != S_IDLE;
-    
+// assign      bf16_y_addr <= bf16_y_addr;
+
 endmodule
