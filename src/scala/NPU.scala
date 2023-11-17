@@ -200,6 +200,22 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val NPUTile3Fin = NPUTile3Def.module.io.rocc_if_fin
     val NPUTile3Busy = NPUTile3Def.module.io.rocc_if_busy
 
+    when(NPUTile0Fin){
+      regfile(13)(0) := true.B
+    } 
+
+    when(NPUTile1Fin){
+      regfile(13)(1) := true.B
+    } 
+
+    when(NPUTile2Fin){
+      regfile(13)(2) := true.B
+    } 
+    
+    when(NPUTile3Fin){
+      regfile(13)(3) := true.B
+    }
+
     DMAPathControllerDef.io.risc_clk := clock
     DMAPathControllerDef.io.fpu_clk := clock
     DMAPathControllerDef.io.reset := reset
@@ -332,7 +348,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
 
   io.busy := cmd.valid || busy.reduce(_||_)
     // Be busy when have pending memory requests or committed possibility of pending requests
-  io.interrupt := false.B
+  io.interrupt := true.B
     // Set this true to trigger an interrupt on the processor (please refer to supervisor documentation)
 
   // MEMORY REQUEST INTERFACE
