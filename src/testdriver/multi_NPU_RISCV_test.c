@@ -5,7 +5,7 @@
 #include <string.h>
 
 //#define DATA_SIZE 2048            // Data Size
-#define DATA_SIZE 32            // Data Size
+#define DATA_SIZE 64            // Data Size
 #define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 #define NUMBER_OF_CORES 4         // Number f Cores used at the same time
 
@@ -14,9 +14,9 @@
 #define KERNEL_WITH_LOAD_STORE 0
 #define NPU_REG_ID_OFFSET 3
 
-#define INPUT_A_SRAM_BASE_ADDRESS 0x200
-#define INPUT_B_SRAM_BASE_ADDRESS 0x1200
-#define RESULT_SRAM_BASE_ADDRESS  0x2200
+#define INPUT_A_SRAM_BASE_ADDRESS 0x40 // 0x200
+#define INPUT_B_SRAM_BASE_ADDRESS 0xC0 // 0x1200
+#define RESULT_SRAM_BASE_ADDRESS  0x140 // 0x2200
 
 #define NPU_LOAD_STORE_MICRO_DELAY 100000
 
@@ -30,10 +30,10 @@
 #define SIZE_M    4 // SIZE_MAGNIFICATION
 #endif
 
-#define MAX_LOAD_STORE_CHUNK_SIZE 64 // must be >= 128
+#define MAX_LOAD_STORE_CHUNK_SIZE 128 // must be >= 128
 
-#define _NPU_LOAD_STORE_TEST_MODE_
-#define __DEBUG_MODE__
+//#define _NPU_LOAD_STORE_TEST_MODE_
+//#define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
 #define trace_pc_position()  printf("%s - %d \n", __func__, __LINE__);
@@ -318,6 +318,60 @@ static void kernel_op_change(uint8_t* kernel, char* op) {
 #endif
 }
 
+static void kernel_input_a_sram_addr_change(uint8_t* kernel, unsigned long addr) {
+
+    uint8_t byte_low;
+    uint8_t byte_high;
+
+    addr = (addr + 3)/4;
+
+    // Devide Size
+    byte_low = addr & 0xff;
+    byte_high = (addr >> 8) & 0xFF;
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+#else
+    kernel[4] = byte_low;
+    kernel[5] = byte_high;
+#endif
+}
+
+static void kernel_input_b_sram_addr_change(uint8_t* kernel, unsigned long addr) {
+
+    uint8_t byte_low;
+    uint8_t byte_high;
+
+    addr = (addr + 3)/4;
+
+    // Devide Size
+    byte_low = addr & 0xff;
+    byte_high = (addr >> 8) & 0xFF;
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+#else
+    kernel[0] = byte_low;
+    kernel[1] = byte_high;
+#endif
+}
+
+static void kernel_output_c_sram_addr_change(uint8_t* kernel, unsigned long addr) {
+
+    uint8_t byte_low;
+    uint8_t byte_high;
+
+    addr = (addr + 3)/4;
+
+    // Devide Size
+    byte_low = addr & 0xff;
+    byte_high = (addr >> 8) & 0xFF;
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+#else
+    kernel[12] = byte_low;
+    kernel[13] = byte_high;
+#endif
+}
+
 static void kernel_input_a_addr_change(uint8_t* kernel, BF16* data) {
 
     unsigned long addr;
@@ -534,6 +588,21 @@ void adjust_kernel() {
     kernel_op_change(kernel_2, TEST_OP_TYPE);
     kernel_op_change(kernel_3, TEST_OP_TYPE);
 
+    kernel_input_a_sram_addr_change(kernel_0, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
+    kernel_input_a_sram_addr_change(kernel_1, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
+    kernel_input_a_sram_addr_change(kernel_2, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
+    kernel_input_a_sram_addr_change(kernel_3, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
+
+    kernel_input_b_sram_addr_change(kernel_0, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
+    kernel_input_b_sram_addr_change(kernel_1, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
+    kernel_input_b_sram_addr_change(kernel_2, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
+    kernel_input_b_sram_addr_change(kernel_3, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
+
+    kernel_output_c_sram_addr_change(kernel_0, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
+    kernel_output_c_sram_addr_change(kernel_1, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
+    kernel_output_c_sram_addr_change(kernel_2, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
+    kernel_output_c_sram_addr_change(kernel_3, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
+
 #if KERNEL_WITH_LOAD_STORE // with-load-store
     // Change Kernel's input_A address
     kernel_input_a_addr_change(kernel_0, input_A);
@@ -558,6 +627,16 @@ void adjust_kernel() {
     resize_converted_data_size_kernel(kernel_2, (int)((DATA_SIZE * 2 + 3)/4));
     resize_converted_data_size_kernel(kernel_3, (int)((DATA_SIZE * 2 + 3)/4));
 #endif
+}
+
+void dump_data(char * data, int size) {
+    for(int id = 0; id < size; id++) {
+        printf("0x%02x, ", data[id] & 0xFF);
+        if(((id+1) % 16) == 0) {
+            printf("\n");
+        }
+    }
+    printf("\n\n");
 }
 
 void load_kernel_into_npu(int npus) {
@@ -865,7 +944,7 @@ void load_store_test(int id) {
         load_kernel_into_npu(0xF);
     } else if(id == 1) {
         load_input_A_into_npu(0xF);
-    } else if(id == 1) {
+    } else if(id == 2) {
         load_input_B_into_npu(0xF);
     } else {
         return;
@@ -936,17 +1015,31 @@ int main() {
     init_variavles();
     printf("\ninput_A & input_B are filled with random data.\n");
 
+    printf("[input_A]\n");
+    dump_data((char *)input_A, (int)(sizeof(BF16) * DATA_SIZE));
+    printf("[input_B]\n");
+    dump_data((char *)input_B, (int)(sizeof(BF16) * DATA_SIZE));
+
     riscv_calculate_result();
     printf("\nThe result values of risc-v for each function were calculated using input_A & input_B.\n");
 
     adjust_kernel();
     printf("\nKernel images for each NPU have been prepared.\n\n");
 
+    printf("[kernel_0]\n");
+    dump_data((char *)kernel_0, (int)sizeof(kernel_0));
+    printf("[kernel_1]\n");
+    dump_data((char *)kernel_1, (int)sizeof(kernel_1));
+    printf("[kernel_2]\n");
+    dump_data((char *)kernel_2, (int)sizeof(kernel_2));
+    printf("[kernel_3]\n");
+    dump_data((char *)kernel_3, (int)sizeof(kernel_3));
+
 #ifdef _NPU_LOAD_STORE_TEST_MODE_
 
-    load_store_test(0);
-//    load_store_test(1);
-//    load_store_test(2);
+//    load_store_test(0);
+    load_store_test(1);
+    load_store_test(2);
 
     return 0;
 #endif
@@ -957,6 +1050,7 @@ int main() {
     cycle_start = get_time();
 
     npu_exec();
+    delay_in_usec(10000000);
 
     cycle_end = get_time();
     printf("\nAll NPUs have completed calculations.\n\n");
