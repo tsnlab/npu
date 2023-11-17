@@ -112,13 +112,22 @@ reg [127:0] sram_b_dina_reg;
 reg bf16_alat, bf16_blat, bf16_ylat;
 (* MARK_DEBUG = "TRUE" *)reg	[31:0]	fpu_cnt;
 (* MARK_DEBUG = "TRUE" *)wire    [31:0]  opcode;
-wire	[7:0]	opc		= opcode[00+:8];
-wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
-wire	[15:0]	rval	= opcode[16+:16];
-wire    [3:0]   arg_ano = opcode[12+:4];
-wire    [3:0]   arg_bno = opcode[08+:4];
-wire    [3:0]   arg_cno = opcode[20+:4];
-wire    [3:0]   arg_dno = opcode[16+:4];
+//wire	[7:0]	opc		= opcode[00+:8];
+//wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
+//wire	[15:0]	rval	= opcode[16+:16];
+//wire    [3:0]   arg_ano = opcode[12+:4];
+//wire    [3:0]   arg_bno = opcode[08+:4];
+//wire    [3:0]   arg_cno = opcode[20+:4];
+//wire    [3:0]   arg_dno = opcode[16+:4];
+
+(* MARK_DEBUG = "TRUE" *)wire	[7:0]	opc		= opcode[31:24];
+wire	[19:0]	rval_u20    = opcode[19:0];
+wire	[15:0]	rval	= opcode[16:0];
+wire    [3:0]   arg_ano = opcode[23:20];
+wire    [3:0]   arg_bno = opcode[19:16];
+wire    [3:0]   arg_cno = opcode[15:12];
+wire    [3:0]   arg_dno = opcode[11:8];
+
 
 reg     rocc_inst_flag;
 
