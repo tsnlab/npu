@@ -18,16 +18,16 @@ module loadStoreController(
   input wire rst,
 
   //***** FPU Core block
-  input wire core_req,
-  output reg core_ready,
+  (* MARK_DEBUG = "TRUE" *)input wire core_req,
+  (* MARK_DEBUG = "TRUE" *)output reg core_ready,
   input wire core_rwn,
   input wire [39:0] core_hostAddr,
   input wire [11:0] core_localAddr,
   input wire [15:0] core_transferLength,
-  output wire core_ack,
-  input wire [127:0] core_writeData,
-  output wire [127:0] core_readData,
-  output wire [11:0] core_readAddr,
+  (* MARK_DEBUG = "TRUE" *)output wire core_ack,
+  (* MARK_DEBUG = "TRUE" *)input wire [127:0] core_writeData,
+  (* MARK_DEBUG = "TRUE" *)output wire [127:0] core_readData,
+  (* MARK_DEBUG = "TRUE" *)output wire [11:0] core_readAddr,
 
   //***** DMA Path Controller block
   output reg dma_req,

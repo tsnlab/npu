@@ -98,7 +98,7 @@ wire rcc_ff_full;
 wire [4:0] rcc_ff_wr_cnt;
 reg rcc_ff_rd_en;
 wire [71:0] rcc_ff_rd_data;
-wire rcc_ff_empty;
+(* MARK_DEBUG = "TRUE" *)wire rcc_ff_empty;
 wire [4:0] rcc_ff_rd_cnt;
 
 
@@ -110,7 +110,7 @@ wire rcd_ff_c_full;
 wire [7:0] rcd_ff_c_wr_cnt;
 wire rcd_ff_c_rd_en;
 wire [31:0] rcd_ff_c_rd_data;
-wire rcd_ff_c_empty;
+(* MARK_DEBUG = "TRUE" *)wire rcd_ff_c_empty;
 wire [7:0] rcd_ff_c_rd_cnt;
 
 //***** Read Controller Data Path Data FIFO Signal
@@ -120,7 +120,7 @@ wire rcd_ff_d_full;
 wire [7:0] rcd_ff_d_wr_cnt;
 wire rcd_ff_d_rd_en;
 wire [127:0] rcd_ff_d_rd_data;
-wire rcd_ff_d_empty;
+(* MARK_DEBUG = "TRUE" *)wire rcd_ff_d_empty;
 wire [7:0] rcd_ff_d_rd_cnt;
 
 //***** Read Controller Data State Machine
@@ -165,17 +165,17 @@ reg[7:0] ad_rd_ptr;
 //***** Read Controller Data Signal
 reg[15:0] rcdcon_count;
 reg[15:0] rcdcon_length;
-wire dma_read_vld;
-wire[139:0] dma_read_data;
-wire[1:0] dma_mux;
-wire dma_read_ready_mux;
+(* MARK_DEBUG = "TRUE" *) wire dma_read_vld;
+(* MARK_DEBUG = "TRUE" *) wire[139:0] dma_read_data;
+(* MARK_DEBUG = "TRUE" *) wire[1:0] dma_mux;
+(* MARK_DEBUG = "TRUE" *) wire dma_read_ready_mux;
 
 //***** FPU Token Control Signal
 reg[1:0] fpu_sel =2'd0;
 reg fpu_resp;
-wire fpu_write_rdy;
-wire [127:0] fpu_write_data;
-wire fpu_write_vld;
+(* MARK_DEBUG = "TRUE" *)wire fpu_write_rdy;
+(* MARK_DEBUG = "TRUE" *)wire [127:0] fpu_write_data;
+(* MARK_DEBUG = "TRUE" *)wire fpu_write_vld;
 reg[15:0] fpu_write_length;
 reg[7:0] msg_form;
 reg[15:0] fpu_write_cnt;
@@ -215,7 +215,7 @@ wire wcc_ff_full;
 wire [4:0] wcc_ff_wr_cnt;
 reg wcc_ff_rd_en;
 wire [71:0] wcc_ff_rd_data;
-wire wcc_ff_empty;
+(* MARK_DEBUG = "TRUE" *)wire wcc_ff_empty;
 wire [4:0] wcc_ff_rd_cnt;
 
 
@@ -228,7 +228,7 @@ wire wcd_ff_full;
 wire [7:0] wcd_ff_wr_cnt;
 wire wcd_ff_rd_en;
 wire [127:0] wcd_ff_rd_data;
-wire wcd_ff_empty;
+(* MARK_DEBUG = "TRUE" *)wire wcd_ff_empty;
 wire [7:0] wcd_ff_rd_cnt;
 
 //***** Group Write Control State Machine
@@ -278,21 +278,25 @@ always@(posedge fpu_clk or posedge reset) begin
 			dtc_s0 : begin
 				if(dma_req_a) begin 
 					fpu_sel <= 2'd0; 
+					npu_ad_mem[ad_wr_ptr] <= 2'd0;
 					fpu_sel_a <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_b) begin
 					fpu_sel <= 2'd1;
+					npu_ad_mem[ad_wr_ptr] <= 2'd1;
 					fpu_sel_b <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_c) begin
 					fpu_sel <= 2'd2;
+					npu_ad_mem[ad_wr_ptr] <= 2'd2;
 					fpu_sel_c <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_d) begin
 					fpu_sel <= 2'd3;
+					npu_ad_mem[ad_wr_ptr] <= 2'd3;
 					fpu_sel_d <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
@@ -303,21 +307,25 @@ always@(posedge fpu_clk or posedge reset) begin
 			dtc_s1 : begin
 				if(dma_req_b) begin
 					fpu_sel <= 2'd1;
+					npu_ad_mem[ad_wr_ptr] <= 2'd1;
 					fpu_sel_b <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_c) begin
 					fpu_sel <= 2'd2;
+					npu_ad_mem[ad_wr_ptr] <= 2'd2;
 					fpu_sel_c <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_d) begin
 					fpu_sel <= 2'd3;
+					npu_ad_mem[ad_wr_ptr] <= 2'd3;
 					fpu_sel_d <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_a) begin
 					fpu_sel <= 2'd0;
+					npu_ad_mem[ad_wr_ptr] <= 2'd0;
 					fpu_sel_a <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
@@ -328,21 +336,25 @@ always@(posedge fpu_clk or posedge reset) begin
 			dtc_s2 : begin
 				if(dma_req_c) begin
 					fpu_sel <= 2'd2;
+					npu_ad_mem[ad_wr_ptr] <= 2'd2;
 					fpu_sel_c <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_d) begin
 					fpu_sel <= 2'd3;
+					npu_ad_mem[ad_wr_ptr] <= 2'd3;
 					fpu_sel_d <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_a) begin
 					fpu_sel <= 2'd0;
+					npu_ad_mem[ad_wr_ptr] <= 2'd0;
 					fpu_sel_a <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_b) begin
 					fpu_sel <= 2'd1;
+					npu_ad_mem[ad_wr_ptr] <= 2'd1;
 					fpu_sel_b <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
@@ -353,21 +365,25 @@ always@(posedge fpu_clk or posedge reset) begin
 			dtc_s3 : begin
 				if(dma_req_d) begin
 					fpu_sel <= 2'd3;
+					npu_ad_mem[ad_wr_ptr] <= 2'd3;
 					fpu_sel_d <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_a) begin
 					fpu_sel <= 2'd0;
+					npu_ad_mem[ad_wr_ptr] <= 2'd0;
 					fpu_sel_a <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_b) begin
 					fpu_sel <= 2'd1;
+					npu_ad_mem[ad_wr_ptr] <= 2'd1;
 					fpu_sel_b <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
 				else if(dma_req_c) begin
 					fpu_sel <= 2'd2;
+					npu_ad_mem[ad_wr_ptr] <= 2'd2;
 					fpu_sel_c <= 1'b1;
 					dtpcon <= dtc_s4;
 				end
@@ -379,25 +395,25 @@ always@(posedge fpu_clk or posedge reset) begin
 				if(fpu_resp_done) begin
 					if(fpu_sel_a)begin
 						fpu_sel_a <= 1'b0;
-						npu_ad_mem[ad_wr_ptr] <= 2'd0;
+						// npu_ad_mem[ad_wr_ptr] <= 2'd0;
 						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s1;
 					end
 					else if(fpu_sel_b) begin
 						fpu_sel_b <= 1'b0;
-						npu_ad_mem[ad_wr_ptr] <= 2'd1;
+						// npu_ad_mem[ad_wr_ptr] <= 2'd1;
 						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s2;
 					end
 					else if(fpu_sel_c) begin
 						fpu_sel_c <= 1'b0;
-						npu_ad_mem[ad_wr_ptr] <= 2'd2;
+						// npu_ad_mem[ad_wr_ptr] <= 2'd2;
 						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s3;
 					end
 					else if(fpu_sel_d) begin
 						fpu_sel_d <= 1'b0;
-						npu_ad_mem[ad_wr_ptr] <= 2'd3;
+						// npu_ad_mem[ad_wr_ptr] <= 2'd3;
 						ad_wr_ptr <= ad_wr_ptr + 8'd1;
 						dtpcon <= dtc_s0;
 					end
@@ -601,7 +617,7 @@ always@(posedge fpu_clk or posedge reset) begin
 			end
 			dcc_wc1 : begin
 				wcc_ff_wr_en <= 1'b0;
-				if(dcc_length == dcc_count) begin
+				if((dcc_length <= dcc_count &&(~wcd_ff_full&&wcd_ff_wr_en))||(dcc_length+1 <= dcc_count) ) begin
 						wcd_read_en <= 1'b0;
 						wcd_read_da_en <= 1'b0;
 						dcc_count <= 16'd1;

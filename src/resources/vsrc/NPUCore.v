@@ -83,19 +83,19 @@ localparam OPC_IFNEQ	    = 8'h11;
 localparam OPC_JMP	        = 8'h12;
 localparam OPC_RETURN	    = 8'hff;
 
-reg	[14:0]	state;
-reg	[15:0]	scnt;
-reg [1:0]   opc_cnt;
+(* MARK_DEBUG = "TRUE" *)reg	[14:0]	state;
+(* MARK_DEBUG = "TRUE" *)reg	[15:0]	scnt;
+(* MARK_DEBUG = "TRUE" *)reg [1:0]   opc_cnt;
 reg	[31:0]	rf[0:15];
 reg [31:0]  bf16_a_addr, bf16_b_addr, bf16_y_addr;
-reg	[7:0]	opc_cmd;
+(* MARK_DEBUG = "TRUE" *)reg	[7:0]	opc_cmd;
 wire		opc_div		= opc_cmd == OPC_VDIV_BF16;
 
 reg [11:0]  opc_radr;
 reg     localmem_rden;
 reg [11:0]  localmem_radr;
 reg     localmem_wren;
-reg [11:0]  localmem_wadr;
+reg [15:0]  localmem_wadr;
 
 
 wire [15:0] sram_doutb_7 = sram_doutb[127:112];
@@ -110,8 +110,8 @@ wire [15:0] sram_doutb_0 = sram_doutb[15:0];
 reg [127:0] sram_dina_reg;
 reg [127:0] sram_b_dina_reg;
 reg bf16_alat, bf16_blat, bf16_ylat;
-reg	[31:0]	fpu_cnt;
-wire    [31:0]  opcode;
+(* MARK_DEBUG = "TRUE" *)reg	[31:0]	fpu_cnt;
+(* MARK_DEBUG = "TRUE" *)wire    [31:0]  opcode;
 wire	[7:0]	opc		= opcode[00+:8];
 wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
 wire	[15:0]	rval	= opcode[16+:16];
