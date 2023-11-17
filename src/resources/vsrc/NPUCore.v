@@ -112,19 +112,46 @@ reg [127:0] sram_b_dina_reg;
 reg bf16_alat, bf16_blat, bf16_ylat;
 reg	[31:0]	fpu_cnt;
 wire    [31:0]  opcode;
-wire	[7:0]	opc		= opcode[00+:8];
-wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
-wire	[15:0]	rval	= opcode[16+:16];
-wire    [3:0]   arg_ano = opcode[12+:4];
-wire    [3:0]   arg_bno = opcode[08+:4];
-wire    [3:0]   arg_cno = opcode[20+:4];
-wire    [3:0]   arg_dno = opcode[16+:4];
+//wire	[7:0]	opc		= opcode[00+:8];
+//wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
+//wire	[15:0]	rval	= opcode[16+:16];
+//wire    [3:0]   arg_ano = opcode[12+:4];
+//wire    [3:0]   arg_bno = opcode[08+:4];
+//wire    [3:0]   arg_cno = opcode[20+:4];
+//wire    [3:0]   arg_dno = opcode[16+:4];
+
+wire	[7:0]	opc		= opcode[31:24];
+wire	[19:0]	rval_u20    = opcode[19:0];
+wire	[15:0]	rval	= opcode[16:0];
+wire    [3:0]   arg_ano = opcode[23:20];
+wire    [3:0]   arg_bno = opcode[19:16];
+wire    [3:0]   arg_cno = opcode[15:12];
+wire    [3:0]   arg_dno = opcode[11:8];
 
 reg     rocc_inst_flag;
 
-assign  opcode = opc_cnt == 2'b01 ? sram_doutb[31:0] :
-                opc_cnt == 2'b10 ? sram_doutb[63:32] :
-                opc_cnt == 2'b11 ? sram_doutb[95:64] : sram_doutb[127:96];
+//ila_0 ila_0(
+//.clk(clk),
+//.probe0(state),
+//.probe1(opcode),
+//.probe2(opc),
+//.probe3(opc_cnt),
+//.probe4(sram_doutb),
+//.probe5(localmem_rden),
+//.probe6(rocc_if_host_mem_offset),
+//.probe7(rocc_if_size),
+//.probe8(rocc_if_local_mem_offset),
+//.probe9(localmem_wadr),
+//.probe10(localmem_wren)
+//);
+
+
+assign  opcode = opc_cnt == 2'b01 ? sram_doutb[63:32] :
+                opc_cnt == 2'b10 ? sram_doutb[31:0] :
+                opc_cnt == 2'b11 ? sram_doutb[127:96] : sram_doutb[95:64];
+//assign  opcode = opc_cnt == 2'b01 ? sram_doutb[31:0] :
+//                opc_cnt == 2'b10 ? sram_doutb[63:32] :
+//                opc_cnt == 2'b11 ? sram_doutb[95:64] : sram_doutb[127:96];
 
 always @(negedge rstn or posedge clk) begin
 	if(!rstn) begin
