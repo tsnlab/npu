@@ -20,6 +20,10 @@
 
 #define NPU_LOAD_STORE_MICRO_DELAY 100000
 
+#define NPU_COMPLETE_EXEC_INTERRUPT 0
+#define NPU_COMPLETE_EXEC_REG 13
+#define NPU_COMPLETE_EXEC_TIMEOUT 5000000.00
+
 #if 1
 #define DDR_M   1 // 128 // DDR_ADDR_MAGNIFICATION
 #define SRAM_M    4 // 4 // SRAM_ADDR_MAGNIFICATION
@@ -548,7 +552,7 @@ void riscv_calculate_result() {
     memset(elapsedTimeStrValue, 0, 50);
     floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
                  elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
-    printf("\nTime spent by RISC-V calculating vadd.bf16: %s us.\n", elapsedTimeStrValue);
+    printf("Time spent by RISC-V calculating vadd.bf16: %s us.\n", elapsedTimeStrValue);
 
     cycle_start = get_time();
     riscv_calculate(output_riscv_sub, input_A, input_B, "vsub.bf16", DATA_SIZE);
@@ -556,7 +560,7 @@ void riscv_calculate_result() {
     memset(elapsedTimeStrValue, 0, 50);
     floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
                  elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
-    printf("\nTime spent by RISC-V calculating vsub.bf16: %s us.\n", elapsedTimeStrValue);
+    printf("Time spent by RISC-V calculating vsub.bf16: %s us.\n", elapsedTimeStrValue);
 
     cycle_start = get_time();
     riscv_calculate(output_riscv_mul, input_A, input_B, "vmul.bf16", DATA_SIZE);
@@ -564,7 +568,7 @@ void riscv_calculate_result() {
     memset(elapsedTimeStrValue, 0, 50);
     floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
                  elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
-    printf("\nTime spent by RISC-V calculating vmul.bf16: %s us.\n", elapsedTimeStrValue);
+    printf("Time spent by RISC-V calculating vmul.bf16: %s us.\n", elapsedTimeStrValue);
 
     cycle_start = get_time();
     riscv_calculate(output_riscv_div, input_A, input_B, "vdiv.bf16", DATA_SIZE);
@@ -572,7 +576,7 @@ void riscv_calculate_result() {
     memset(elapsedTimeStrValue, 0, 50);
     floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
                  elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
-    printf("\nTime spent by RISC-V calculating vdiv.bf16: %s us.\n", elapsedTimeStrValue);
+    printf("Time spent by RISC-V calculating vdiv.bf16: %s us.\n", elapsedTimeStrValue);
 }
 
 void adjust_kernel() {
@@ -993,6 +997,37 @@ void load_store_test(int id) {
 
 #endif
 
+static inline void init_complete_exec() {
+
+    npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x00);
+}
+
+static uint64_t check_complete_exec(uint64_t start) {
+
+    unsigned long value = 0x0;
+    uint64_t end;
+
+    end = get_time();
+#if NPU_COMPLETE_EXEC_INTERRUPT
+    value = npu_regGet(NPU_COMPLETE_EXEC_REG);
+#endif
+
+    while(((value & 0xF) != 0xF) && 
+          ((float)((end - start) / (SYS_CLK / 1000000)) < NPU_COMPLETE_EXEC_TIMEOUT)) {
+        end = get_time();
+#if NPU_COMPLETE_EXEC_INTERRUPT
+        value = npu_regGet(NPU_COMPLETE_EXEC_REG);
+#else
+        printf("end: %016x\r", end);
+        fflush(stdout);
+#endif
+    }
+    printf("\nsrart: %016x\n", start);
+    printf("end: %016x\n", end);
+
+    return end;
+}
+
 int main() {
     
     uint64_t cycle_start;
@@ -1046,14 +1081,20 @@ int main() {
 
     load_kernel_data_into_npu();
 
+    init_complete_exec();
+
     printf("\nRuns all NPUs.\n");
     cycle_start = get_time();
 
     npu_exec();
-    delay_in_usec(10000000);
 
-    cycle_end = get_time();
-    printf("\nAll NPUs have completed calculations.\n\n");
+    cycle_end = check_complete_exec(cycle_start);
+    if(((cycle_end - cycle_start) / (SYS_CLK / 1000000)) < NPU_COMPLETE_EXEC_TIMEOUT) {
+        printf("\nAll NPUs have completed calculations.\n\n");
+    } else {
+        printf("\nTimeout - Waiting for all npu execs to finish.\n\n");
+        return 0;
+    }
 
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
     store_result_into_ddr();
