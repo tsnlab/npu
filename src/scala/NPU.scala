@@ -201,19 +201,19 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val NPUTile3Busy = NPUTile3Def.module.io.rocc_if_busy
 
     when(NPUTile0Fin){
-      regfile(13)(0) := true.B
+      regfile.write(13.U, 0x1.U(16.W))
     } 
 
     when(NPUTile1Fin){
-      regfile(13)(1) := true.B
+      regfile.write(13.U, 0x2.U(16.W))
     } 
 
     when(NPUTile2Fin){
-      regfile(13)(2) := true.B
+      regfile.write(13.U, 0x4.U(16.W))
     } 
-    
+
     when(NPUTile3Fin){
-      regfile(13)(3) := true.B
+      regfile.write(13.U, 0x8.U(16.W))
     }
 
     DMAPathControllerDef.io.risc_clk := clock
