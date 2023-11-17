@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#define DATA_SIZE 2048            // Data Size
+//#define DATA_SIZE 2048            // Data Size
+#define DATA_SIZE 16            // Data Size
 #define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 #define NUMBER_OF_CORES 4         // Number f Cores used at the same time
 
@@ -14,13 +15,19 @@
 #define NPU_REG_ID_OFFSET 3
 
 
+#if 1
+#define DDR_M   1 // 128 // DDR_ADDR_MAGNIFICATION
+#define SRAM_M    1 // 4 // SRAM_ADDR_MAGNIFICATION
+#define SIZE_M    1 // 4 // SIZE_MAGNIFICATION
+#else
 #define DDR_M   128 // DDR_ADDR_MAGNIFICATION
 #define SRAM_M    4 // SRAM_ADDR_MAGNIFICATION
 #define SIZE_M    4 // SIZE_MAGNIFICATION
+#endif
 
-#define MAX_LOAD_STORE_CHUNK_SIZE 64 // must be >= 128
+#define MAX_LOAD_STORE_CHUNK_SIZE 16 // must be >= 128
 
-//#define _NPU_LOAD_STORE_TEST_MODE_
+#define _NPU_LOAD_STORE_TEST_MODE_
 #define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
@@ -134,25 +141,25 @@ static inline void npu_store()
 /* riscv issues store command to npu */
 static void load_command_to_npu(int npu, long unsigned int l_addr, long unsigned int r_addr, int size) {
 
-    trace_pc_position()
+//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)((r_addr + DDR_M - 1) / DDR_M));
-    trace_pc_position()
+//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 2), (int)((size + SIZE_M - 1) / SIZE_M));
-    trace_pc_position()
+//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)((l_addr + SRAM_M - 1) / SRAM_M));
-    trace_pc_position()
+//    trace_pc_position()
 }
 
 /* riscv issues store command to npu */
 static void store_command_to_npu(int npu, long unsigned int r_addr, long unsigned int l_addr, int size) {
 
-    trace_pc_position()
+//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)((r_addr + DDR_M - 1) / DDR_M));
-    trace_pc_position()
+//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 2), (int)((size + SIZE_M - 1) / SIZE_M));
-    trace_pc_position()
+//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)((l_addr + SRAM_M - 1) / SRAM_M));
-    trace_pc_position()
+//    trace_pc_position()
 }
 
 static inline uint64_t get_time() {
@@ -470,10 +477,41 @@ void init_variavles() {
 
 void riscv_calculate_result() {
 
+    uint64_t cycle_start;
+    uint64_t cycle_end;
+    char elapsedTimeStrValue[50]; 
+
+    cycle_start = get_time();
     riscv_calculate(output_riscv_add, input_A, input_B, "vadd.bf16", DATA_SIZE);
+    cycle_end = get_time();
+    memset(elapsedTimeStrValue, 0, 50);
+    floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
+                 elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
+    printf("\nTime spent by RISC-V calculating vadd.bf16: %s us.\n", elapsedTimeStrValue);
+
+    cycle_start = get_time();
     riscv_calculate(output_riscv_sub, input_A, input_B, "vsub.bf16", DATA_SIZE);
+    cycle_end = get_time();
+    memset(elapsedTimeStrValue, 0, 50);
+    floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
+                 elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
+    printf("\nTime spent by RISC-V calculating vsub.bf16: %s us.\n", elapsedTimeStrValue);
+
+    cycle_start = get_time();
     riscv_calculate(output_riscv_mul, input_A, input_B, "vmul.bf16", DATA_SIZE);
+    cycle_end = get_time();
+    memset(elapsedTimeStrValue, 0, 50);
+    floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
+                 elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
+    printf("\nTime spent by RISC-V calculating vmul.bf16: %s us.\n", elapsedTimeStrValue);
+
+    cycle_start = get_time();
     riscv_calculate(output_riscv_div, input_A, input_B, "vdiv.bf16", DATA_SIZE);
+    cycle_end = get_time();
+    memset(elapsedTimeStrValue, 0, 50);
+    floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
+                 elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
+    printf("\nTime spent by RISC-V calculating vdiv.bf16: %s us.\n", elapsedTimeStrValue);
 }
 
 void adjust_kernel() {
@@ -515,7 +553,7 @@ void adjust_kernel() {
 #endif
 }
 
-void load_kernel_into_npu() {
+void load_kernel_into_npu(int npus) {
 
     long unsigned int sram_a;
     long unsigned int ddr_a;
@@ -525,28 +563,43 @@ void load_kernel_into_npu() {
 
     size =  (int)sizeof(kernel_0);
 
+    for(int npu = 0; npu < NUMBER_OF_CORES; npu++) {
+        if(((npus >> npu) & 0x1) == 0) {    /* Not included */
+            load_command_to_npu(npu, 0, (long unsigned int)kernel_0, 0);
+        }
+    }
+
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
         loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
         sram_a = 0x00 + len;
 
-        ddr_a = (long unsigned int)kernel_0 + len;
-        load_command_to_npu(0, sram_a, ddr_a, loadSize);
-        ddr_a = (long unsigned int)kernel_1 + len;
-        load_command_to_npu(1, sram_a, ddr_a, loadSize);
-        ddr_a = (long unsigned int)kernel_2 + len;
-        load_command_to_npu(2, sram_a, ddr_a, loadSize);
-        ddr_a = (long unsigned int)kernel_3 + len;
-        load_command_to_npu(3, sram_a, ddr_a, loadSize);
+        if(npus & 0x1) {
+            ddr_a = (long unsigned int)kernel_0 + len;
+            load_command_to_npu(0, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x2) {
+            ddr_a = (long unsigned int)kernel_1 + len;
+            load_command_to_npu(1, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x4) {
+            ddr_a = (long unsigned int)kernel_2 + len;
+            load_command_to_npu(2, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x8) {
+            ddr_a = (long unsigned int)kernel_3 + len;
+            load_command_to_npu(3, sram_a, ddr_a, loadSize);
+        }
 
         npu_load();
 
         printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
-        delay_in_usec(1000000);
+        //delay_in_usec(1000000);
+        delay_in_usec(10000);
     }
 }
 
-void load_input_A_into_npu() {
+void load_input_A_into_npu(int npus) {
 
     long unsigned int sram_a;
     long unsigned int ddr_a;
@@ -556,25 +609,41 @@ void load_input_A_into_npu() {
 
     size = (int)(sizeof(BF16) * DATA_SIZE);
 
+    for(int npu = 0; npu < NUMBER_OF_CORES; npu++) {
+        if(((npus >> npu) & 0x1) == 0) {    /* Not included */
+            load_command_to_npu(npu, 0, (long unsigned int)input_A, 0);
+        }
+    }
+
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
         loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
-        sram_a = 0x200 + len;
+        //sram_a = 0x200 + len;
+        sram_a = 0x00 + len;
 
         ddr_a = (long unsigned int)input_A + len;
-        load_command_to_npu(0, sram_a, ddr_a, loadSize);
-        load_command_to_npu(1, sram_a, ddr_a, loadSize);
-        load_command_to_npu(2, sram_a, ddr_a, loadSize);
-        load_command_to_npu(3, sram_a, ddr_a, loadSize);
+        if(npus & 0x1) {
+            load_command_to_npu(0, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x2) {
+            load_command_to_npu(1, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x4) {
+            load_command_to_npu(2, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x8) {
+            load_command_to_npu(3, sram_a, ddr_a, loadSize);
+        }
 
         npu_load();
 
         printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
-        delay_in_usec(1000000);
+        //delay_in_usec(1000000);
+        delay_in_usec(10000);
     }
 }
 
-void load_input_B_into_npu() {
+void load_input_B_into_npu(int npus) {
 
     long unsigned int sram_a;
     long unsigned int ddr_a;
@@ -584,36 +653,52 @@ void load_input_B_into_npu() {
 
     size = (int)(sizeof(BF16) * DATA_SIZE);
 
+    for(int npu = 0; npu < NUMBER_OF_CORES; npu++) {
+        if(((npus >> npu) & 0x1) == 0) {    /* Not included */
+            load_command_to_npu(npu, 0, (long unsigned int)input_B, 0);
+        }
+    }
+
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
         loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
-        sram_a = 0x4200 + len;
+        //sram_a = 0x1200 + len;
+        sram_a = 0x00 + len;
 
         ddr_a = (long unsigned int)input_B + len;
-        load_command_to_npu(0, sram_a, ddr_a, loadSize);
-        load_command_to_npu(1, sram_a, ddr_a, loadSize);
-        load_command_to_npu(2, sram_a, ddr_a, loadSize);
-        load_command_to_npu(3, sram_a, ddr_a, loadSize);
+        if(npus & 0x1) {
+            load_command_to_npu(0, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x2) {
+            load_command_to_npu(1, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x4) {
+            load_command_to_npu(2, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x8) {
+            load_command_to_npu(3, sram_a, ddr_a, loadSize);
+        }
 
         npu_load();
 
         printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
-        delay_in_usec(1000000);
+        //delay_in_usec(1000000);
+        delay_in_usec(10000);
     }
 }
 
 void load_kernel_data_into_npu() {
 
     // Load kernel code at address 0 of npu
-    load_kernel_into_npu();
+    load_kernel_into_npu(0xF);
     printf("Kernel images are stored in each NPU.\n\n");
 
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
 
-    load_input_A_into_npu();
+    load_input_A_into_npu(0xF);
     printf("input_A is stored in all NPUs.\n\n");
 
-    load_input_B_into_npu();
+    load_input_B_into_npu(0xF);
     printf("input_B is stored in all NPUs.\n\n");
 #endif
 }
@@ -631,7 +716,7 @@ void store_result_into_ddr() {
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
         loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
-        sram_a = 0x8200 + len;
+        sram_a = 0x2200 + len;
 
         ddr_a = (long unsigned int)output_npu_0 + len;
         store_command_to_npu(0, ddr_a, sram_a, loadSize);
@@ -644,7 +729,8 @@ void store_result_into_ddr() {
 
         npu_store();
 
-        delay_in_usec(1000000);
+        //delay_in_usec(1000000);
+        delay_in_usec(10000);
     }
 }
 
@@ -674,7 +760,70 @@ void store_kernel_into_ddr() {
 
         npu_store();
 
-        delay_in_usec(1000000);
+//        delay_in_usec(1000000);
+        delay_in_usec(10000);
+    }
+}
+
+void store_input_A_into_ddr() {
+
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size = (int)(sizeof(BF16) * DATA_SIZE);
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        //sram_a = 0x200 + len;
+        sram_a = 0x00 + len;
+
+        ddr_a = (long unsigned int)output_npu_0 + len;
+        store_command_to_npu(0, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_1 + len;
+        store_command_to_npu(1, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_2 + len;
+        store_command_to_npu(2, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_3 + len;
+        store_command_to_npu(3, ddr_a, sram_a, loadSize);
+
+        npu_store();
+
+        delay_in_usec(10000);
+    }
+}
+
+void store_input_B_into_ddr() {
+
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size = (int)(sizeof(BF16) * DATA_SIZE);
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        //sram_a = 0x1200 + len;
+        sram_a = 0x00 + len;
+
+        ddr_a = (long unsigned int)output_npu_0 + len;
+        store_command_to_npu(0, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_1 + len;
+        store_command_to_npu(1, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_2 + len;
+        store_command_to_npu(2, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)output_npu_3 + len;
+        store_command_to_npu(3, ddr_a, sram_a, loadSize);
+
+        npu_store();
+
+        delay_in_usec(10000);
     }
 }
 
@@ -687,7 +836,7 @@ void compare_load_store_data(int npu, char *org, char *npu_ls, int size) {
 
     for(idx = 0;idx < size;idx++) {
         if(org[idx] != npu_ls[idx]) {
-            printf("NPU%d Mismatch - kernel[%4d]: 0x%02x, output_npu[%4d]: 0x%02x\n",
+            printf("NPU%d Mismatch - origin[%4d]: 0x%02x, output_npu[%4d]: 0x%02x\n",
                         npu, idx, org[idx], idx, npu_ls[idx]);
             mismatch = 1;
         }
@@ -700,37 +849,63 @@ void compare_load_store_data(int npu, char *org, char *npu_ls, int size) {
     }
 }
 
-void load_store_test() {
+void load_store_test(int id) {
 
     char *org;
     char *npu_ls;
+    int size;
 
-    printf("\n>>> %s\n\n", __func__);
+    printf("\n>>> %s(%d)\n\n", __func__, id);
 
-    load_kernel_into_npu();
+    if(id == 0) {
+        load_kernel_into_npu(0xF);
+    } else if(id == 1) {
+        load_input_A_into_npu(0xF);
+    } else if(id == 1) {
+        load_input_B_into_npu(0xF);
+    } else {
+        return;
+    }
     printf("\ncomplete npu_load\n\n");
 
-    store_kernel_into_ddr();
-    printf("\ncomplete npu_store\n\n");
+    if(id == 0) {
 
-    delay_in_usec(1000000);
+        store_kernel_into_ddr();
 
-    printf("\nstart all compare_load_store_data\n\n");
-    org = (char *)kernel_0;
-    npu_ls = (char *)output_npu_0;
-    compare_load_store_data(0, org, npu_ls, (int)sizeof(kernel_0));
+        org = (char *)kernel_0;
+        npu_ls = (char *)output_npu_0;
+        compare_load_store_data(0, org, npu_ls, (int)sizeof(kernel_0));
 
-    org = (char *)kernel_1;
-    npu_ls = (char *)output_npu_1;
-    compare_load_store_data(1, org, npu_ls, (int)sizeof(kernel_1));
+        org = (char *)kernel_1;
+        npu_ls = (char *)output_npu_1;
+        compare_load_store_data(1, org, npu_ls, (int)sizeof(kernel_1));
 
-    org = (char *)kernel_2;
-    npu_ls = (char *)output_npu_2;
-    compare_load_store_data(2, org, npu_ls, (int)sizeof(kernel_2));
+        org = (char *)kernel_2;
+        npu_ls = (char *)output_npu_2;
+        compare_load_store_data(2, org, npu_ls, (int)sizeof(kernel_2));
 
-    org = (char *)kernel_3;
-    npu_ls = (char *)output_npu_3;
-    compare_load_store_data(3, org, npu_ls, (int)sizeof(kernel_3));
+        org = (char *)kernel_3;
+        npu_ls = (char *)output_npu_3;
+        compare_load_store_data(3, org, npu_ls, (int)sizeof(kernel_3));
+    } else if(id == 1) {
+        size = (int)(sizeof(BF16) * DATA_SIZE);
+        store_input_A_into_ddr();
+
+        org = (char *)input_A;
+        compare_load_store_data(0, org, (char *)output_npu_0, size);
+        compare_load_store_data(1, org, (char *)output_npu_1, size);
+        compare_load_store_data(2, org, (char *)output_npu_2, size);
+        compare_load_store_data(3, org, (char *)output_npu_3, size);
+    } else if(id == 2) {
+        size = (int)(sizeof(BF16) * DATA_SIZE);
+        store_input_B_into_ddr();
+
+        org = (char *)input_B;
+        compare_load_store_data(0, org, (char *)output_npu_0, size);
+        compare_load_store_data(1, org, (char *)output_npu_1, size);
+        compare_load_store_data(2, org, (char *)output_npu_2, size);
+        compare_load_store_data(3, org, (char *)output_npu_3, size);
+    }
 }
 
 #endif
@@ -765,7 +940,9 @@ int main() {
 
 #ifdef _NPU_LOAD_STORE_TEST_MODE_
 
-    load_store_test();
+//    load_store_test(0);
+    load_store_test(1);
+//    load_store_test(2);
 
     return 0;
 #endif
