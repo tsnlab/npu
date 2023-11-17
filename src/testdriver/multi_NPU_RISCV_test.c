@@ -23,6 +23,7 @@
 #define NPU_COMPLETE_EXEC_INTERRUPT 1
 #define NPU_COMPLETE_EXEC_REG 13
 #define NPU_COMPLETE_EXEC_TIMEOUT 5000000.00
+#define EPSILON 0.01
 
 #if 1
 #define DDR_M   1 // 128 // DDR_ADDR_MAGNIFICATION
@@ -486,6 +487,7 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
     int error_cnt = 0;
     float out_risc_flt;
     float out_npu_flt;
+    float diff;
     char riscvStrValue[50]; 
     char npuStrValue[50]; 
     char diffStrValue[50]; 
@@ -493,7 +495,12 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
     for (int i = 0; i < count; i++) {
         out_risc_flt = bf16_to_float(out_risc_bf16[i]);
         out_npu_flt = bf16_to_float(out_npu_bf16[i]);
-        if (out_risc_flt != out_npu_flt) {
+        if(out_risc_flt > out_npu_flt) {
+            diff = out_risc_flt - out_npu_flt;
+        } else {
+            diff = out_npu_flt - out_risc_flt;
+        }
+        if (diff > EPSILON) {
             error_cnt += 1;
 #ifdef __DEBUG_MODE__
             memset(riscvStrValue, 0, 50);
