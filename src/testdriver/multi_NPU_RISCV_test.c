@@ -6,9 +6,10 @@
 
 #define MAX_DATA_SIZE 2048        // Data Size
 #define DATA_SIZE 1024            // Data Size
-#define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 #define MAX_NUMBER_OF_CORES 6     // Max. Number of Cores used at the same time
-#define NUMBER_OF_CORES 4         // Number of Cores used at the same time
+#define NUMBER_OF_CORES 6         // Number of Cores used at the same time
+
+#define LOOP_COUNT 1024         // Number of loop 
 
 #define SYS_CLK 26000000 // RISC-V: 26MHz 26,000,000
 
@@ -41,7 +42,7 @@
 #define MAX_LOAD_STORE_CHUNK_SIZE 128 // must be >= 128
 
 //#define _NPU_LOAD_STORE_TEST_MODE_
-#define __DEBUG_MODE__
+//#define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
 #define trace_pc_position()  printf("%s - %d \n", __func__, __LINE__);
@@ -164,7 +165,9 @@ __attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {
 #endif
 #endif
 
+uint64_t elapsedCsrrsCycle = 0;
 unsigned long g_interrupt_mask = 0xF;
+char* TEST_OP_TYPE = "vadd.bf16";  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 
 static inline void npu_regSet(int idx, unsigned long data)
 {
@@ -327,6 +330,23 @@ static void resize_converted_data_size_kernel(uint8_t* kernel, int size) {
     kernel[37] = byte_high;
     kernel[76] = byte_low;
     kernel[77] = byte_high;
+#endif
+}
+
+static void kernel_loop_count_change(uint8_t* kernel, int count) {
+
+    // Seperate Size Bytes Low and High
+    uint8_t byte_low;
+    uint8_t byte_high;
+
+    // Devide Size
+    byte_low = count & 0xff;
+    byte_high = count >> 8;
+
+#if KERNEL_WITH_LOAD_STORE // with-load-store
+#else
+    kernel[20] = byte_low;
+    kernel[21] = byte_high;
 #endif
 }
 
@@ -564,7 +584,7 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
         }
     }
 
-    printf("\n[Test Case %s, NPU%d] FAIL(Equal: %d, Not equal: %d)\n", op, npu, check, error_cnt);
+    printf("[Test Case %s, NPU%d] Result(matched: %d, unmatched: %d)\n", op, npu, check, error_cnt);
 
     return check;
 }
@@ -643,6 +663,13 @@ void adjust_kernel() {
     resize_op_iteration_kernel(kernel_3, DATA_SIZE);
     resize_op_iteration_kernel(kernel_4, DATA_SIZE);
     resize_op_iteration_kernel(kernel_5, DATA_SIZE);
+
+    kernel_loop_count_change(kernel_0, LOOP_COUNT);
+    kernel_loop_count_change(kernel_1, LOOP_COUNT);
+    kernel_loop_count_change(kernel_2, LOOP_COUNT);
+    kernel_loop_count_change(kernel_3, LOOP_COUNT);
+    kernel_loop_count_change(kernel_4, LOOP_COUNT);
+    kernel_loop_count_change(kernel_5, LOOP_COUNT);
 
     // Change Kernel's Opcode
     kernel_op_change(kernel_0, TEST_OP_TYPE);
@@ -906,7 +933,7 @@ void load_kernel_data_into_npu() {
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
 
     load_input_A_into_npu(npus);
-    printf("input_A is stored in all NPUs.\n\n");
+    printf("input_A is stored in all NPUs.\n");
 
     load_input_B_into_npu(npus);
     printf("input_B is stored in all NPUs.\n\n");
@@ -1172,25 +1199,7 @@ void load_store_test(int id) {
 
 static inline void init_complete_exec() {
 
-    unsigned long value = 0x0;
-    printf(">>> %s()\n", __func__);
-
     npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x00);
-
-    printf("Before  npu_regGet(NPU_COMPLETE_EXEC_REG)\n");
-
-#if NPU_COMPLETE_EXEC_INTERRUPT
-    value = npu_regGet(NPU_COMPLETE_EXEC_REG);
-#endif
-    printf("complete_exec_state: %lx\n", value);
-    npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x0F);
-#if NPU_COMPLETE_EXEC_INTERRUPT
-    value = npu_regGet(NPU_COMPLETE_EXEC_REG);
-#endif
-    printf("complete_exec_state: %lx\n", value);
-
-    npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x00);
-    printf("<<< %s()\n", __func__);
 }
 
 static uint64_t check_complete_exec(uint64_t start) {
@@ -1203,7 +1212,8 @@ static uint64_t check_complete_exec(uint64_t start) {
     value = npu_regGet(NPU_COMPLETE_EXEC_REG);
 #endif
 
-    while(((value & g_interrupt_mask) != g_interrupt_mask) && 
+    //while(((value & g_interrupt_mask) != g_interrupt_mask) && 
+    while(((value) == 0) && 
           ((float)((end - start) / (SYS_CLK / 1000000)) < NPU_COMPLETE_EXEC_TIMEOUT)) {
         end = get_time();
 #if NPU_COMPLETE_EXEC_INTERRUPT
@@ -1220,38 +1230,38 @@ static uint64_t check_complete_exec(uint64_t start) {
     return end;
 }
 
-int main() {
+void get_average_csrrs_cycle() {
+
+    uint64_t cycle_start;
+    uint64_t cycle_end;
+
+    cycle_start = get_time();
+    for(int count = 0; count < 10; count++) {
+        cycle_end = get_time();
+    }
+    elapsedCsrrsCycle = (cycle_end - cycle_start ) / 10;
+    printf("elapsedCsrrsCycle: 0x%lx\n", elapsedCsrrsCycle);
+}
+
+int main_function() {
     
     uint64_t cycle_start;
     uint64_t cycle_end;
     int check[NUMBER_OF_CORES];
     char elapsedTimeStrValue[50]; 
+    uint64_t elapsedCycle;
+    uint64_t flops;
+    float MFLOPS;
+    char megaFlopsStrValue[50]; 
 
-    printf("\n========Init========\n\n");
-    printf("Multi NAU Test\n");
-    printf("[%s Test] Using %d Cores\n", TEST_OP_TYPE, NUMBER_OF_CORES);
-    if(KERNEL_WITH_LOAD_STORE == 0) {
-        printf("    Kernel without load/store functions\n\n");
-    } else {
-        printf("    Kernel with load/store functions\n\n");
-    }
+    printf("\n\n[%s Test] Using %d Cores\n", TEST_OP_TYPE, NUMBER_OF_CORES);
 
     memset(check, 0, NUMBER_OF_CORES * sizeof(int));
 
-    init_variavles();
-    printf("\ninput_A & input_B are filled with random data.\n");
-
-    printf("[input_A]\n");
-    dump_data((char *)input_A, (int)(sizeof(BF16) * DATA_SIZE));
-    printf("[input_B]\n");
-    dump_data((char *)input_B, (int)(sizeof(BF16) * DATA_SIZE));
-
-    riscv_calculate_result();
-    printf("\nThe result values of risc-v for each function were calculated using input_A & input_B.\n");
-
     adjust_kernel();
-    printf("\nKernel images for each NPU have been prepared.\n\n");
+    printf("\nKernel images for each NPU have been prepared.\n");
 
+#ifdef __DEBUG_MODE__
     printf("[kernel_0]\n");
     dump_data((char *)kernel_0, (int)sizeof(kernel_0));
     printf("[kernel_1]\n");
@@ -1270,14 +1280,6 @@ int main() {
         printf("[kernel_5]\n");
         dump_data((char *)kernel_5, (int)sizeof(kernel_5));
     }
-
-#ifdef _NPU_LOAD_STORE_TEST_MODE_
-
-    load_store_test(0);
-    load_store_test(1);
-    load_store_test(2);
-
-    return 0;
 #endif
 
     load_kernel_data_into_npu();
@@ -1300,6 +1302,25 @@ int main() {
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
     store_result_into_ddr();
     printf("The calculated result values were loaded into external memory.\n\n");
+#endif
+
+#ifdef __DEBUG_MODE__
+    printf("[output_npu_0]\n");
+    dump_data((char *)output_npu_0, (int)(sizeof(BF16) * DATA_SIZE));
+    printf("[output_npu_1]\n");
+    dump_data((char *)output_npu_1, (int)(sizeof(BF16) * DATA_SIZE));
+    printf("[output_npu_2]\n");
+    dump_data((char *)output_npu_2, (int)(sizeof(BF16) * DATA_SIZE));
+    printf("[output_npu_3]\n");
+    dump_data((char *)output_npu_3, (int)(sizeof(BF16) * DATA_SIZE));
+    if(NUMBER_OF_CORES >= 5) {
+        printf("[output_npu_4]\n");
+        dump_data((char *)output_npu_4, (int)(sizeof(BF16) * DATA_SIZE));
+    }
+    if(NUMBER_OF_CORES >= 6) {
+        printf("[output_npu_5]\n");
+        dump_data((char *)output_npu_5, (int)(sizeof(BF16) * DATA_SIZE));
+    }
 #endif
 
     printf("\nCompare the results calculated by risc-v and the results calculated by NPUs.\n");
@@ -1349,6 +1370,7 @@ int main() {
             check[5] = compare_riscv_and_npu(5, TEST_OP_TYPE, output_riscv_div, output_npu_5, DATA_SIZE);
         }
     }
+    printf("\n");
 
     // If All Pass, Print
     if (check[0] == DATA_SIZE) {
@@ -1374,21 +1396,80 @@ int main() {
         }
     }
 
-    floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
+    // 1 cycle = 25ns
+    elapsedCycle = cycle_end - cycle_start - elapsedCsrrsCycle;
+
+#ifdef __DEBUG_MODE__
+    floatToString(elapsedCycle / (SYS_CLK / 1000000), 
                  elapsedTimeStrValue, sizeof(elapsedTimeStrValue));
 
     printf("\nRISC-V Time: %s us.\n", elapsedTimeStrValue);
-
-#if 0
-    // Test Case N's Total Cycles, NPU: 125MHz
-    printf("[#0 NPU] Total cycles: %d\tConvert Times: %.3fus\n", npu_base[4 + 0], npu_base[4 + 0] * 8.00 / 1000.00);
-    printf("[#1 NPU] Total cycles: %d\tConvert Times: %.3fus\n", npu_base[4 + 1], npu_base[4 + 1] * 8.00 / 1000.00);
-    printf("[#2 NPU] Total cycles: %d\tConvert Times: %.3fus\n", npu_base[4 + 2], npu_base[4 + 2] * 8.00 / 1000.00);
-    printf("[#3 NPU] Total cycles: %d\tConvert Times: %.3fus\n", npu_base[4 + 3], npu_base[4 + 3] * 8.00 / 1000.00);
 #endif
+
+    flops = NUMBER_OF_CORES * DATA_SIZE * LOOP_COUNT;
+
+    printf("flops: %ld, elapsedCycle: %ld(1 cycle = 25ns)\n", flops, elapsedCycle);
+    MFLOPS = (flops * 1000) / (elapsedCycle * 25);
+    floatToString(MFLOPS, megaFlopsStrValue, sizeof(megaFlopsStrValue));
+    printf(" =  %s MFLOPS.\n\n", megaFlopsStrValue);
+
+    return 0;
+}
+
+int main() {
+    
+    uint64_t cycle_start;
+    uint64_t cycle_end;
+    int check[NUMBER_OF_CORES];
+    char elapsedTimeStrValue[50]; 
+
+    printf("\n========Init========\n\n");
+    printf("Multi NAU Test\n");
+    if(KERNEL_WITH_LOAD_STORE == 0) {
+        printf("    Kernel without load/store functions\n\n");
+    } else {
+        printf("    Kernel with load/store functions\n\n");
+    }
+
+    memset(check, 0, NUMBER_OF_CORES * sizeof(int));
+
+    init_variavles();
+    printf("\ninput_A & input_B are filled with random data.\n");
+
+#ifdef __DEBUG_MODE__
+    printf("[input_A]\n");
+    dump_data((char *)input_A, (int)(sizeof(BF16) * DATA_SIZE));
+    printf("[input_B]\n");
+    dump_data((char *)input_B, (int)(sizeof(BF16) * DATA_SIZE));
+#endif
+
+    riscv_calculate_result();
+    printf("\nThe result values of risc-v for each function were calculated using input_A & input_B.\n");
+
+#ifdef _NPU_LOAD_STORE_TEST_MODE_
+
+    load_store_test(0);
+    load_store_test(1);
+    load_store_test(2);
+
+    return 0;
+#endif
+
+    get_average_csrrs_cycle();
+
+    TEST_OP_TYPE = "vadd.bf16";
+    main_function();
+
+    TEST_OP_TYPE = "vsub.bf16";
+    main_function();
+
+    TEST_OP_TYPE = "vmul.bf16";
+    main_function();
+
+    TEST_OP_TYPE = "vdiv.bf16";
+    main_function();
 
     printf("\n========Finish========\n\n");
     
     return 0;
 }
-
