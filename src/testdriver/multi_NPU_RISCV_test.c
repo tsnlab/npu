@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define MAX_DATA_SIZE 2048        // Data Size
-#define DATA_SIZE 64 // 1024            // Data Size
+#define DATA_SIZE 1024            // Data Size
 #define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 #define MAX_NUMBER_OF_CORES 6     // Max. Number of Cores used at the same time
 #define NUMBER_OF_CORES 4         // Number of Cores used at the same time
@@ -15,15 +15,15 @@
 #define KERNEL_WITH_LOAD_STORE 0
 #define NPU_REG_ID_OFFSET 3
 
-#define INPUT_A_SRAM_BASE_ADDRESS  0x00 //   0x80 // 128            //  0x40 // 0x200
-#define INPUT_B_SRAM_BASE_ADDRESS  0x00 //0x1080 // 128 + 4096     //  0xC0 // 0x1200
-#define RESULT_SRAM_BASE_ADDRESS   0x140 // 0x2080 // 128 + 4096 * 2 // 0x140 // 0x2200
+#define INPUT_A_SRAM_BASE_ADDRESS    0x80 // 128            //  0x40 // 0x200
+#define INPUT_B_SRAM_BASE_ADDRESS  0x1080 // 128 + 4096     //  0xC0 // 0x1200
+#define RESULT_SRAM_BASE_ADDRESS   0x2080 // 128 + 4096 * 2 // 0x140 // 0x2200
 
 #define NPU_LOAD_STORE_MICRO_DELAY 10000
 
 #define NPU_COMPLETE_EXEC_INTERRUPT 1
 #define NPU_COMPLETE_EXEC_REG (NUMBER_OF_CORES * 3 + 1) // 13
-#define NPU_COMPLETE_EXEC_TIMEOUT 5000000.00
+#define NPU_COMPLETE_EXEC_TIMEOUT 10000000.00
 #define EPSILON 0.01
 
 #define DUMMY_DATA_SIZE 16
@@ -38,9 +38,9 @@
 #define SIZE_M    4 // SIZE_MAGNIFICATION
 #endif
 
-#define MAX_LOAD_STORE_CHUNK_SIZE 128 // 128 // must be >= 128
+#define MAX_LOAD_STORE_CHUNK_SIZE 128 // must be >= 128
 
-#define _NPU_LOAD_STORE_TEST_MODE_
+//#define _NPU_LOAD_STORE_TEST_MODE_
 #define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
@@ -797,7 +797,7 @@ void load_kernel_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
-        dummy_store();
+//        dummy_store();
     }
 }
 
@@ -840,7 +840,7 @@ void load_input_A_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
-        dummy_store();
+//        dummy_store();
     }
 }
 
@@ -883,7 +883,7 @@ void load_input_B_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
-        dummy_store();
+//        dummy_store();
     }
 }
 
@@ -990,7 +990,7 @@ void store_input_A_into_ddr() {
     int size;
 
     size = (int)(sizeof(BF16) * DATA_SIZE);
-
+    
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
         loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
@@ -1070,7 +1070,7 @@ void compare_load_store_data(int npu, char *org, char *npu_ls, int size) {
                         npu, idx, org[idx], idx, npu_ls[idx]);
             mismatch = 1;
         }
-#ifdef __DEBUG_MODE__
+#if 0 // def __DEBUG_MODE__
         else {
             printf("NPU%d Match - origin[%4d]: 0x%02x, output_npu[%4d]: 0x%02x\n",
                         npu, idx, org[idx], idx, npu_ls[idx]);
@@ -1172,7 +1172,25 @@ void load_store_test(int id) {
 
 static inline void init_complete_exec() {
 
+    unsigned long value = 0x0;
+    printf(">>> %s()\n", __func__);
+
     npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x00);
+
+    printf("Before  npu_regGet(NPU_COMPLETE_EXEC_REG)\n");
+
+#if NPU_COMPLETE_EXEC_INTERRUPT
+    value = npu_regGet(NPU_COMPLETE_EXEC_REG);
+#endif
+    printf("complete_exec_state: %lx\n", value);
+    npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x0F);
+#if NPU_COMPLETE_EXEC_INTERRUPT
+    value = npu_regGet(NPU_COMPLETE_EXEC_REG);
+#endif
+    printf("complete_exec_state: %lx\n", value);
+
+    npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x00);
+    printf("<<< %s()\n", __func__);
 }
 
 static uint64_t check_complete_exec(uint64_t start) {
@@ -1255,9 +1273,9 @@ int main() {
 
 #ifdef _NPU_LOAD_STORE_TEST_MODE_
 
-//    load_store_test(0);
+    load_store_test(0);
     load_store_test(1);
-//    load_store_test(2);
+    load_store_test(2);
 
     return 0;
 #endif
@@ -1373,3 +1391,4 @@ int main() {
     
     return 0;
 }
+
