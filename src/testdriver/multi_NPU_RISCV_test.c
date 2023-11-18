@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define MAX_DATA_SIZE 2048        // Data Size
-#define DATA_SIZE 1024            // Data Size
+#define DATA_SIZE 64 // 1024            // Data Size
 #define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
 #define MAX_NUMBER_OF_CORES 6     // Max. Number of Cores used at the same time
 #define NUMBER_OF_CORES 4         // Number of Cores used at the same time
@@ -15,9 +15,9 @@
 #define KERNEL_WITH_LOAD_STORE 0
 #define NPU_REG_ID_OFFSET 3
 
-#define INPUT_A_SRAM_BASE_ADDRESS   0x80 // 128            //  0x40 // 0x200
-#define INPUT_B_SRAM_BASE_ADDRESS 0x1080 // 128 + 4096     //  0xC0 // 0x1200
-#define RESULT_SRAM_BASE_ADDRESS  0x2080 // 128 + 4096 * 2 // 0x140 // 0x2200
+#define INPUT_A_SRAM_BASE_ADDRESS  0x00 //   0x80 // 128            //  0x40 // 0x200
+#define INPUT_B_SRAM_BASE_ADDRESS  0x00 //0x1080 // 128 + 4096     //  0xC0 // 0x1200
+#define RESULT_SRAM_BASE_ADDRESS   0x140 // 0x2080 // 128 + 4096 * 2 // 0x140 // 0x2200
 
 #define NPU_LOAD_STORE_MICRO_DELAY 10000
 
@@ -26,20 +26,22 @@
 #define NPU_COMPLETE_EXEC_TIMEOUT 5000000.00
 #define EPSILON 0.01
 
+#define DUMMY_DATA_SIZE 16
+
 #if 1
-#define DDR_M   1 // 128 // DDR_ADDR_MAGNIFICATION
-#define SRAM_M  4 // 4 // SRAM_ADDR_MAGNIFICATION
-#define SIZE_M 16 // 4 // SIZE_MAGNIFICATION
+#define DDR_M    1 // 128 // DDR_ADDR_MAGNIFICATION
+#define SRAM_M   1 // 4 // SRAM_ADDR_MAGNIFICATION
+#define SIZE_M  16 // 4 // SIZE_MAGNIFICATION
 #else
 #define DDR_M   128 // DDR_ADDR_MAGNIFICATION
 #define SRAM_M    4 // SRAM_ADDR_MAGNIFICATION
 #define SIZE_M    4 // SIZE_MAGNIFICATION
 #endif
 
-#define MAX_LOAD_STORE_CHUNK_SIZE 128 // must be >= 128
+#define MAX_LOAD_STORE_CHUNK_SIZE 128 // 128 // must be >= 128
 
-//#define _NPU_LOAD_STORE_TEST_MODE_
-//#define __DEBUG_MODE__
+#define _NPU_LOAD_STORE_TEST_MODE_
+#define __DEBUG_MODE__
 
 #ifdef __DEBUG_MODE__
 #define trace_pc_position()  printf("%s - %d \n", __func__, __LINE__);
@@ -73,6 +75,13 @@ __attribute__ ((aligned (64))) volatile BF16 output_riscv_add[DATA_SIZE];
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_sub[DATA_SIZE];
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_mul[DATA_SIZE];
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_div[DATA_SIZE];
+
+__attribute__ ((aligned (128))) volatile uint8_t dummy_output_0[DUMMY_DATA_SIZE];
+__attribute__ ((aligned (128))) volatile uint8_t dummy_output_1[DUMMY_DATA_SIZE];
+__attribute__ ((aligned (128))) volatile uint8_t dummy_output_2[DUMMY_DATA_SIZE];
+__attribute__ ((aligned (128))) volatile uint8_t dummy_output_3[DUMMY_DATA_SIZE];
+__attribute__ ((aligned (128))) volatile uint8_t dummy_output_4[DUMMY_DATA_SIZE];
+__attribute__ ((aligned (128))) volatile uint8_t dummy_output_5[DUMMY_DATA_SIZE];
 
   // Kernel: need to align by 8bytes                              0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19
   //   0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19
@@ -574,8 +583,8 @@ void init_variavles() {
     memset(output_npu_1, 0, sizeof(output_npu_1));
     memset(output_npu_2, 0, sizeof(output_npu_2));
     memset(output_npu_3, 0, sizeof(output_npu_3));
-    memset(output_npu_4, 0, sizeof(output_npu_3));
-    memset(output_npu_5, 0, sizeof(output_npu_3));
+    memset(output_npu_4, 0, sizeof(output_npu_4));
+    memset(output_npu_5, 0, sizeof(output_npu_5));
 
     // Random Data Input
     for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++) {
@@ -706,6 +715,44 @@ void dump_data(char * data, int size) {
     printf("\n\n");
 }
 
+void dummy_store() {
+
+    long unsigned int sram_a;
+    long unsigned int ddr_a;
+    int remaining;
+    int loadSize;
+    int size;
+
+    size =  DUMMY_DATA_SIZE;
+
+    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
+        remaining = size - len;
+        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
+        sram_a = 0x00 + len;
+
+        ddr_a = (long unsigned int)dummy_output_0 + len;
+        store_command_to_npu(0, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)dummy_output_1 + len;
+        store_command_to_npu(1, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)dummy_output_2 + len;
+        store_command_to_npu(2, ddr_a, sram_a, loadSize);
+        ddr_a = (long unsigned int)dummy_output_3 + len;
+        store_command_to_npu(3, ddr_a, sram_a, loadSize);
+        if(NUMBER_OF_CORES >= 5) {
+            ddr_a = (long unsigned int)dummy_output_4 + len;
+            store_command_to_npu(4, ddr_a, sram_a, loadSize);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            ddr_a = (long unsigned int)dummy_output_5 + len;
+            store_command_to_npu(5, ddr_a, sram_a, loadSize);
+        }
+
+        npu_store();
+
+        delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
+    }
+}
+
 void load_kernel_into_npu(int npus) {
 
     long unsigned int sram_a;
@@ -750,6 +797,7 @@ void load_kernel_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
+        dummy_store();
     }
 }
 
@@ -792,6 +840,7 @@ void load_input_A_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
+        dummy_store();
     }
 }
 
@@ -834,6 +883,7 @@ void load_input_B_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
+        dummy_store();
     }
 }
 
@@ -916,6 +966,14 @@ void store_kernel_into_ddr() {
         store_command_to_npu(2, ddr_a, sram_a, loadSize);
         ddr_a = (long unsigned int)output_npu_3 + len;
         store_command_to_npu(3, ddr_a, sram_a, loadSize);
+        if(NUMBER_OF_CORES >= 5) {
+            ddr_a = (long unsigned int)output_npu_4 + len;
+            store_command_to_npu(4, ddr_a, sram_a, loadSize);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            ddr_a = (long unsigned int)output_npu_5 + len;
+            store_command_to_npu(5, ddr_a, sram_a, loadSize);
+        }
 
         npu_store();
 
@@ -946,6 +1004,14 @@ void store_input_A_into_ddr() {
         store_command_to_npu(2, ddr_a, sram_a, loadSize);
         ddr_a = (long unsigned int)output_npu_3 + len;
         store_command_to_npu(3, ddr_a, sram_a, loadSize);
+        if(NUMBER_OF_CORES >= 5) {
+            ddr_a = (long unsigned int)output_npu_4 + len;
+            store_command_to_npu(4, ddr_a, sram_a, loadSize);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            ddr_a = (long unsigned int)output_npu_5 + len;
+            store_command_to_npu(5, ddr_a, sram_a, loadSize);
+        }
 
         npu_store();
 
@@ -976,6 +1042,14 @@ void store_input_B_into_ddr() {
         store_command_to_npu(2, ddr_a, sram_a, loadSize);
         ddr_a = (long unsigned int)output_npu_3 + len;
         store_command_to_npu(3, ddr_a, sram_a, loadSize);
+        if(NUMBER_OF_CORES >= 5) {
+            ddr_a = (long unsigned int)output_npu_4 + len;
+            store_command_to_npu(4, ddr_a, sram_a, loadSize);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            ddr_a = (long unsigned int)output_npu_5 + len;
+            store_command_to_npu(5, ddr_a, sram_a, loadSize);
+        }
 
         npu_store();
 
@@ -1060,6 +1134,7 @@ void load_store_test(int id) {
             compare_load_store_data(5, org, npu_ls, (int)sizeof(kernel_5));
         }
     } else if(id == 1) {
+
         size = (int)(sizeof(BF16) * DATA_SIZE);
         store_input_A_into_ddr();
 
@@ -1075,6 +1150,7 @@ void load_store_test(int id) {
             compare_load_store_data(5, org, (char *)output_npu_5, size);
         }
     } else if(id == 2) {
+
         size = (int)(sizeof(BF16) * DATA_SIZE);
         store_input_B_into_ddr();
 
@@ -1121,6 +1197,7 @@ static uint64_t check_complete_exec(uint64_t start) {
     }
     printf("\nsrart: %016x\n", start);
     printf("end: %016x\n", end);
+    printf("complete_exec_state: %lx\n", value);
 
     return end;
 }
@@ -1180,7 +1257,7 @@ int main() {
 
 //    load_store_test(0);
     load_store_test(1);
-    load_store_test(2);
+//    load_store_test(2);
 
     return 0;
 #endif
