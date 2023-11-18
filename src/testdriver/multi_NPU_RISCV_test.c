@@ -1212,8 +1212,8 @@ static uint64_t check_complete_exec(uint64_t start) {
     value = npu_regGet(NPU_COMPLETE_EXEC_REG);
 #endif
 
-    //while(((value & g_interrupt_mask) != g_interrupt_mask) && 
-    while(((value) == 0) && 
+    while(((value & g_interrupt_mask) != g_interrupt_mask) && 
+    //while(((value) == 0) && 
           ((float)((end - start) / (SYS_CLK / 1000000)) < NPU_COMPLETE_EXEC_TIMEOUT)) {
         end = get_time();
 #if NPU_COMPLETE_EXEC_INTERRUPT
@@ -1454,6 +1454,13 @@ int main() {
 
     return 0;
 #endif
+
+    if(NUMBER_OF_CORES >= 5) {
+        g_interrupt_mask = 0x1F;
+    }
+    if(NUMBER_OF_CORES >= 6) {
+        g_interrupt_mask = 0x3F;
+    }
 
     get_average_csrrs_cycle();
 
