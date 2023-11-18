@@ -46,21 +46,27 @@ module NPUCore
 );
 //---- state
 
-localparam S_IDLE	= 1 << 0;
-localparam S_COPY_REQ	= 1 << 1;
-localparam S_COPY_DATA	= 1 << 2;
-localparam S_OPC_READ	= 1 << 3;
-localparam S_EXEC	= 1 << 4;
-localparam S_LOAD_REQ	= 1 << 5;
-localparam S_LOAD_DATA	= 1 << 6;
-localparam S_STORE_PRE	= 1 << 7;
-localparam S_STORE_REQ	= 1 << 8;
-localparam S_STORE_DATA	= 1 << 9;
-localparam S_BF16_1	= 1 << 10;
-localparam S_BF16_2	= 1 << 11;
-localparam S_BF16_OP = 1 << 12;
-localparam S_FIN	= 1 << 13;
-localparam S_RETURN	= 1 << 14;
+localparam S_IDLE	    = 8'd0;
+localparam S_COPY_REQ	= 8'd1;
+localparam S_COPY_DATA	= 8'd2;
+localparam S_OPC_READ	= 8'd3;
+localparam S_EXEC	    = 8'd4;
+localparam S_LOAD_REQ	= 8'd5;
+localparam S_LOAD_DATA	= 8'd6;
+localparam S_STORE_PRE	= 8'd7;
+localparam S_STORE_REQ	= 8'd8;
+localparam S_STORE_DATA	= 8'd9;
+localparam S_BF16_1	    = 8'd10;
+localparam S_BF16_2	    = 8'd11;
+localparam S_BF16_OP    = 8'd12;
+localparam S_FIN	    = 8'd13;
+localparam S_INT32_ADD  = 8'd14;
+localparam S_INT32_SUB  = 8'd15;
+localparam S_IFZ	    = 8'd16;
+localparam S_IFEQ	    = 8'd17;
+localparam S_IFNEQ	    = 8'd18;
+localparam S_JMP	    = 8'd19;
+localparam S_RETURN	    = 8'd20;
 //---- opcode
 localparam OPC_NOP	        = 8'h00;
 localparam OPC_SET	        = 8'h01;
@@ -83,7 +89,7 @@ localparam OPC_IFNEQ	    = 8'h11;
 localparam OPC_JMP	        = 8'h12;
 localparam OPC_RETURN	    = 8'hff;
 
-reg	[14:0]	state;
+reg	[7:0]	state;
 reg	[15:0]	scnt;
 reg [1:0]   opc_cnt;
 reg	[31:0]	rf[0:15];
@@ -95,7 +101,13 @@ reg [11:0]  opc_radr;
 reg     localmem_rden;
 reg [11:0]  localmem_radr;
 reg     localmem_wren;
-reg [11:0]  localmem_wadr;
+reg [15:0]  localmem_wadr;
+reg [1:0]   jmp_opc;
+reg [31:0]  jmp_radr;
+wire [31:0]  jmp_byte;
+reg [31:0]  comp_a, comp_b;
+reg [31:0]  int32_a, int32_b, int32_i;
+reg [3:0]   a_arg_reg, b_arg_reg;
 
 
 wire [15:0] sram_doutb_7 = sram_doutb[127:112];
@@ -122,14 +134,16 @@ wire    [31:0]  opcode;
 
 wire	[7:0]	opc		= opcode[31:24];
 wire	[19:0]	rval_u20    = opcode[19:0];
-wire	[15:0]	rval	= opcode[16:0];
+wire	[15:0]	rval	= opcode[15:0];
 wire    [3:0]   arg_ano = opcode[23:20];
 wire    [3:0]   arg_bno = opcode[19:16];
 wire    [3:0]   arg_cno = opcode[15:12];
 wire    [3:0]   arg_dno = opcode[11:8];
 
+
 reg     rocc_inst_flag;
 
+assign jmp_byte = rval[15] ? {16'hFF, rval} : {16'h00, rval};
 //ila_0 ila_0(
 //.clk(clk),
 //.probe0(state),
@@ -151,7 +165,7 @@ assign  opcode = opc_cnt == 2'b01 ? sram_doutb[63:32] :
                 opc_cnt == 2'b11 ? sram_doutb[127:96] : sram_doutb[95:64];
 //assign  opcode = opc_cnt == 2'b01 ? sram_doutb[31:0] :
 //                opc_cnt == 2'b10 ? sram_doutb[63:32] :
-//                opc_cnt == 2'b11 ? sram_doutb[95:64] : sram_doutb[127:96];
+                //                opc_cnt == 2'b11 ? sram_doutb[95:64] : sram_doutb[127:96];
 
 always @(negedge rstn or posedge clk) begin
 	if(!rstn) begin
@@ -184,6 +198,16 @@ always @(negedge rstn or posedge clk) begin
         bf16_alat   <= 0;
         bf16_blat   <= 0;
         bf16_ylat   <= 0;
+        jmp_opc     <= 0;
+        jmp_radr    <= 0;
+        // jmp_byte    <= 0;
+        comp_a      <= 0;
+        comp_b      <= 0;
+        int32_a     <= 0;
+        int32_b     <= 0;
+        int32_i     <= 0;
+        a_arg_reg   <= 0;
+        b_arg_reg   <= 0;
 		rf[0]		<= 0;
 		rf[1]		<= 0;
 		rf[2]		<= 0;
@@ -216,6 +240,7 @@ always @(negedge rstn or posedge clk) begin
                     opc_radr	<= 0;
                     localmem_rden   <= 1;
                     localmem_radr   <= 0;
+rf[14]          <= 0;
                 end else if(rocc_if_funct == 7'd3) begin
                     state <= S_LOAD_REQ;
                     dma_req     <= 1;
@@ -255,11 +280,59 @@ always @(negedge rstn or posedge clk) begin
             localmem_rden   <= 0;
             opc_radr    <= localmem_rden ? (opc_cnt == 2'b11 ? opc_radr + 1 : opc_radr) : opc_radr;
             localmem_radr   <= localmem_rden ? (opc_cnt == 2'b11 ? localmem_radr + 8 : localmem_radr) : localmem_radr;
+// rf[14]          <= rf[14] <= localmem_radr;
+            rf[14]  <= rf[14] + 32'd4;
+		end
+        
+        S_INT32_ADD:
+        begin
+            state   <= S_OPC_READ;
+            rf[1]		<= a_arg_reg == 1 ? (int32_a + int32_b + int32_i) : rf[1];
+            rf[2]		<= a_arg_reg == 2 ? (int32_a + int32_b + int32_i) : rf[2];
+            rf[3]		<= a_arg_reg == 3 ? (int32_a + int32_b + int32_i) : rf[3];
+            rf[4]		<= a_arg_reg == 4 ? (int32_a + int32_b + int32_i) : rf[4];
+            rf[5]		<= a_arg_reg == 5 ? (int32_a + int32_b + int32_i) : rf[5];
+            rf[6]		<= a_arg_reg == 6 ? (int32_a + int32_b + int32_i) : rf[6];
+            rf[7]		<= a_arg_reg == 7 ? (int32_a + int32_b + int32_i) : rf[7];		
+            localmem_rden   <= 1;
+			localmem_radr   <= opc_radr * 8;
+        end
+        
+        S_INT32_SUB:
+        begin
+            state   <= S_OPC_READ;
+            rf[1]		<= a_arg_reg == 1 ? (int32_a - int32_b - int32_i) : rf[1];
+            rf[2]		<= a_arg_reg == 2 ? (int32_a - int32_b - int32_i) : rf[2];
+            rf[3]		<= a_arg_reg == 3 ? (int32_a - int32_b - int32_i) : rf[3];
+            rf[4]		<= a_arg_reg == 4 ? (int32_a - int32_b - int32_i) : rf[4];
+            rf[5]		<= a_arg_reg == 5 ? (int32_a - int32_b - int32_i) : rf[5];
+            rf[6]		<= a_arg_reg == 6 ? (int32_a - int32_b - int32_i) : rf[6];
+            rf[7]		<= a_arg_reg == 7 ? (int32_a - int32_b - int32_i) : rf[7];		
+            localmem_rden   <= 1;
+			localmem_radr   <= opc_radr * 8;
+        end
+
+        S_IFNEQ:
+        begin
+            state <= S_OPC_READ;
+            localmem_rden   <= 1;
+            localmem_radr   <= (comp_a != comp_b) ? (jmp_radr[31] ? localmem_radr : {jmp_radr[14:0], 1'b0}) : opc_radr * 8;
+            opc_cnt <= (comp_a != comp_b) ? (jmp_radr[31] ? opc_cnt : (jmp_radr[3:0] == 4'h0 ? 2'b01 : 
+                jmp_radr[3:0] == 4'h4 ? 2'b10 : 
+                jmp_radr[3:0] == 4'h8 ? 2'b11 : 
+                jmp_radr[3:0] == 4'hc ? 2'b00 : opc_cnt)) : opc_cnt;
 		end
 
 		S_EXEC:
 		begin
-			state	    <= opc == OPC_LOAD ? S_LOAD_REQ : opc == OPC_STORE ? S_STORE_PRE : opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? S_BF16_1 : opc == OPC_RETURN ? S_RETURN : S_OPC_READ;
+			state	    <= opc == OPC_LOAD ? S_LOAD_REQ : 
+                        opc == OPC_STORE ? S_STORE_PRE : 
+                        opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? S_BF16_1 : 
+                        opc == OPC_IFNEQ ? S_IFNEQ : 
+                        opc == OPC_ADD_INT32 ? S_IFNEQ : 
+                        opc == OPC_SUB_INT32 ? S_IFNEQ : 
+                        opc == OPC_RETURN ? S_RETURN : 
+                        S_OPC_READ;
 			rf[1]		<= opc == OPC_SETI && arg_ano == 1 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 1 ? {rval, rf[1][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 1 ? {rf[1][16+:16], rval} : rf[1];
 			rf[2]		<= opc == OPC_SETI && arg_ano == 2 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 2 ? {rval, rf[2][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 2 ? {rf[2][16+:16], rval} : rf[2];
 			rf[3]		<= opc == OPC_SETI && arg_ano == 3 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 3 ? {rval, rf[3][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 3 ? {rf[3][16+:16], rval} : rf[3];
@@ -269,6 +342,45 @@ always @(negedge rstn or posedge clk) begin
 			rf[7]		<= opc == OPC_SETI && arg_ano == 7 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 7 ? {rval, rf[7][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 7 ? {rf[7][16+:16], rval} : rf[7];
 			// rf[14]		<= opc == OPC_SETI_HIGH && arg_ano == 14 ? {rval, rf[14][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 14 ? {rf[14][16+:16], rval} : rf[14];
 			// rf[15]	    <= opc == OPC_SETI_HIGH && arg_ano == 15 ? {rval, rf[15][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 15 ? {rf[15][16+:16], rval} : rf[15];
+
+            a_arg_reg <= arg_ano;
+            b_arg_reg <= arg_bno;
+
+            comp_a <= opc == OPC_IFNEQ ? arg_ano == 1 ? rf[1] : 
+                arg_ano == 2 ? rf[2] :
+                arg_ano == 3 ? rf[3] :
+                arg_ano == 4 ? rf[4] :
+                arg_ano == 5 ? rf[5] :
+                arg_ano == 6 ? rf[6] :
+                arg_ano == 7 ? rf[7] : comp_a : comp_a;
+            comp_b <= opc == OPC_IFNEQ ? arg_bno == 1 ? rf[1] : 
+                arg_bno == 2 ? rf[2] :
+                arg_bno == 3 ? rf[3] :
+                arg_bno == 4 ? rf[4] :
+                arg_bno == 5 ? rf[5] :
+                arg_bno == 6 ? rf[6] :
+                arg_bno == 7 ? rf[7] : comp_b : comp_b;
+            
+            jmp_radr <= rf[14] + jmp_byte;
+
+            int32_a <= (opc == OPC_ADD_INT32) || (opc == OPC_SUB_INT32) ? arg_ano == 1 ? rf[1] : 
+                arg_ano == 2 ? rf[2] :
+                arg_ano == 3 ? rf[3] :
+                arg_ano == 4 ? rf[4] :
+                arg_ano == 5 ? rf[5] :
+                arg_ano == 6 ? rf[6] :
+                arg_ano == 7 ? rf[7] : int32_a : int32_a;
+            int32_b <= (opc == OPC_ADD_INT32) || (opc == OPC_SUB_INT32) ? arg_bno == 1 ? rf[1] : 
+                arg_bno == 2 ? rf[2] :
+                arg_bno == 3 ? rf[3] :
+                arg_bno == 4 ? rf[4] :
+                arg_bno == 5 ? rf[5] :
+                arg_bno == 6 ? rf[6] :
+                arg_bno == 7 ? rf[7] : int32_b : int32_b;
+            int32_i <= {16'h00, rval};
+            
+            
+            
 
             bf16_a_addr <= arg_bno == 1 ? rf[1] / 2 : 
                 arg_bno == 2 ? rf[2] / 2 :

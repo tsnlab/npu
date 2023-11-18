@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+PROGRAM=main
 
 alter-files:
-	source scripts/alter-files.sh
+	source scripts/$(PROGRAM)/alter-files.sh

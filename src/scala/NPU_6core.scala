@@ -100,6 +100,8 @@ class NPU(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opcodes, 
     val NPUTile1Def = LazyModule(new NPUTile)
     val NPUTile2Def = LazyModule(new NPUTile)
     val NPUTile3Def = LazyModule(new NPUTile)
+    val NPUTile4Def = LazyModule(new NPUTile)
+    val NPUTile5Def = LazyModule(new NPUTile)
     val DMAEngineDef = LazyModule(new DMAEngine(dummyConfig))
     // lazy val DMAEngineDef = new DMAEngine(dummyConfig)
     override lazy val module = new NPUModuleImp(this)
@@ -107,7 +109,7 @@ class NPU(opcodes: OpcodeSet)(implicit p: Parameters) extends LazyRoCC(opcodes, 
     // override val tlNode = module.id_node
     // override val atlNode = TLIdentityNode()
     val node = tlNode
-    val n = 16
+    val n = 32
 }
 // class NPUModuleImp(outer: NPU)(implicit p: Parameters) extends LazyRoCCModuleImp(outer)
 class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
@@ -119,11 +121,13 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     import outer.NPUTile1Def
     import outer.NPUTile2Def
     import outer.NPUTile3Def
+    import outer.NPUTile4Def
+    import outer.NPUTile5Def
 
     val regfile = Mem(outer.n, UInt(xLen.W))
     val busy = RegInit(VecInit(Seq.fill(outer.n){false.B}))
-
     val cmd = Queue(io.cmd)
+    
     val funct = cmd.bits.inst.funct
     val addr = cmd.bits.rs2(log2Up(outer.n)-1,0)
     val doSetReg = funct === 0.U
@@ -131,23 +135,30 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val doExec = funct === 2.U
     val doLoad = funct === 3.U
     val doStore = funct === 4.U
-    val runCore0 = 0
 
     val cmdReg1 = RegInit(false.B)
     val cmdReg2 = RegInit(false.B)
     val cmdReg3 = RegInit(false.B)
+    val cmdReg4 = RegInit(false.B)
+    val cmdReg5 = RegInit(false.B)
 
     val funct7Reg1 = RegInit(0.U(7.W))
     val funct7Reg2 = RegInit(0.U(7.W))
     val funct7Reg3 = RegInit(0.U(7.W))
+    val funct7Reg4 = RegInit(0.U(7.W))
+    val funct7Reg5 = RegInit(0.U(7.W))
 
     cmdReg1 := cmd.fire()
     cmdReg2 := cmdReg1
     cmdReg3 := cmdReg2
+    cmdReg4 := cmdReg4
+    cmdReg5 := cmdReg5
 
     funct7Reg1 := funct
     funct7Reg2 := funct7Reg1
     funct7Reg3 := funct7Reg2
+    funct7Reg4 := funct7Reg3
+    funct7Reg5 := funct7Reg4
     // datapath
     when (cmd.fire() && doSetReg) {
         regfile(addr) := cmd.bits.rs1
@@ -157,7 +168,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     // val NPUTile1Def = Module(new NPUTile)
     // val NPUTile2Def = Module(new NPUTile)
     // val NPUTile3Def = Module(new NPUTile)
-    val DMAPathControllerDef = Module(new DMAPathController)
+    val DMAPathControllerDef = Module(new DMAPathController_6p)
     // val DMAEngineDef = LazyModule(new DMAEngine()(p))
 
     // NPUTile0Def.io.clk := clock
@@ -200,20 +211,44 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val NPUTile3Fin = NPUTile3Def.module.io.rocc_if_fin
     val NPUTile3Busy = NPUTile3Def.module.io.rocc_if_busy
 
+    NPUTile4Def.module.io.rocc_if_host_mem_offset := regfile(13)(40, 0)
+    NPUTile4Def.module.io.rocc_if_size := regfile(14)(16, 0)
+    NPUTile4Def.module.io.rocc_if_local_mem_offset := regfile(15)(12, 0)
+    NPUTile4Def.module.io.rocc_if_funct := funct7Reg4
+    NPUTile4Def.module.io.rocc_if_cmd_vld := cmdReg4
+    val NPUTile4Fin = NPUTile4Def.module.io.rocc_if_fin
+    val NPUTile4Busy = NPUTile4Def.module.io.rocc_if_busy
+
+    NPUTile5Def.module.io.rocc_if_host_mem_offset := regfile(16)(40, 0)
+    NPUTile5Def.module.io.rocc_if_size := regfile(17)(16, 0)
+    NPUTile5Def.module.io.rocc_if_local_mem_offset := regfile(18)(12, 0)
+    NPUTile5Def.module.io.rocc_if_funct := funct7Reg5
+    NPUTile5Def.module.io.rocc_if_cmd_vld := cmdReg5
+    val NPUTile5Fin = NPUTile5Def.module.io.rocc_if_fin
+    val NPUTile5Busy = NPUTile5Def.module.io.rocc_if_busy
+
     when(NPUTile0Fin){
-      regfile.write(13.U, 0x1.U(16.W))
+      regfile.write(19.U, 0x1.U(16.W))
     } 
 
     when(NPUTile1Fin){
-      regfile.write(13.U, 0x2.U(16.W))
+      regfile.write(19.U, 0x2.U(16.W))
     } 
 
     when(NPUTile2Fin){
-      regfile.write(13.U, 0x4.U(16.W))
+      regfile.write(19.U, 0x4.U(16.W))
     } 
 
     when(NPUTile3Fin){
-      regfile.write(13.U, 0x8.U(16.W))
+      regfile.write(19.U, 0x8.U(16.W))
+    }
+
+    when(NPUTile4Fin){
+      regfile.write(19.U, 0x10.U(16.W))
+    }
+
+    when(NPUTile5Fin){
+      regfile.write(19.U, 0x20.U(16.W))
     }
 
     DMAPathControllerDef.io.risc_clk := clock
@@ -254,6 +289,24 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     NPUTile3Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_d
     NPUTile3Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_d
     DMAPathControllerDef.io.dma_read_ready_d := NPUTile3Def.module.io.dma_read_ready
+
+    DMAPathControllerDef.io.dma_req_e := NPUTile4Def.module.io.dma_req 
+    NPUTile4Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_e
+    DMAPathControllerDef.io.dma_write_valid_e := NPUTile4Def.module.io.dma_write_valid
+    DMAPathControllerDef.io.dma_write_data_e := NPUTile4Def.module.io.dma_write_data
+    NPUTile4Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_e
+    NPUTile4Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_e
+    NPUTile4Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_e
+    DMAPathControllerDef.io.dma_read_ready_e := NPUTile4Def.module.io.dma_read_ready
+
+    DMAPathControllerDef.io.dma_req_f := NPUTile5Def.module.io.dma_req 
+    NPUTile5Def.module.io.dma_resp := DMAPathControllerDef.io.dma_resp_f
+    DMAPathControllerDef.io.dma_write_valid_f := NPUTile5Def.module.io.dma_write_valid
+    DMAPathControllerDef.io.dma_write_data_f := NPUTile5Def.module.io.dma_write_data
+    NPUTile5Def.module.io.dma_write_ready := DMAPathControllerDef.io.dma_write_ready_f
+    NPUTile5Def.module.io.dma_read_valid := DMAPathControllerDef.io.dma_read_valid_f
+    NPUTile5Def.module.io.dma_read_data := DMAPathControllerDef.io.dma_read_data_f
+    DMAPathControllerDef.io.dma_read_ready_f := NPUTile5Def.module.io.dma_read_ready
 
     DMAEngineDef.module.io.rcc.valid :=DMAPathControllerDef.io.rcc_valid
     DMAPathControllerDef.io.rcc_ready :=DMAEngineDef.module.io.rcc.ready
@@ -333,12 +386,12 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
 //   val stallResp = doResp && !io.resp.ready
 
 //   cmd.ready := !stallReg && !stallLoad && !stallResp
-  cmd.ready := !NPUTile0Busy && !NPUTile1Busy && !NPUTile2Busy && !NPUTile3Busy
+  cmd.ready := !NPUTile0Busy && !NPUTile1Busy && !NPUTile2Busy && !NPUTile3Busy && !NPUTile4Busy && !NPUTile5Busy
   
     // command resolved if no stalls AND not issuing a load that will need a request
 
   // PROC RESPONSE INTERFACE
-  io.resp.valid := cmd.valid && doResp && !NPUTile0Busy && !NPUTile1Busy && !NPUTile2Busy && !NPUTile3Busy
+  io.resp.valid := cmd.valid && doResp && !NPUTile0Busy && !NPUTile1Busy && !NPUTile2Busy && !NPUTile3Busy && !NPUTile4Busy && !NPUTile5Busy
     // valid response if valid command, need a response, and no stalls
   io.resp.bits.rd := cmd.bits.inst.rd
     // Must respond with the appropriate tag or undefined behavior
@@ -364,7 +417,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
 //   io.mem.req.bits.dv := cmd.bits.status.dv
 }
 
-class NPU4CoreRoCCConfig extends Config((site, here, up) => {
+class NPU6CoreRoCCConfig extends Config((site, here, up) => {
   case BuildRoCC => up(BuildRoCC) ++ Seq(
     (p: Parameters) => {
       implicit val q = p
