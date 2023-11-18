@@ -42,8 +42,9 @@ seti %e 0x400 # 1024
 seti %f 0x0
 
 vadd.bf16 %c %a %b %d
-add.int32 %f %zero 0x1
-ifneq %e %f 0xc010
+add.i32 %f %zero 0x1
+#ifneq %e %f 0xc010
+ifneq %e %f -8 
 
 # Interrupt to CPU
 return

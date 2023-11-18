@@ -4,31 +4,32 @@
 #include <stdint.h>
 #include <string.h>
 
-//#define DATA_SIZE 2048            // Data Size
-#define DATA_SIZE 64            // Data Size
+#define MAX_DATA_SIZE 2048        // Data Size
+#define DATA_SIZE 1024            // Data Size
 #define TEST_OP_TYPE "vadd.bf16"  // Op Type for Test, Use "vadd.bf16", "vsub.bf16", "vmul.bf16", "vdiv.bf16"
-#define NUMBER_OF_CORES 4         // Number f Cores used at the same time
+#define MAX_NUMBER_OF_CORES 6     // Max. Number of Cores used at the same time
+#define NUMBER_OF_CORES 4         // Number of Cores used at the same time
 
 #define SYS_CLK 26000000 // RISC-V: 26MHz 26,000,000
 
 #define KERNEL_WITH_LOAD_STORE 0
 #define NPU_REG_ID_OFFSET 3
 
-#define INPUT_A_SRAM_BASE_ADDRESS 0x40 // 0x200
-#define INPUT_B_SRAM_BASE_ADDRESS 0xC0 // 0x1200
-#define RESULT_SRAM_BASE_ADDRESS  0x140 // 0x2200
+#define INPUT_A_SRAM_BASE_ADDRESS   0x80 // 128            //  0x40 // 0x200
+#define INPUT_B_SRAM_BASE_ADDRESS 0x1080 // 128 + 4096     //  0xC0 // 0x1200
+#define RESULT_SRAM_BASE_ADDRESS  0x2080 // 128 + 4096 * 2 // 0x140 // 0x2200
 
-#define NPU_LOAD_STORE_MICRO_DELAY 100000
+#define NPU_LOAD_STORE_MICRO_DELAY 10000
 
 #define NPU_COMPLETE_EXEC_INTERRUPT 1
-#define NPU_COMPLETE_EXEC_REG 13
+#define NPU_COMPLETE_EXEC_REG (NUMBER_OF_CORES * 3 + 1) // 13
 #define NPU_COMPLETE_EXEC_TIMEOUT 5000000.00
 #define EPSILON 0.01
 
 #if 1
 #define DDR_M   1 // 128 // DDR_ADDR_MAGNIFICATION
-#define SRAM_M    4 // 4 // SRAM_ADDR_MAGNIFICATION
-#define SIZE_M    16 // 4 // SIZE_MAGNIFICATION
+#define SRAM_M  4 // 4 // SRAM_ADDR_MAGNIFICATION
+#define SIZE_M 16 // 4 // SIZE_MAGNIFICATION
 #else
 #define DDR_M   128 // DDR_ADDR_MAGNIFICATION
 #define SRAM_M    4 // SRAM_ADDR_MAGNIFICATION
@@ -65,6 +66,8 @@ __attribute__ ((aligned (128))) volatile BF16 output_npu_0[DATA_SIZE]; // NPU 0 
 __attribute__ ((aligned (128))) volatile BF16 output_npu_1[DATA_SIZE]; // NPU 1 Output
 __attribute__ ((aligned (128))) volatile BF16 output_npu_2[DATA_SIZE]; // NPU 2 Output
 __attribute__ ((aligned (128))) volatile BF16 output_npu_3[DATA_SIZE]; // NPU 3 Output
+__attribute__ ((aligned (128))) volatile BF16 output_npu_4[DATA_SIZE]; // NPU 3 Output
+__attribute__ ((aligned (128))) volatile BF16 output_npu_5[DATA_SIZE]; // NPU 3 Output
 
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_add[DATA_SIZE];
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_sub[DATA_SIZE];
@@ -103,8 +106,40 @@ __attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {
     0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x40, 0x40, 0x10, 0x03,
     0x00, 0x24, 0x31, 0x09, 0x20, 0x08, 0x20, 0x02, 0x00, 0x00, 0x10, 0x04, 0x00, 0x30, 0x12, 0x08, 0x00, 0x04, 0x30, 0x02,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_4[] = {
+    0x00, 0x40, 0x20, 0x03, 0x20, 0x00, 0x10, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x00, 0x20, 0x04, 0x20, 0x04, 0x10, 0x02,
+    0x00, 0x30, 0x12, 0x07, 0x00, 0x00, 0x20, 0x04, 0x20, 0x40, 0x20, 0x03, 0x00, 0x30, 0x12, 0x07, 0x00, 0x04, 0x30, 0x02,
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x40, 0x40, 0x10, 0x03,
+    0x00, 0x24, 0x31, 0x09, 0x20, 0x08, 0x20, 0x02, 0x00, 0x00, 0x10, 0x04, 0x00, 0x30, 0x12, 0x08, 0x00, 0x04, 0x30, 0x02,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_5[] = {
+    0x00, 0x40, 0x20, 0x03, 0x20, 0x00, 0x10, 0x02, 0x00, 0x04, 0x30, 0x02, 0x00, 0x00, 0x20, 0x04, 0x20, 0x04, 0x10, 0x02,
+    0x00, 0x30, 0x12, 0x07, 0x00, 0x00, 0x20, 0x04, 0x20, 0x40, 0x20, 0x03, 0x00, 0x30, 0x12, 0x07, 0x00, 0x04, 0x30, 0x02,
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x40, 0x40, 0x10, 0x03,
+    0x00, 0x24, 0x31, 0x09, 0x20, 0x08, 0x20, 0x02, 0x00, 0x00, 0x10, 0x04, 0x00, 0x30, 0x12, 0x08, 0x00, 0x04, 0x30, 0x02,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff};
 #else
     // Without load/store, vadd.bf16
+#if 1 // ifneq %e %f -12
+__attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_1[] = {
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_2[] = {
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_4[] = {
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
+__attribute__ ((aligned (128))) volatile uint8_t kernel_5[] = {
+    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
+#else
 __attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {
     0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x00, 0xff,
     0x00, 0x24, 0x31, 0x09};
@@ -118,6 +153,9 @@ __attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {
     0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x00, 0xff,
     0x00, 0x24, 0x31, 0x09};
 #endif
+#endif
+
+unsigned long g_interrupt_mask = 0xF;
 
 static inline void npu_regSet(int idx, unsigned long data)
 {
@@ -319,7 +357,7 @@ static void kernel_op_change(uint8_t* kernel, char* op) {
 #if KERNEL_WITH_LOAD_STORE // with-load-store
     kernel[63] = opcode;
 #else
-    kernel[23] = opcode;
+    kernel[31] = opcode;
 #endif
 }
 
@@ -536,6 +574,8 @@ void init_variavles() {
     memset(output_npu_1, 0, sizeof(output_npu_1));
     memset(output_npu_2, 0, sizeof(output_npu_2));
     memset(output_npu_3, 0, sizeof(output_npu_3));
+    memset(output_npu_4, 0, sizeof(output_npu_3));
+    memset(output_npu_5, 0, sizeof(output_npu_3));
 
     // Random Data Input
     for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++) {
@@ -592,27 +632,37 @@ void adjust_kernel() {
     resize_op_iteration_kernel(kernel_1, DATA_SIZE);
     resize_op_iteration_kernel(kernel_2, DATA_SIZE);
     resize_op_iteration_kernel(kernel_3, DATA_SIZE);
+    resize_op_iteration_kernel(kernel_4, DATA_SIZE);
+    resize_op_iteration_kernel(kernel_5, DATA_SIZE);
 
     // Change Kernel's Opcode
     kernel_op_change(kernel_0, TEST_OP_TYPE);
     kernel_op_change(kernel_1, TEST_OP_TYPE);
     kernel_op_change(kernel_2, TEST_OP_TYPE);
     kernel_op_change(kernel_3, TEST_OP_TYPE);
+    kernel_op_change(kernel_4, TEST_OP_TYPE);
+    kernel_op_change(kernel_5, TEST_OP_TYPE);
 
-    kernel_input_a_sram_addr_change(kernel_0, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
-    kernel_input_a_sram_addr_change(kernel_1, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
-    kernel_input_a_sram_addr_change(kernel_2, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
-    kernel_input_a_sram_addr_change(kernel_3, (unsigned long )INPUT_A_SRAM_BASE_ADDRESS);
+    kernel_input_a_sram_addr_change(kernel_0, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
+    kernel_input_a_sram_addr_change(kernel_1, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
+    kernel_input_a_sram_addr_change(kernel_2, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
+    kernel_input_a_sram_addr_change(kernel_3, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
+    kernel_input_a_sram_addr_change(kernel_4, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
+    kernel_input_a_sram_addr_change(kernel_5, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
 
-    kernel_input_b_sram_addr_change(kernel_0, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
-    kernel_input_b_sram_addr_change(kernel_1, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
-    kernel_input_b_sram_addr_change(kernel_2, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
-    kernel_input_b_sram_addr_change(kernel_3, (unsigned long )INPUT_B_SRAM_BASE_ADDRESS);
+    kernel_input_b_sram_addr_change(kernel_0, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
+    kernel_input_b_sram_addr_change(kernel_1, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
+    kernel_input_b_sram_addr_change(kernel_2, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
+    kernel_input_b_sram_addr_change(kernel_3, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
+    kernel_input_b_sram_addr_change(kernel_4, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
+    kernel_input_b_sram_addr_change(kernel_5, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
 
-    kernel_output_c_sram_addr_change(kernel_0, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
-    kernel_output_c_sram_addr_change(kernel_1, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
-    kernel_output_c_sram_addr_change(kernel_2, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
-    kernel_output_c_sram_addr_change(kernel_3, (unsigned long )RESULT_SRAM_BASE_ADDRESS);
+    kernel_output_c_sram_addr_change(kernel_0, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
+    kernel_output_c_sram_addr_change(kernel_1, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
+    kernel_output_c_sram_addr_change(kernel_2, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
+    kernel_output_c_sram_addr_change(kernel_3, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
+    kernel_output_c_sram_addr_change(kernel_4, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
+    kernel_output_c_sram_addr_change(kernel_5, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
 
 #if KERNEL_WITH_LOAD_STORE // with-load-store
     // Change Kernel's input_A address
@@ -620,18 +670,24 @@ void adjust_kernel() {
     kernel_input_a_addr_change(kernel_1, input_A);
     kernel_input_a_addr_change(kernel_2, input_A);
     kernel_input_a_addr_change(kernel_3, input_A);
+    kernel_input_a_addr_change(kernel_4, input_A);
+    kernel_input_a_addr_change(kernel_5, input_A);
 
     // Change Kernel's input_A address
     kernel_input_b_addr_change(kernel_0, input_B);
     kernel_input_b_addr_change(kernel_1, input_B);
     kernel_input_b_addr_change(kernel_2, input_B);
     kernel_input_b_addr_change(kernel_3, input_B);
+    kernel_input_b_addr_change(kernel_4, input_B);
+    kernel_input_b_addr_change(kernel_5, input_B);
 
     // Change Kernel's input_A address
     kernel_input_c_addr_change(kernel_0, output_npu_0);
     kernel_input_c_addr_change(kernel_1, output_npu_1);
     kernel_input_c_addr_change(kernel_2, output_npu_2);
     kernel_input_c_addr_change(kernel_3, output_npu_3);
+    kernel_input_c_addr_change(kernel_4, output_npu_3);
+    kernel_input_c_addr_change(kernel_5, output_npu_3);
 
     resize_converted_data_size_kernel(kernel_0, (int)((DATA_SIZE * 2 + 3)/4));
     resize_converted_data_size_kernel(kernel_1, (int)((DATA_SIZE * 2 + 3)/4));
@@ -660,12 +716,6 @@ void load_kernel_into_npu(int npus) {
 
     size =  (int)sizeof(kernel_0);
 
-    for(int npu = 0; npu < NUMBER_OF_CORES; npu++) {
-        if(((npus >> npu) & 0x1) == 0) {    /* Not included */
-            load_command_to_npu(npu, 0, (long unsigned int)kernel_0, 0);
-        }
-    }
-
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
         loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
@@ -687,6 +737,14 @@ void load_kernel_into_npu(int npus) {
             ddr_a = (long unsigned int)kernel_3 + len;
             load_command_to_npu(3, sram_a, ddr_a, loadSize);
         }
+        if(npus & 0x10) {
+            ddr_a = (long unsigned int)kernel_4 + len;
+            load_command_to_npu(4, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x20) {
+            ddr_a = (long unsigned int)kernel_5 + len;
+            load_command_to_npu(5, sram_a, ddr_a, loadSize);
+        }
 
         npu_load();
 
@@ -704,12 +762,6 @@ void load_input_A_into_npu(int npus) {
     int size;
 
     size = (int)(sizeof(BF16) * DATA_SIZE);
-
-    for(int npu = 0; npu < NUMBER_OF_CORES; npu++) {
-        if(((npus >> npu) & 0x1) == 0) {    /* Not included */
-            load_command_to_npu(npu, 0, (long unsigned int)input_A, 0);
-        }
-    }
 
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
@@ -729,6 +781,12 @@ void load_input_A_into_npu(int npus) {
         if(npus & 0x8) {
             load_command_to_npu(3, sram_a, ddr_a, loadSize);
         }
+        if(npus & 0x10) {
+            load_command_to_npu(4, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x20) {
+            load_command_to_npu(5, sram_a, ddr_a, loadSize);
+        }
 
         npu_load();
 
@@ -746,12 +804,6 @@ void load_input_B_into_npu(int npus) {
     int size;
 
     size = (int)(sizeof(BF16) * DATA_SIZE);
-
-    for(int npu = 0; npu < NUMBER_OF_CORES; npu++) {
-        if(((npus >> npu) & 0x1) == 0) {    /* Not included */
-            load_command_to_npu(npu, 0, (long unsigned int)input_B, 0);
-        }
-    }
 
     for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
         remaining = size - len;
@@ -771,6 +823,12 @@ void load_input_B_into_npu(int npus) {
         if(npus & 0x8) {
             load_command_to_npu(3, sram_a, ddr_a, loadSize);
         }
+        if(npus & 0x10) {
+            load_command_to_npu(4, sram_a, ddr_a, loadSize);
+        }
+        if(npus & 0x20) {
+            load_command_to_npu(5, sram_a, ddr_a, loadSize);
+        }
 
         npu_load();
 
@@ -781,16 +839,26 @@ void load_input_B_into_npu(int npus) {
 
 void load_kernel_data_into_npu() {
 
+    int npus;
+
+    if(NUMBER_OF_CORES == 5) {
+        npus = 0x1F;
+    } else if(NUMBER_OF_CORES == 6) {
+        npus = 0x3F;
+    } else {
+        npus = 0x0F;
+    }
+
     // Load kernel code at address 0 of npu
-    load_kernel_into_npu(0xF);
+    load_kernel_into_npu(npus);
     printf("Kernel images are stored in each NPU.\n\n");
 
 #if !KERNEL_WITH_LOAD_STORE // without-load-store
 
-    load_input_A_into_npu(0xF);
+    load_input_A_into_npu(npus);
     printf("input_A is stored in all NPUs.\n\n");
 
-    load_input_B_into_npu(0xF);
+    load_input_B_into_npu(npus);
     printf("input_B is stored in all NPUs.\n\n");
 #endif
 }
@@ -952,11 +1020,11 @@ void load_store_test(int id) {
     printf("\n>>> %s(%d)\n\n", __func__, id);
 
     if(id == 0) {
-        load_kernel_into_npu(0xF);
+        load_kernel_into_npu(g_interrupt_mask);
     } else if(id == 1) {
-        load_input_A_into_npu(0xF);
+        load_input_A_into_npu(g_interrupt_mask);
     } else if(id == 2) {
-        load_input_B_into_npu(0xF);
+        load_input_B_into_npu(g_interrupt_mask);
     } else {
         return;
     }
@@ -981,6 +1049,16 @@ void load_store_test(int id) {
         org = (char *)kernel_3;
         npu_ls = (char *)output_npu_3;
         compare_load_store_data(3, org, npu_ls, (int)sizeof(kernel_3));
+        if(NUMBER_OF_CORES >= 5) {
+            org = (char *)kernel_4;
+            npu_ls = (char *)output_npu_4;
+            compare_load_store_data(4, org, npu_ls, (int)sizeof(kernel_4));
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            org = (char *)kernel_5;
+            npu_ls = (char *)output_npu_5;
+            compare_load_store_data(5, org, npu_ls, (int)sizeof(kernel_5));
+        }
     } else if(id == 1) {
         size = (int)(sizeof(BF16) * DATA_SIZE);
         store_input_A_into_ddr();
@@ -990,6 +1068,12 @@ void load_store_test(int id) {
         compare_load_store_data(1, org, (char *)output_npu_1, size);
         compare_load_store_data(2, org, (char *)output_npu_2, size);
         compare_load_store_data(3, org, (char *)output_npu_3, size);
+        if(NUMBER_OF_CORES >= 5) {
+            compare_load_store_data(4, org, (char *)output_npu_4, size);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            compare_load_store_data(5, org, (char *)output_npu_5, size);
+        }
     } else if(id == 2) {
         size = (int)(sizeof(BF16) * DATA_SIZE);
         store_input_B_into_ddr();
@@ -999,6 +1083,12 @@ void load_store_test(int id) {
         compare_load_store_data(1, org, (char *)output_npu_1, size);
         compare_load_store_data(2, org, (char *)output_npu_2, size);
         compare_load_store_data(3, org, (char *)output_npu_3, size);
+        if(NUMBER_OF_CORES >= 5) {
+            compare_load_store_data(4, org, (char *)output_npu_4, size);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            compare_load_store_data(5, org, (char *)output_npu_5, size);
+        }
     }
 }
 
@@ -1019,7 +1109,7 @@ static uint64_t check_complete_exec(uint64_t start) {
     value = npu_regGet(NPU_COMPLETE_EXEC_REG);
 #endif
 
-    while(((value & 0xF) != 0xF) && 
+    while(((value & g_interrupt_mask) != g_interrupt_mask) && 
           ((float)((end - start) / (SYS_CLK / 1000000)) < NPU_COMPLETE_EXEC_TIMEOUT)) {
         end = get_time();
 #if NPU_COMPLETE_EXEC_INTERRUPT
@@ -1039,10 +1129,7 @@ int main() {
     
     uint64_t cycle_start;
     uint64_t cycle_end;
-    int check0 = 0;
-    int check1 = 0;
-    int check2 = 0;
-    int check3 = 0;
+    int check[NUMBER_OF_CORES];
     char elapsedTimeStrValue[50]; 
 
     printf("\n========Init========\n\n");
@@ -1053,6 +1140,8 @@ int main() {
     } else {
         printf("    Kernel with load/store functions\n\n");
     }
+
+    memset(check, 0, NUMBER_OF_CORES * sizeof(int));
 
     init_variavles();
     printf("\ninput_A & input_B are filled with random data.\n");
@@ -1076,6 +1165,16 @@ int main() {
     dump_data((char *)kernel_2, (int)sizeof(kernel_2));
     printf("[kernel_3]\n");
     dump_data((char *)kernel_3, (int)sizeof(kernel_3));
+    if(NUMBER_OF_CORES >= 5) {
+        g_interrupt_mask = 0x1F;
+        printf("[kernel_4]\n");
+        dump_data((char *)kernel_4, (int)sizeof(kernel_4));
+    }
+    if(NUMBER_OF_CORES >= 6) {
+        g_interrupt_mask = 0x3F;
+        printf("[kernel_5]\n");
+        dump_data((char *)kernel_5, (int)sizeof(kernel_5));
+    }
 
 #ifdef _NPU_LOAD_STORE_TEST_MODE_
 
@@ -1111,39 +1210,73 @@ int main() {
     printf("\nCompare the results calculated by risc-v and the results calculated by NPUs.\n");
     // Check RISCV's Outpus & NPUs's Outputs Are Same, Input RISCV's OP Output Array in 1st Parameter
     if (TEST_OP_TYPE == "vadd.bf16") {
-        check0 = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_add, output_npu_0, DATA_SIZE);
-        check1 = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_add, output_npu_1, DATA_SIZE);
-        check2 = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_add, output_npu_2, DATA_SIZE);
-        check3 = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_add, output_npu_3, DATA_SIZE);
+        check[0] = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_add, output_npu_0, DATA_SIZE);
+        check[1] = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_add, output_npu_1, DATA_SIZE);
+        check[2] = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_add, output_npu_2, DATA_SIZE);
+        check[3] = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_add, output_npu_3, DATA_SIZE);
+        if(NUMBER_OF_CORES >= 5) {
+            check[4] = compare_riscv_and_npu(4, TEST_OP_TYPE, output_riscv_add, output_npu_4, DATA_SIZE);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            check[5] = compare_riscv_and_npu(5, TEST_OP_TYPE, output_riscv_add, output_npu_5, DATA_SIZE);
+        }
     } else if (TEST_OP_TYPE == "vsub.bf16") {
-        check0 = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_sub, output_npu_0, DATA_SIZE);
-        check1 = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_sub, output_npu_1, DATA_SIZE);
-        check2 = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_sub, output_npu_2, DATA_SIZE);
-        check3 = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_sub, output_npu_3, DATA_SIZE);
+        check[0] = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_sub, output_npu_0, DATA_SIZE);
+        check[1] = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_sub, output_npu_1, DATA_SIZE);
+        check[2] = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_sub, output_npu_2, DATA_SIZE);
+        check[3] = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_sub, output_npu_3, DATA_SIZE);
+        if(NUMBER_OF_CORES >= 5) {
+            check[4] = compare_riscv_and_npu(4, TEST_OP_TYPE, output_riscv_sub, output_npu_4, DATA_SIZE);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            check[5] = compare_riscv_and_npu(5, TEST_OP_TYPE, output_riscv_sub, output_npu_5, DATA_SIZE);
+        }
     } else if (TEST_OP_TYPE == "vmul.bf16"){
-        check0 = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_mul, output_npu_0, DATA_SIZE);
-        check1 = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_mul, output_npu_1, DATA_SIZE);
-        check2 = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_mul, output_npu_2, DATA_SIZE);
-        check3 = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_mul, output_npu_3, DATA_SIZE);
+        check[0] = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_mul, output_npu_0, DATA_SIZE);
+        check[1] = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_mul, output_npu_1, DATA_SIZE);
+        check[2] = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_mul, output_npu_2, DATA_SIZE);
+        check[3] = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_mul, output_npu_3, DATA_SIZE);
+        if(NUMBER_OF_CORES >= 5) {
+            check[4] = compare_riscv_and_npu(4, TEST_OP_TYPE, output_riscv_mul, output_npu_4, DATA_SIZE);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            check[5] = compare_riscv_and_npu(5, TEST_OP_TYPE, output_riscv_mul, output_npu_5, DATA_SIZE);
+        }
     } else if (TEST_OP_TYPE == "vdiv.bf16") {
-        check0 = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_div, output_npu_0, DATA_SIZE);
-        check1 = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_div, output_npu_1, DATA_SIZE);
-        check2 = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_div, output_npu_2, DATA_SIZE);
-        check3 = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_div, output_npu_3, DATA_SIZE);
+        check[0] = compare_riscv_and_npu(0, TEST_OP_TYPE, output_riscv_div, output_npu_0, DATA_SIZE);
+        check[1] = compare_riscv_and_npu(1, TEST_OP_TYPE, output_riscv_div, output_npu_1, DATA_SIZE);
+        check[2] = compare_riscv_and_npu(2, TEST_OP_TYPE, output_riscv_div, output_npu_2, DATA_SIZE);
+        check[3] = compare_riscv_and_npu(3, TEST_OP_TYPE, output_riscv_div, output_npu_3, DATA_SIZE);
+        if(NUMBER_OF_CORES >= 5) {
+            check[4] = compare_riscv_and_npu(4, TEST_OP_TYPE, output_riscv_div, output_npu_4, DATA_SIZE);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            check[5] = compare_riscv_and_npu(5, TEST_OP_TYPE, output_riscv_div, output_npu_5, DATA_SIZE);
+        }
     }
 
     // If All Pass, Print
-    if (check0 == DATA_SIZE) {
+    if (check[0] == DATA_SIZE) {
         printf("[NPU 0 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
-    if (check1 == DATA_SIZE) {
+    if (check[1] == DATA_SIZE) {
         printf("[NPU 1 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
-    if (check2 == DATA_SIZE) {
+    if (check[2] == DATA_SIZE) {
         printf("[NPU 2 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
     }
-    if (check3 == DATA_SIZE) {
+    if (check[3] == DATA_SIZE) {
         printf("[NPU 3 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
+    }
+    if(NUMBER_OF_CORES >= 5) {
+        if (check[4] == DATA_SIZE) {
+            printf("[NPU 4 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
+        }
+    }
+    if(NUMBER_OF_CORES >= 6) {
+        if (check[5] == DATA_SIZE) {
+            printf("[NPU 5 Test Case %d] %s All Pass\n", DATA_SIZE, TEST_OP_TYPE);
+        }
     }
 
     floatToString((cycle_end - cycle_start) / (SYS_CLK / 1000000), 
