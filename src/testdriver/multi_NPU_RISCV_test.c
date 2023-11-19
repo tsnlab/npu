@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#define MAX_DATA_SIZE 2048        // Data Size
-#define DATA_SIZE 1024            // Data Size
+#define MAX_DATA_SIZE 512        // Data Size
+#define DATA_SIZE 64            // Data Size
 #define MAX_NUMBER_OF_CORES 6     // Max. Number of Cores used at the same time
 #define NUMBER_OF_CORES 6         // Number of Cores used at the same time
 
@@ -17,13 +17,14 @@
 #define NPU_REG_ID_OFFSET 3
 
 #define INPUT_A_SRAM_BASE_ADDRESS    0x80 // 128            //  0x40 // 0x200
-#define INPUT_B_SRAM_BASE_ADDRESS  0x1080 // 128 + 4096     //  0xC0 // 0x1200
-#define RESULT_SRAM_BASE_ADDRESS   0x2080 // 128 + 4096 * 2 // 0x140 // 0x2200
+#define INPUT_B_SRAM_BASE_ADDRESS  (INPUT_A_SRAM_BASE_ADDRESS + MAX_DATA_SIZE * 2) // 0x480 128 + 1024     //  0xC0 // 0x1200
+#define RESULT_SRAM_BASE_ADDRESS   (INPUT_A_SRAM_BASE_ADDRESS + MAX_DATA_SIZE * 2 * 2) // 0x880 128 + 1024 * 2 *2 // 0x140 // 0x2200
 
 #define NPU_LOAD_STORE_MICRO_DELAY 10000
 
 #define NPU_COMPLETE_EXEC_INTERRUPT 1
-#define NPU_COMPLETE_EXEC_REG (NUMBER_OF_CORES * 3 + 1) // 13
+#define NPU_COMPLETE_EXEC_REG (NUMBER_OF_CORES * 3 + 1) // 19
+#define NPU_COMPLETE_INTERRUPT_RST (NPU_COMPLETE_EXEC_REG + 1) // 20
 #define NPU_COMPLETE_EXEC_TIMEOUT 10000000.00
 #define EPSILON 0.01
 
@@ -246,8 +247,39 @@ void delay_in_usec(int us) {
     }
 }
 
+BF16 swap_bf16_bytes(BF16 value) {
+#if 1
+    BF16 swap_value;
+    char *origin;
+    char *swap;
+
+    origin = &value;
+    swap = &swap_value;
+    swap[0] = origin[1];
+    swap[1] = origin[0];
+
+    return swap_value;
+#else
+    return value;
+#endif
+}
+
 BF16 float_to_bf16(float value) {
 
+    uint32_t f32_value_as_uint32;
+    uint16_t bf16_value;
+
+    // Assuming little-endian architecture
+    memcpy(&f32_value_as_uint32, &value, sizeof(float));
+
+    // Extract the 16 most significant bits
+    bf16_value = (uint16_t)(f32_value_as_uint32 >> 16);
+
+    BF16 bf16_result;
+    memcpy(&bf16_result, &bf16_value, sizeof(BF16));
+
+    return swap_bf16_bytes(bf16_result);
+#if 0
     FloatUnion fu;
     fu.f = value;
     BF16 bf16;
@@ -268,10 +300,27 @@ BF16 float_to_bf16(float value) {
     }
 
     return bf16;
+#endif
 }
 
 float bf16_to_float(BF16 bf16) {
 
+#if 1
+    BF16 swap_bf16;
+    uint32_t f32_value_as_uint32;
+    uint16_t zero_padding = 0;
+
+    swap_bf16 = swap_bf16_bytes(bf16);
+
+    // Assuming little-endian architecture
+    memcpy(&f32_value_as_uint32, &zero_padding, sizeof(uint16_t));
+    memcpy(((uint8_t*)&f32_value_as_uint32) + sizeof(uint16_t), &swap_bf16, sizeof(uint16_t));
+
+    float f32_result;
+    memcpy(&f32_result, &f32_value_as_uint32, sizeof(float));
+
+    return f32_result;
+#else
     FloatUnion fu;
     int biased_exponent;
 
@@ -287,6 +336,7 @@ float bf16_to_float(BF16 bf16) {
     }
 
     return fu.f;
+#endif
 }
 
 BF16 bf16_add(BF16 a, BF16 b) {
@@ -569,18 +619,42 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
         }
         if (diff > EPSILON) {
             error_cnt += 1;
-#ifdef __DEBUG_MODE__
+#if 1 // def __DEBUG_MODE__
             memset(riscvStrValue, 0, 50);
             memset(npuStrValue, 0, 50);
             memset(diffStrValue, 0, 50);
             floatToString(out_risc_flt, riscvStrValue, sizeof(riscvStrValue));
             floatToString(out_npu_flt, npuStrValue, sizeof(npuStrValue));
             floatToString(out_risc_flt - out_npu_flt, diffStrValue, sizeof(diffStrValue));
+#if 0
             printf("[Test Case %d] %s - FAIL\nRISCV data[%d]: %s\nNPU%d data[%d]: %s\nRISCV data[%d] - NPU data[%d] = %s\n",
                 count, op, i, riscvStrValue, npu, i, npuStrValue, i, i, diffStrValue);
 #endif
+            char * r_data;
+            char * n_data;
+            char * a_data;
+            char * b_data;
+            a_data = (char *)&input_A[i];
+            b_data = (char *)&input_B[i];
+            r_data = (char *)&out_risc_bf16[i];
+            n_data = (char *)&out_npu_bf16[i];
+            printf("%s[%d/%d] - FAIL, A 0x%02x%02x B 0x%02x%02x = RISC-V 0x%02x%02x - NPU 0x%02x%02x\n",
+                op, i, count, a_data[1], a_data[0], b_data[1], b_data[0], r_data[1], r_data[0], n_data[1], n_data[0]);
+#endif
         } else {
             check += 1;
+#if 1
+            char * r_data;
+            char * n_data;
+            char * a_data;
+            char * b_data;
+            a_data = (char *)&input_A[i];
+            b_data = (char *)&input_B[i];
+            r_data = (char *)&out_risc_bf16[i];
+            n_data = (char *)&out_npu_bf16[i];
+            printf("%s[%d/%d] - SUCCESS, A 0x%02x%02x B 0x%02x%02x = RISC-V 0x%02x%02x - NPU 0x%02x%02x\n",
+                op, i, count, a_data[1], a_data[0], b_data[1], b_data[0], r_data[1], r_data[0], n_data[1], n_data[0]);
+#endif
         }
     }
 
@@ -608,11 +682,27 @@ void init_variavles() {
 
     // Random Data Input
     for (int temp_count = 0; temp_count < DATA_SIZE; temp_count++) {
-        f_val_A = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
-        f_val_B = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+
+#if 0
+//host.data[0x200000] = jnp.array([(v + 1) * 1.1 for v in range(2048)], dtype=jnp.bfloat16).tobytes()
+//host.data[0x201000] = jnp.array([(v + 1) * 0.1 for v in range(2048)], dtype=jnp.bfloat16).tobytes()
+        uint16_t a_val;
+        uint16_t b_val;
+
+        a_val = (temp_count + 1) * 1.1;
+        b_val = (temp_count + 1) * 0.1;
+
+        memcpy(&input_A[temp_count], &a_val, sizeof(uint16_t));
+        memcpy(&input_B[temp_count], &b_val, sizeof(uint16_t));
+#else
+        //f_val_A = (temp_count + 1) * 1.1; // (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        //f_val_B = (temp_count + 1) * 0.1; //(float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        f_val_A = 2; // (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        f_val_B = 1; //(float)rand() / RAND_MAX * 2000.0 - 1000.0;
 
         input_A[temp_count] = float_to_bf16(f_val_A);
         input_B[temp_count] = float_to_bf16(f_val_B);
+#endif
     }
 }
 
@@ -963,6 +1053,14 @@ void store_result_into_ddr() {
         store_command_to_npu(2, ddr_a, sram_a, loadSize);
         ddr_a = (long unsigned int)output_npu_3 + len;
         store_command_to_npu(3, ddr_a, sram_a, loadSize);
+        if(NUMBER_OF_CORES >= 5) {
+            ddr_a = (long unsigned int)output_npu_4 + len;
+            store_command_to_npu(4, ddr_a, sram_a, loadSize);
+        }
+        if(NUMBER_OF_CORES >= 6) {
+            ddr_a = (long unsigned int)output_npu_5 + len;
+            store_command_to_npu(5, ddr_a, sram_a, loadSize);
+        }
 
         npu_store();
 
@@ -1199,7 +1297,16 @@ void load_store_test(int id) {
 
 static inline void init_complete_exec() {
 
+    unsigned long value = 0x0;
+
+    npu_regSet(NPU_COMPLETE_INTERRUPT_RST, (long unsigned int)0x01); // reset - active high
     npu_regSet(NPU_COMPLETE_EXEC_REG, (long unsigned int)0x00);
+    npu_regSet(NPU_COMPLETE_INTERRUPT_RST, (long unsigned int)0x00);
+
+    value = npu_regGet(NPU_COMPLETE_EXEC_REG);
+    if(value != 0) {
+        printf("%s - Fail, value: %lx\r", value);
+    }
 }
 
 static uint64_t check_complete_exec(uint64_t start) {
@@ -1464,17 +1571,25 @@ int main() {
 
     get_average_csrrs_cycle();
 
+#if 1
     TEST_OP_TYPE = "vadd.bf16";
     main_function();
+#endif
 
+#if 0
     TEST_OP_TYPE = "vsub.bf16";
     main_function();
+#endif
 
+#if 0
     TEST_OP_TYPE = "vmul.bf16";
     main_function();
+#endif
 
+#if 0
     TEST_OP_TYPE = "vdiv.bf16";
     main_function();
+#endif
 
     printf("\n========Finish========\n\n");
     
