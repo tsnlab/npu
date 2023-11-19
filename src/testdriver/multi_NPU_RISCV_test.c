@@ -28,17 +28,9 @@
 #define NPU_COMPLETE_EXEC_TIMEOUT 10000000.00
 #define EPSILON 0.01
 
-#define DUMMY_DATA_SIZE 16
-
-#if 1
 #define DDR_M    1 // 128 // DDR_ADDR_MAGNIFICATION
 #define SRAM_M   1 // 4 // SRAM_ADDR_MAGNIFICATION
 #define SIZE_M  16 // 4 // SIZE_MAGNIFICATION
-#else
-#define DDR_M   128 // DDR_ADDR_MAGNIFICATION
-#define SRAM_M    4 // SRAM_ADDR_MAGNIFICATION
-#define SIZE_M    4 // SIZE_MAGNIFICATION
-#endif
 
 #define MAX_LOAD_STORE_CHUNK_SIZE 128 // must be >= 128
 
@@ -50,11 +42,6 @@
 #else
 #define trace_pc_position()
 #endif
-
-typedef union {
-    float f;
-    uint32_t i;
-} FloatUnion;
 
 typedef struct {
     uint16_t mantissa : 7;
@@ -78,14 +65,7 @@ __attribute__ ((aligned (64))) volatile BF16 output_riscv_sub[DATA_SIZE];
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_mul[DATA_SIZE];
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_div[DATA_SIZE];
 
-__attribute__ ((aligned (128))) volatile uint8_t dummy_output_0[DUMMY_DATA_SIZE];
-__attribute__ ((aligned (128))) volatile uint8_t dummy_output_1[DUMMY_DATA_SIZE];
-__attribute__ ((aligned (128))) volatile uint8_t dummy_output_2[DUMMY_DATA_SIZE];
-__attribute__ ((aligned (128))) volatile uint8_t dummy_output_3[DUMMY_DATA_SIZE];
-__attribute__ ((aligned (128))) volatile uint8_t dummy_output_4[DUMMY_DATA_SIZE];
-__attribute__ ((aligned (128))) volatile uint8_t dummy_output_5[DUMMY_DATA_SIZE];
-
-  // Kernel: need to align by 8bytes                              0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19
+  // Kernel: need to align by 8bytes                              0     1     2     3     4     5     6     7     8     9   
   //   0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15    16    17    18    19
   //  20    21    22    23    24    25    26    27    28    29    30    31    32    33    34    35    36    37    38    39
   //  40    41    42    43    44    45    46    47    48    49    50    51    52    53    54    55    56    57    58    59
@@ -131,7 +111,6 @@ __attribute__ ((aligned (128))) volatile uint8_t kernel_5[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff};
 #else
     // Without load/store, vadd.bf16
-#if 1 // ifneq %e %f -12
 __attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {
     0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
@@ -150,20 +129,6 @@ __attribute__ ((aligned (128))) volatile uint8_t kernel_4[] = {
 __attribute__ ((aligned (128))) volatile uint8_t kernel_5[] = {
     0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
-#else
-__attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x00, 0xff,
-    0x00, 0x24, 0x31, 0x09};
-__attribute__ ((aligned (128))) volatile uint8_t kernel_1[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x00, 0xff,
-    0x00, 0x24, 0x31, 0x09};
-__attribute__ ((aligned (128))) volatile uint8_t kernel_2[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x00, 0xff,
-    0x00, 0x24, 0x31, 0x09};
-__attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x00, 0xff,
-    0x00, 0x24, 0x31, 0x09};
-#endif
 #endif
 
 uint64_t elapsedCsrrsCycle = 0;
@@ -238,7 +203,7 @@ void delay_in_usec(int us) {
 }
 
 BF16 swap_bf16_bytes(BF16 value) {
-#if 1
+
     BF16 swap_value;
     char *origin;
     char *swap;
@@ -249,9 +214,6 @@ BF16 swap_bf16_bytes(BF16 value) {
     swap[1] = origin[0];
 
     return swap_value;
-#else
-    return value;
-#endif
 }
 
 BF16 float_to_bf16(float value) {
@@ -270,33 +232,10 @@ BF16 float_to_bf16(float value) {
 
     // return swap_bf16_bytes(bf16_result);
     return bf16_result;
-#if 0
-    FloatUnion fu;
-    fu.f = value;
-    BF16 bf16;
-
-    // Extract the sign bit.
-    bf16.sign = (fu.i >> 31) & 0x1;
-
-    // Extract the biased exponent (8 bits).
-    int biased_exponent = (fu.i >> 23) & 0xFF;
-
-    if (biased_exponent == 0) {
-        bf16.exponent = 0;
-        bf16.mantissa = (fu.i >> 16) & 0x7F;
-    } else {
-        bf16.exponent = biased_exponent - 127;
-
-        bf16.mantissa = (fu.i >> 16) & 0x7F;
-    }
-
-    return bf16;
-#endif
 }
 
 float bf16_to_float(BF16 bf16) {
 
-#if 1
     BF16 swap_bf16;
     uint32_t f32_value_as_uint32;
     uint16_t zero_padding = 0;
@@ -312,23 +251,6 @@ float bf16_to_float(BF16 bf16) {
     memcpy(&f32_result, &f32_value_as_uint32, sizeof(float));
 
     return f32_result;
-#else
-    FloatUnion fu;
-    int biased_exponent;
-
-    fu.i = (bf16.sign << 31);
-
-    if (bf16.exponent == 0) {
-        fu.i |= ((bf16.mantissa & 0x7F) << 16);
-    } else {
-        biased_exponent = bf16.exponent + 127;
-        fu.i |= (biased_exponent << 23);
-
-        fu.i |= ((bf16.mantissa & 0x7F) << 16);
-    }
-
-    return fu.f;
-#endif
 }
 
 BF16 bf16_add(BF16 a, BF16 b) {
@@ -589,6 +511,36 @@ static void floatToString(float floatValue, char* strValue, int maxLength) {
     snprintf(strValue, maxLength, "%d.%03d", intPart, decimalPart);
 }
 
+// void print_compared_bf16_recored(int s, int id, int total, char *op, char * a_data, char * b_data, char * r_data, char * n_data) {
+static inline void print_compared_bf16_recored(int s, int id, int total, char *op, BF16 a, BF16 b, BF16 r, BF16 n) {
+    float f_a;
+    float f_b;
+    float f_r;
+    float f_n;
+    uint32_t i_a;
+    uint32_t i_b;
+    uint32_t i_r;
+    uint32_t i_n;
+
+    f_a = bf16_to_float(a);
+    f_b = bf16_to_float(b);
+    f_r = bf16_to_float(r);
+    f_n = bf16_to_float(n);
+
+    memcpy(&i_a, &f_a, sizeof(float));
+    memcpy(&i_b, &f_b, sizeof(float));
+    memcpy(&i_r, &f_r, sizeof(float));
+    memcpy(&i_n, &f_n, sizeof(float));
+
+    if(s) {
+        printf("%s[%d/%d] - SUCCESS, A 0x%08x B 0x%08x = RISC-V 0x%08x - NPU 0x%08x\n",
+            op, id, total, i_a, i_b, i_r, i_n);
+    } else {
+        printf("%s[%d/%d] - FAIL, A 0x%08x B 0x%08x = RISC-V 0x%08x - NPU 0x%08x\n",
+            op, id, total, i_a, i_b, i_r, i_n);
+    }
+}
+
 static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* out_npu_bf16, int count) {
 
     // Check How Many Are Correct
@@ -597,9 +549,6 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
     float out_risc_flt;
     float out_npu_flt;
     float diff;
-    char riscvStrValue[50]; 
-    char npuStrValue[50]; 
-    char diffStrValue[50]; 
 
     for (int i = 0; i < count; i++) {
         out_risc_flt = bf16_to_float(out_risc_bf16[i]);
@@ -612,16 +561,8 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
         if (diff > EPSILON) {
             error_cnt += 1;
 #if 1 // def __DEBUG_MODE__
-            memset(riscvStrValue, 0, 50);
-            memset(npuStrValue, 0, 50);
-            memset(diffStrValue, 0, 50);
-            floatToString(out_risc_flt, riscvStrValue, sizeof(riscvStrValue));
-            floatToString(out_npu_flt, npuStrValue, sizeof(npuStrValue));
-            floatToString(out_risc_flt - out_npu_flt, diffStrValue, sizeof(diffStrValue));
-#if 0
-            printf("[Test Case %d] %s - FAIL\nRISCV data[%d]: %s\nNPU%d data[%d]: %s\nRISCV data[%d] - NPU data[%d] = %s\n",
-                count, op, i, riscvStrValue, npu, i, npuStrValue, i, i, diffStrValue);
-#endif
+            print_compared_bf16_recored( 0, i, count, op, input_A[i], input_B[i], out_risc_bf16[i], out_npu_bf16[i]);
+#else
             char * r_data;
             char * n_data;
             char * a_data;
@@ -635,7 +576,9 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
 #endif
         } else {
             check += 1;
-#if 0
+#if 1
+            print_compared_bf16_recored( 1, i, count, op, input_A[i], input_B[i], out_risc_bf16[i], out_npu_bf16[i]);
+#else //def __DEBUG_MODE__
             char * r_data;
             char * n_data;
             char * a_data;
@@ -826,44 +769,6 @@ void dump_data(char * data, int size) {
     printf("\n\n");
 }
 
-void dummy_store() {
-
-    long unsigned int sram_a;
-    long unsigned int ddr_a;
-    int remaining;
-    int loadSize;
-    int size;
-
-    size =  DUMMY_DATA_SIZE;
-
-    for (int len = 0; len < size; len += MAX_LOAD_STORE_CHUNK_SIZE) {
-        remaining = size - len;
-        loadSize = remaining < MAX_LOAD_STORE_CHUNK_SIZE ? remaining : MAX_LOAD_STORE_CHUNK_SIZE;
-        sram_a = 0x00 + len;
-
-        ddr_a = (long unsigned int)dummy_output_0 + len;
-        store_command_to_npu(0, ddr_a, sram_a, loadSize);
-        ddr_a = (long unsigned int)dummy_output_1 + len;
-        store_command_to_npu(1, ddr_a, sram_a, loadSize);
-        ddr_a = (long unsigned int)dummy_output_2 + len;
-        store_command_to_npu(2, ddr_a, sram_a, loadSize);
-        ddr_a = (long unsigned int)dummy_output_3 + len;
-        store_command_to_npu(3, ddr_a, sram_a, loadSize);
-        if(NUMBER_OF_CORES >= 5) {
-            ddr_a = (long unsigned int)dummy_output_4 + len;
-            store_command_to_npu(4, ddr_a, sram_a, loadSize);
-        }
-        if(NUMBER_OF_CORES >= 6) {
-            ddr_a = (long unsigned int)dummy_output_5 + len;
-            store_command_to_npu(5, ddr_a, sram_a, loadSize);
-        }
-
-        npu_store();
-
-        delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
-    }
-}
-
 void load_kernel_into_npu(int npus) {
 
     long unsigned int sram_a;
@@ -908,7 +813,6 @@ void load_kernel_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
-//        dummy_store();
     }
 }
 
@@ -951,7 +855,6 @@ void load_input_A_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
-//        dummy_store();
     }
 }
 
@@ -994,7 +897,6 @@ void load_input_B_into_npu(int npus) {
 
         //printf("%s - Offset: 0x%x, loadSize: %d\n", __func__, len, loadSize);
         delay_in_usec(NPU_LOAD_STORE_MICRO_DELAY);
-//        dummy_store();
     }
 }
 
