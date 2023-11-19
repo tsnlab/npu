@@ -133,22 +133,22 @@ __attribute__ ((aligned (128))) volatile uint8_t kernel_5[] = {
     // Without load/store, vadd.bf16
 #if 1 // ifneq %e %f -12
 __attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
 __attribute__ ((aligned (128))) volatile uint8_t kernel_1[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
 __attribute__ ((aligned (128))) volatile uint8_t kernel_2[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
 __attribute__ ((aligned (128))) volatile uint8_t kernel_3[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
 __attribute__ ((aligned (128))) volatile uint8_t kernel_4[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
 __attribute__ ((aligned (128))) volatile uint8_t kernel_5[] = {
-    0x20, 0x04, 0x20, 0x02, 0x20, 0x00, 0x10, 0x02, 0x00, 0x08, 0x40, 0x02, 0x20, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
+    0x80, 0x04, 0x20, 0x02, 0x80, 0x00, 0x10, 0x02, 0x20, 0x00, 0x40, 0x02, 0x80, 0x08, 0x30, 0x02, 0x00, 0x00, 0x60, 0x02,
     0x00, 0x04, 0x50, 0x02, 0x01, 0x00, 0x60, 0x0d, 0x00, 0x24, 0x31, 0x09, 0x00, 0x00, 0x00, 0xff, 0xf8, 0xff, 0x56, 0x11};
 #else
 __attribute__ ((aligned (128))) volatile uint8_t kernel_0[] = {
@@ -268,7 +268,8 @@ BF16 float_to_bf16(float value) {
     BF16 bf16_result;
     memcpy(&bf16_result, &bf16_value, sizeof(BF16));
 
-    return swap_bf16_bytes(bf16_result);
+    // return swap_bf16_bytes(bf16_result);
+    return bf16_result;
 #if 0
     FloatUnion fu;
     fu.f = value;
@@ -301,6 +302,7 @@ float bf16_to_float(BF16 bf16) {
     uint16_t zero_padding = 0;
 
     swap_bf16 = swap_bf16_bytes(bf16);
+    swap_bf16 = bf16;
 
     // Assuming little-endian architecture
     memcpy(&f32_value_as_uint32, &zero_padding, sizeof(uint16_t));
@@ -633,7 +635,7 @@ static int compare_riscv_and_npu(int npu, char *op, BF16* out_risc_bf16, BF16* o
 #endif
         } else {
             check += 1;
-#if 1
+#if 0
             char * r_data;
             char * n_data;
             char * a_data;
@@ -685,10 +687,12 @@ void init_variavles() {
         memcpy(&input_A[temp_count], &a_val, sizeof(uint16_t));
         memcpy(&input_B[temp_count], &b_val, sizeof(uint16_t));
 #else
-        //f_val_A = (temp_count + 1) * 1.1; // (float)rand() / RAND_MAX * 2000.0 - 1000.0;
-        //f_val_B = (temp_count + 1) * 0.1; //(float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        // f_val_A = (temp_count + 1) * 1.1; // (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        // f_val_B = (temp_count + 1) * 0.1; //(float)rand() / RAND_MAX * 2000.0 - 1000.0;
         f_val_A = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
         f_val_B = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        // f_val_A = (float)rand() / (float)(RAND_MAX ) * 5.0f;
+        // f_val_B = (float)rand() / (float)(RAND_MAX ) * 5.0f;
 
         input_A[temp_count] = float_to_bf16(f_val_A);
         input_B[temp_count] = float_to_bf16(f_val_B);
@@ -759,26 +763,26 @@ void adjust_kernel() {
     kernel_op_change(kernel_4, TEST_OP_TYPE);
     kernel_op_change(kernel_5, TEST_OP_TYPE);
 
-    kernel_input_a_sram_addr_change(kernel_0, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
-    kernel_input_a_sram_addr_change(kernel_1, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
-    kernel_input_a_sram_addr_change(kernel_2, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
-    kernel_input_a_sram_addr_change(kernel_3, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
-    kernel_input_a_sram_addr_change(kernel_4, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
-    kernel_input_a_sram_addr_change(kernel_5, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_a_sram_addr_change(kernel_0, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_a_sram_addr_change(kernel_1, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_a_sram_addr_change(kernel_2, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_a_sram_addr_change(kernel_3, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_a_sram_addr_change(kernel_4, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_a_sram_addr_change(kernel_5, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
 
-    kernel_input_b_sram_addr_change(kernel_0, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
-    kernel_input_b_sram_addr_change(kernel_1, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
-    kernel_input_b_sram_addr_change(kernel_2, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
-    kernel_input_b_sram_addr_change(kernel_3, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
-    kernel_input_b_sram_addr_change(kernel_4, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
-    kernel_input_b_sram_addr_change(kernel_5, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_b_sram_addr_change(kernel_0, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_b_sram_addr_change(kernel_1, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_b_sram_addr_change(kernel_2, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_b_sram_addr_change(kernel_3, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_b_sram_addr_change(kernel_4, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    // kernel_input_b_sram_addr_change(kernel_5, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
 
-    kernel_output_c_sram_addr_change(kernel_0, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
-    kernel_output_c_sram_addr_change(kernel_1, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
-    kernel_output_c_sram_addr_change(kernel_2, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
-    kernel_output_c_sram_addr_change(kernel_3, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
-    kernel_output_c_sram_addr_change(kernel_4, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
-    kernel_output_c_sram_addr_change(kernel_5, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    // kernel_output_c_sram_addr_change(kernel_0, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    // kernel_output_c_sram_addr_change(kernel_1, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    // kernel_output_c_sram_addr_change(kernel_2, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    // kernel_output_c_sram_addr_change(kernel_3, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    // kernel_output_c_sram_addr_change(kernel_4, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    // kernel_output_c_sram_addr_change(kernel_5, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
 
 #if KERNEL_WITH_LOAD_STORE // with-load-store
     // Change Kernel's input_A address
@@ -1561,7 +1565,7 @@ int main() {
     return 0;
 #endif
 
-#if 1
+#if 0
     TEST_OP_TYPE = "vadd.bf16";
     main_function();
 #endif
@@ -1576,7 +1580,7 @@ int main() {
     main_function();
 #endif
 
-#if 0
+#if 1
     TEST_OP_TYPE = "vdiv.bf16";
     main_function();
 #endif
