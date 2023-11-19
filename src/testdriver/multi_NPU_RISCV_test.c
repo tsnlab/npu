@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define MAX_DATA_SIZE 512        // Data Size
-#define DATA_SIZE 64            // Data Size
+#define DATA_SIZE 512            // Data Size
 #define MAX_NUMBER_OF_CORES 6     // Max. Number of Cores used at the same time
 #define NUMBER_OF_CORES 6         // Number of Cores used at the same time
 
@@ -70,8 +70,8 @@ __attribute__ ((aligned (128))) volatile BF16 output_npu_0[DATA_SIZE]; // NPU 0 
 __attribute__ ((aligned (128))) volatile BF16 output_npu_1[DATA_SIZE]; // NPU 1 Output
 __attribute__ ((aligned (128))) volatile BF16 output_npu_2[DATA_SIZE]; // NPU 2 Output
 __attribute__ ((aligned (128))) volatile BF16 output_npu_3[DATA_SIZE]; // NPU 3 Output
-__attribute__ ((aligned (128))) volatile BF16 output_npu_4[DATA_SIZE]; // NPU 3 Output
-__attribute__ ((aligned (128))) volatile BF16 output_npu_5[DATA_SIZE]; // NPU 3 Output
+__attribute__ ((aligned (128))) volatile BF16 output_npu_4[DATA_SIZE]; // NPU 4 Output
+__attribute__ ((aligned (128))) volatile BF16 output_npu_5[DATA_SIZE]; // NPU 5 Output
 
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_add[DATA_SIZE];
 __attribute__ ((aligned (64))) volatile BF16 output_riscv_sub[DATA_SIZE];
@@ -202,27 +202,17 @@ static inline void npu_store()
 /* riscv issues store command to npu */
 static void load_command_to_npu(int npu, long unsigned int l_addr, long unsigned int r_addr, int size) {
 
-//    printf("%s(%d, 0x%lx, 0x%lx, %d)\n", __func__, npu, l_addr, r_addr, size);
-//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)((r_addr + DDR_M - 1) / DDR_M));
-//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 2), (int)((size + SIZE_M - 1) / SIZE_M));
-//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)((l_addr + SRAM_M - 1) / SRAM_M));
-//    trace_pc_position()
 }
 
 /* riscv issues store command to npu */
 static void store_command_to_npu(int npu, long unsigned int r_addr, long unsigned int l_addr, int size) {
 
-//    printf("%s(%d, 0x%lx, 0x%lx, %d)\n", __func__, npu, r_addr, l_addr, size);
-//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 1), (long unsigned int)((r_addr + DDR_M - 1) / DDR_M));
-//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 2), (int)((size + SIZE_M - 1) / SIZE_M));
-//    trace_pc_position()
     npu_regSet((npu * NPU_REG_ID_OFFSET + 3), (long unsigned int)((l_addr + SRAM_M - 1) / SRAM_M));
-//    trace_pc_position()
 }
 
 static inline uint64_t get_time() {
@@ -697,8 +687,8 @@ void init_variavles() {
 #else
         //f_val_A = (temp_count + 1) * 1.1; // (float)rand() / RAND_MAX * 2000.0 - 1000.0;
         //f_val_B = (temp_count + 1) * 0.1; //(float)rand() / RAND_MAX * 2000.0 - 1000.0;
-        f_val_A = 2; // (float)rand() / RAND_MAX * 2000.0 - 1000.0;
-        f_val_B = 1; //(float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        f_val_A = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
+        f_val_B = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
 
         input_A[temp_count] = float_to_bf16(f_val_A);
         input_B[temp_count] = float_to_bf16(f_val_B);
@@ -769,26 +759,26 @@ void adjust_kernel() {
     kernel_op_change(kernel_4, TEST_OP_TYPE);
     kernel_op_change(kernel_5, TEST_OP_TYPE);
 
-    kernel_input_a_sram_addr_change(kernel_0, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
-    kernel_input_a_sram_addr_change(kernel_1, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
-    kernel_input_a_sram_addr_change(kernel_2, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
-    kernel_input_a_sram_addr_change(kernel_3, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
-    kernel_input_a_sram_addr_change(kernel_4, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
-    kernel_input_a_sram_addr_change(kernel_5, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 4));
+    kernel_input_a_sram_addr_change(kernel_0, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    kernel_input_a_sram_addr_change(kernel_1, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    kernel_input_a_sram_addr_change(kernel_2, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    kernel_input_a_sram_addr_change(kernel_3, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    kernel_input_a_sram_addr_change(kernel_4, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
+    kernel_input_a_sram_addr_change(kernel_5, (unsigned long )(INPUT_A_SRAM_BASE_ADDRESS / 1));
 
-    kernel_input_b_sram_addr_change(kernel_0, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
-    kernel_input_b_sram_addr_change(kernel_1, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
-    kernel_input_b_sram_addr_change(kernel_2, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
-    kernel_input_b_sram_addr_change(kernel_3, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
-    kernel_input_b_sram_addr_change(kernel_4, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
-    kernel_input_b_sram_addr_change(kernel_5, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 4));
+    kernel_input_b_sram_addr_change(kernel_0, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    kernel_input_b_sram_addr_change(kernel_1, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    kernel_input_b_sram_addr_change(kernel_2, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    kernel_input_b_sram_addr_change(kernel_3, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    kernel_input_b_sram_addr_change(kernel_4, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
+    kernel_input_b_sram_addr_change(kernel_5, (unsigned long )(INPUT_B_SRAM_BASE_ADDRESS / 1));
 
-    kernel_output_c_sram_addr_change(kernel_0, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
-    kernel_output_c_sram_addr_change(kernel_1, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
-    kernel_output_c_sram_addr_change(kernel_2, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
-    kernel_output_c_sram_addr_change(kernel_3, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
-    kernel_output_c_sram_addr_change(kernel_4, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
-    kernel_output_c_sram_addr_change(kernel_5, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 4));
+    kernel_output_c_sram_addr_change(kernel_0, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    kernel_output_c_sram_addr_change(kernel_1, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    kernel_output_c_sram_addr_change(kernel_2, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    kernel_output_c_sram_addr_change(kernel_3, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    kernel_output_c_sram_addr_change(kernel_4, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
+    kernel_output_c_sram_addr_change(kernel_5, (unsigned long )(RESULT_SRAM_BASE_ADDRESS / 1));
 
 #if KERNEL_WITH_LOAD_STORE // with-load-store
     // Change Kernel's input_A address
@@ -1553,15 +1543,6 @@ int main() {
     riscv_calculate_result();
     printf("\nThe result values of risc-v for each function were calculated using input_A & input_B.\n");
 
-#ifdef _NPU_LOAD_STORE_TEST_MODE_
-
-    load_store_test(0);
-    load_store_test(1);
-    load_store_test(2);
-
-    return 0;
-#endif
-
     if(NUMBER_OF_CORES >= 5) {
         g_interrupt_mask = 0x1F;
     }
@@ -1570,6 +1551,15 @@ int main() {
     }
 
     get_average_csrrs_cycle();
+
+#ifdef _NPU_LOAD_STORE_TEST_MODE_
+
+    load_store_test(0);
+    load_store_test(1);
+    load_store_test(2);
+
+    return 0;
+#endif
 
 #if 1
     TEST_OP_TYPE = "vadd.bf16";
