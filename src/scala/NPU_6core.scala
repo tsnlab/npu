@@ -148,11 +148,13 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     val funct7Reg4 = RegInit(0.U(7.W))
     val funct7Reg5 = RegInit(0.U(7.W))
 
+    val execFinReg = RegInit(0.U(6.W))
+
     cmdReg1 := cmd.fire()
     cmdReg2 := cmdReg1
     cmdReg3 := cmdReg2
-    cmdReg4 := cmdReg4
-    cmdReg5 := cmdReg5
+    cmdReg4 := cmdReg3
+    cmdReg5 := cmdReg4
 
     funct7Reg1 := funct
     funct7Reg2 := funct7Reg1
@@ -175,7 +177,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     // NPUTile0Def.io.rst := reset
     NPUTile0Def.module.io.rocc_if_host_mem_offset := regfile(1)(40, 0)
     NPUTile0Def.module.io.rocc_if_size := regfile(2)(16, 0)
-    NPUTile0Def.module.io.rocc_if_local_mem_offset := regfile(3)(12, 0)
+    NPUTile0Def.module.io.rocc_if_local_mem_offset := regfile(3)(16, 0)
     NPUTile0Def.module.io.rocc_if_funct := funct
     NPUTile0Def.module.io.rocc_if_cmd_vld := cmd.fire()
     val NPUTile0Fin = NPUTile0Def.module.io.rocc_if_fin
@@ -185,7 +187,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     // NPUTile1Def.io.rst := reset
     NPUTile1Def.module.io.rocc_if_host_mem_offset := regfile(4)(40, 0)
     NPUTile1Def.module.io.rocc_if_size := regfile(5)(16, 0)
-    NPUTile1Def.module.io.rocc_if_local_mem_offset := regfile(6)(12, 0)
+    NPUTile1Def.module.io.rocc_if_local_mem_offset := regfile(6)(16, 0)
     NPUTile1Def.module.io.rocc_if_funct := funct7Reg1
     NPUTile1Def.module.io.rocc_if_cmd_vld := cmdReg1
     val NPUTile1Fin = NPUTile1Def.module.io.rocc_if_fin
@@ -195,7 +197,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     // NPUTile2Def.io.rst := reset
     NPUTile2Def.module.io.rocc_if_host_mem_offset := regfile(7)(40, 0)
     NPUTile2Def.module.io.rocc_if_size := regfile(8)(16, 0)
-    NPUTile2Def.module.io.rocc_if_local_mem_offset := regfile(9)(12, 0)
+    NPUTile2Def.module.io.rocc_if_local_mem_offset := regfile(9)(16, 0)
     NPUTile2Def.module.io.rocc_if_funct := funct7Reg2
     NPUTile2Def.module.io.rocc_if_cmd_vld := cmdReg2
     val NPUTile2Fin = NPUTile2Def.module.io.rocc_if_fin
@@ -205,7 +207,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
     // NPUTile3Def.io.rst := reset
     NPUTile3Def.module.io.rocc_if_host_mem_offset := regfile(10)(40, 0)
     NPUTile3Def.module.io.rocc_if_size := regfile(11)(16, 0)
-    NPUTile3Def.module.io.rocc_if_local_mem_offset := regfile(12)(12, 0)
+    NPUTile3Def.module.io.rocc_if_local_mem_offset := regfile(12)(16, 0)
     NPUTile3Def.module.io.rocc_if_funct := funct7Reg3
     NPUTile3Def.module.io.rocc_if_cmd_vld := cmdReg3
     val NPUTile3Fin = NPUTile3Def.module.io.rocc_if_fin
@@ -213,7 +215,7 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
 
     NPUTile4Def.module.io.rocc_if_host_mem_offset := regfile(13)(40, 0)
     NPUTile4Def.module.io.rocc_if_size := regfile(14)(16, 0)
-    NPUTile4Def.module.io.rocc_if_local_mem_offset := regfile(15)(12, 0)
+    NPUTile4Def.module.io.rocc_if_local_mem_offset := regfile(15)(16, 0)
     NPUTile4Def.module.io.rocc_if_funct := funct7Reg4
     NPUTile4Def.module.io.rocc_if_cmd_vld := cmdReg4
     val NPUTile4Fin = NPUTile4Def.module.io.rocc_if_fin
@@ -221,35 +223,55 @@ class NPUModuleImp(outer: NPU) extends LazyRoCCModuleImp(outer)
 
     NPUTile5Def.module.io.rocc_if_host_mem_offset := regfile(16)(40, 0)
     NPUTile5Def.module.io.rocc_if_size := regfile(17)(16, 0)
-    NPUTile5Def.module.io.rocc_if_local_mem_offset := regfile(18)(12, 0)
+    NPUTile5Def.module.io.rocc_if_local_mem_offset := regfile(18)(16, 0)
     NPUTile5Def.module.io.rocc_if_funct := funct7Reg5
     NPUTile5Def.module.io.rocc_if_cmd_vld := cmdReg5
     val NPUTile5Fin = NPUTile5Def.module.io.rocc_if_fin
     val NPUTile5Busy = NPUTile5Def.module.io.rocc_if_busy
 
+    execFinReg
     when(NPUTile0Fin){
-      regfile.write(19.U, 0x1.U(16.W))
+      execFinReg := execFinReg | 1.U(6.W)
     } 
-
     when(NPUTile1Fin){
-      regfile.write(19.U, 0x2.U(16.W))
+      execFinReg := execFinReg | (1.U(6.W) << 1)
     } 
-
     when(NPUTile2Fin){
-      regfile.write(19.U, 0x4.U(16.W))
+      execFinReg := execFinReg | (1.U(6.W) << 2)
     } 
-
     when(NPUTile3Fin){
-      regfile.write(19.U, 0x8.U(16.W))
-    }
-
+      execFinReg := execFinReg | (1.U(6.W) << 3)
+    } 
     when(NPUTile4Fin){
-      regfile.write(19.U, 0x10.U(16.W))
-    }
-
+      execFinReg := execFinReg | (1.U(6.W) << 4)
+    } 
     when(NPUTile5Fin){
-      regfile.write(19.U, 0x20.U(16.W))
-    }
+      execFinReg := execFinReg | (1.U(6.W) << 5)
+    } 
+    regfile.write(19.U, execFinReg)
+    // when(NPUTile0Fin){
+    //   regfile.write(19.U, 0x1.U(16.W))
+    // } 
+
+    // when(NPUTile1Fin){
+    //   regfile.write(19.U, 0x2.U(16.W))
+    // } 
+
+    // when(NPUTile2Fin){
+    //   regfile.write(19.U, 0x4.U(16.W))
+    // } 
+
+    // when(NPUTile3Fin){
+    //   regfile.write(19.U, 0x8.U(16.W))
+    // }
+
+    // when(NPUTile4Fin){
+    //   regfile.write(19.U, 0x10.U(16.W))
+    // }
+
+    // when(NPUTile5Fin){
+    //   regfile.write(19.U, 0x20.U(16.W))
+    // }
 
     DMAPathControllerDef.io.risc_clk := clock
     DMAPathControllerDef.io.fpu_clk := clock
