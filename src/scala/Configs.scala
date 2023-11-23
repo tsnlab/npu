@@ -30,11 +30,11 @@ class WithNexysVideoTweaks extends Config(
   new WithNoDesignKey ++
   new testchipip.WithUARTTSIClient ++
   new chipyard.harness.WithSerialTLTiedOff ++
-  new chipyard.harness.WithHarnessBinderClockFreqMHz(20) ++
-  new chipyard.config.WithMemoryBusFrequency(20.0) ++
-  new chipyard.config.WithFrontBusFrequency(20.0) ++
-  new chipyard.config.WithSystemBusFrequency(20.0) ++
-  new chipyard.config.WithPeripheryBusFrequency(20.0) ++
+  new chipyard.harness.WithHarnessBinderClockFreqMHz(40) ++
+  new chipyard.config.WithMemoryBusFrequency(40.0) ++
+  new chipyard.config.WithFrontBusFrequency(40.0) ++
+  new chipyard.config.WithSystemBusFrequency(40.0) ++
+  new chipyard.config.WithPeripheryBusFrequency(40.0) ++
   new chipyard.harness.WithAllClocksFromHarnessClockInstantiator ++
   new chipyard.clocking.WithPassthroughClockGenerator ++
   new chipyard.config.WithNoDebug ++ // no jtag
@@ -47,9 +47,22 @@ class RocketNexysVideoConfig extends Config(
   new WithNexysVideoTweaks ++
 //   new chipyard.config.WithBroadcastManager ++ // no l2
   new chipyard.config.WithSystemBusWidth(128) ++
-  new NPURoCCConfig ++
   new chipyard.RocketConfig)
-// DOC include end: WithNexysVideoTweaks and Rocket
+
+// class NPU4CoreConfig extends Config(
+//   new WithNexysVideoTweaks ++
+// //   new chipyard.config.WithBroadcastManager ++ // no l2
+//   new chipyard.config.WithSystemBusWidth(128) ++
+//   new NPU4CoreRoCCConfig ++
+//   new chipyard.RocketConfig)
+// // DOC include end: WithNexysVideoTweaks and Rocket
+
+class NPU6CoreConfig extends Config(
+  new WithNexysVideoTweaks ++
+//   new chipyard.config.WithBroadcastManager ++ // no l2
+  new chipyard.config.WithSystemBusWidth(128) ++
+  new NPU6CoreRoCCConfig ++
+  new chipyard.RocketConfig)
 
 // DOC include start: WithTinyNexysVideoTweaks and Rocket
 class WithTinyNexysVideoTweaks extends Config(

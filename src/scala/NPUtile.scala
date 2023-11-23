@@ -18,7 +18,7 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
 
             val rocc_if_host_mem_offset = Input(Bits(40.W))
             val rocc_if_size = Input(Bits(16.W))
-            val rocc_if_local_mem_offset = Input(Bits(12.W))
+            val rocc_if_local_mem_offset = Input(Bits(16.W))
             val rocc_if_funct = Input(Bits(7.W))
             val rocc_if_cmd_vld = Input(Bool())
             val rocc_if_fin = Output(Bool())
@@ -31,7 +31,7 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
             val dma_write_data = Output(Bits(128.W))
             val dma_write_ready = Input(Bool())
             val dma_read_valid = Input(Bool())
-            val dma_read_data = Input(Bits(128.W))
+            val dma_read_data = Input(Bits(140.W))
             val dma_read_ready = Output(Bool())
         })
 
@@ -107,6 +107,7 @@ class NPUTile (implicit p: Parameters) extends LazyModule {
         LoadStoreControllerDef.io.core_transferLength := NPUCoreDef.io.dma_transferLength
         LoadStoreControllerDef.io.core_writeData := NPUCoreDef.io.dma_writeData
         NPUCoreDef.io.dma_readData := LoadStoreControllerDef.io.core_readData
+        NPUCoreDef.io.dma_readAddr := LoadStoreControllerDef.io.core_readAddr
         NPUCoreDef.io.dma_ack := LoadStoreControllerDef.io.core_ack
 
         io.dma_req := LoadStoreControllerDef.io.dma_req

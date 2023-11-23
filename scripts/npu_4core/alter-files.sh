@@ -10,9 +10,11 @@ cp -f src/scala/BF16Unit.scala $NPUDIR
 cp -f src/scala/Configs.scala $NPUDIR
 cp -f src/scala/DMAEngine.scala $NPUDIR
 cp -f src/scala/DMAPathController.scala $NPUDIR
+# cp -f src/scala/DMAPathController_6p.scala $NPUDIR
 cp -f src/scala/Harness.scala $NPUDIR
 cp -f src/scala/HarnessBinders.scala $NPUDIR
 cp -f src/scala/NPU.scala $NPUDIR
+# cp -f src/scala/NPU_6core.scala $NPUDIR
 cp -f src/scala/NPUCore.scala $NPUDIR
 cp -f src/scala/NPUtile.scala $NPUDIR 
 cp -f src/scala/SRAM.scala $NPUDIR
@@ -36,6 +38,7 @@ cp -f src/scala/fudian/utils/CLZ.scala $NPUDIR/fudian/utils
 cp -f src/scala/fudian/utils/LZA.scala $NPUDIR/fudian/utils
 cp -f src/scala/fudian/utils/ShiftRightJam.scala $NPUDIR/fudian/utils
 cp -f src/resources/vsrc/DMAPathController.v $VSRCDIR
+# cp -f src/resources/vsrc/DMAPathController_6p.v $VSRCDIR
 cp -f src/resources/vsrc/NPUCore.v $VSRCDIR
 cp -f src/resources/vsrc/SRAM.v $VSRCDIR
 cp -f src/resources/vsrc/loadStoreController.v $VSRCDIR

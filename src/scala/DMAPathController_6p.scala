@@ -3,7 +3,7 @@ package connx_npu
 import chisel3._
 import chisel3.util.HasBlackBoxResource
 
-class DMAPathController extends BlackBox with HasBlackBoxResource {
+class DMAPathController_6p extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val risc_clk = Input(Clock())
 	val fpu_clk = Input(Clock())
@@ -56,8 +56,24 @@ class DMAPathController extends BlackBox with HasBlackBoxResource {
 	val dma_read_valid_d = Output(Bool())
 	val dma_read_data_d = Output(UInt(140.W))
 	val dma_read_ready_d = Input(Bool())
+	val dma_req_e = Input(Bool())
+	val dma_resp_e = Output(Bool())
+	val dma_write_valid_e = Input(Bool())
+	val dma_write_data_e = Input(UInt(128.W))
+	val dma_write_ready_e = Output(Bool())
+	val dma_read_valid_e = Output(Bool())
+	val dma_read_data_e = Output(UInt(140.W))
+	val dma_read_ready_e = Input(Bool())
+	val dma_req_f = Input(Bool())
+	val dma_resp_f = Output(Bool())
+	val dma_write_valid_f = Input(Bool())
+	val dma_write_data_f = Input(UInt(128.W))
+	val dma_write_ready_f = Output(Bool())
+	val dma_read_valid_f = Output(Bool())
+	val dma_read_data_f = Output(UInt(140.W))
+	val dma_read_ready_f = Input(Bool())
   })
-  addResource("/vsrc/DMAPathController.v")
+  addResource("/vsrc/DMAPathController_6p.v")
 //   addResource("/vsrc/as128x1024/as128x1024.xci")
 //   addResource("/vsrc/as32x512_ft/as32x512_ft.xci")
 //   addResource("/vsrc/as72x512_ft/as72x512_ft.xci")

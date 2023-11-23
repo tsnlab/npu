@@ -5,7 +5,7 @@ module NPUCore
 
     input [39:0] rocc_if_host_mem_offset,
     input [15:0] rocc_if_size,
-    input [11:0] rocc_if_local_mem_offset,
+    input [15:0] rocc_if_local_mem_offset,
     input [6:0] rocc_if_funct,
     input rocc_if_cmd_vld,
     output reg rocc_if_fin,
@@ -30,6 +30,7 @@ module NPUCore
     output  reg [15:0]  dma_transferLength,
     output      [127:0] dma_writeData,
     input       [127:0] dma_readData,
+    input       [11:0]  dma_readAddr,
     input               dma_ack,
 
     //----| write signals
@@ -45,21 +46,27 @@ module NPUCore
 );
 //---- state
 
-localparam S_IDLE	= 1 << 0;
-localparam S_COPY_REQ	= 1 << 1;
-localparam S_COPY_DATA	= 1 << 2;
-localparam S_OPC_READ	= 1 << 3;
-localparam S_EXEC	= 1 << 4;
-localparam S_LOAD_REQ	= 1 << 5;
-localparam S_LOAD_DATA	= 1 << 6;
-localparam S_STORE_PRE	= 1 << 7;
-localparam S_STORE_REQ	= 1 << 8;
-localparam S_STORE_DATA	= 1 << 9;
-localparam S_BF16_1	= 1 << 10;
-localparam S_BF16_2	= 1 << 11;
-localparam S_BF16_OP = 1 << 12;
-localparam S_FIN	= 1 << 13;
-localparam S_RETURN	= 1 << 14;
+localparam S_IDLE	    = 8'd0;
+localparam S_COPY_REQ	= 8'd1;
+localparam S_COPY_DATA	= 8'd2;
+localparam S_OPC_READ	= 8'd3;
+localparam S_EXEC	    = 8'd4;
+localparam S_LOAD_REQ	= 8'd5;
+localparam S_LOAD_DATA	= 8'd6;
+localparam S_STORE_PRE	= 8'd7;
+localparam S_STORE_REQ	= 8'd8;
+localparam S_STORE_DATA	= 8'd9;
+localparam S_BF16_1	    = 8'd10;
+localparam S_BF16_2	    = 8'd11;
+localparam S_BF16_OP    = 8'd12;
+localparam S_FIN	    = 8'd13;
+localparam S_INT32_ADD  = 8'd14;
+localparam S_INT32_SUB  = 8'd15;
+localparam S_IFZ	    = 8'd16;
+localparam S_IFEQ	    = 8'd17;
+localparam S_IFNEQ	    = 8'd18;
+localparam S_JMP	    = 8'd19;
+localparam S_RETURN	    = 8'd20;
 //---- opcode
 localparam OPC_NOP	        = 8'h00;
 localparam OPC_SET	        = 8'h01;
@@ -82,19 +89,29 @@ localparam OPC_IFNEQ	    = 8'h11;
 localparam OPC_JMP	        = 8'h12;
 localparam OPC_RETURN	    = 8'hff;
 
-reg	[14:0]	state;
+(* MARK_DEBUG = "TRUE" *)reg	[7:0]	state;
 reg	[15:0]	scnt;
-reg [1:0]   opc_cnt;
+(* MARK_DEBUG = "TRUE" *)reg [1:0]   opc_cnt;
 reg	[31:0]	rf[0:15];
 reg [31:0]  bf16_a_addr, bf16_b_addr, bf16_y_addr;
 reg	[7:0]	opc_cmd;
 wire		opc_div		= opc_cmd == OPC_VDIV_BF16;
 
-reg [11:0]  opc_radr;
+(* MARK_DEBUG = "TRUE" *)reg [15:0]  opc_radr;
 reg     localmem_rden;
-reg [11:0]  localmem_radr;
+(* MARK_DEBUG = "TRUE" *)reg [15:0]  localmem_radr;
 reg     localmem_wren;
-reg [11:0]  localmem_wadr;
+(* MARK_DEBUG = "TRUE" *)reg [15:0]  localmem_wadr;
+(* MARK_DEBUG = "TRUE" *)reg [1:0]   jmp_opc;
+(* MARK_DEBUG = "TRUE" *)reg [31:0]  jmp_radr;
+(* MARK_DEBUG = "TRUE" *)wire [31:0]  jmp_byte;
+(* MARK_DEBUG = "TRUE" *)reg [31:0]  comp_a;
+(* MARK_DEBUG = "TRUE" *)reg [31:0]  comp_b;
+(* MARK_DEBUG = "TRUE" *)reg [31:0]  int32_a;
+(* MARK_DEBUG = "TRUE" *)reg [31:0]  int32_b;
+(* MARK_DEBUG = "TRUE" *)reg [31:0]  int32_i;
+(* MARK_DEBUG = "TRUE" *)reg [3:0]   a_arg_reg;
+(* MARK_DEBUG = "TRUE" *)reg [3:0]   b_arg_reg;
 
 
 wire [15:0] sram_doutb_7 = sram_doutb[127:112];
@@ -110,20 +127,66 @@ reg [127:0] sram_dina_reg;
 reg [127:0] sram_b_dina_reg;
 reg bf16_alat, bf16_blat, bf16_ylat;
 reg	[31:0]	fpu_cnt;
-wire    [31:0]  opcode;
-wire	[7:0]	opc		= opcode[00+:8];
-wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
-wire	[15:0]	rval	= opcode[16+:16];
-wire    [3:0]   arg_ano = opcode[12+:4];
-wire    [3:0]   arg_bno = opcode[08+:4];
-wire    [3:0]   arg_cno = opcode[20+:4];
-wire    [3:0]   arg_dno = opcode[16+:4];
+(* MARK_DEBUG = "TRUE" *)wire    [31:0]  opcode;
+//wire	[7:0]	opc		= opcode[00+:8];
+//wire	[19:0]	rval_u20    = {opcode[08+:4], opcode[16+:8], opcode[24+:8]};
+//wire	[15:0]	rval	= opcode[16+:16];
+//wire    [3:0]   arg_ano = opcode[12+:4];
+//wire    [3:0]   arg_bno = opcode[08+:4];
+//wire    [3:0]   arg_cno = opcode[20+:4];
+//wire    [3:0]   arg_dno = opcode[16+:4];
+
+wire	[7:0]	opc		= opcode[31:24];
+wire	[19:0]	rval_u20    = opcode[19:0];
+wire	[15:0]	rval	= opcode[15:0];
+wire    [3:0]   arg_ano = opcode[23:20];
+wire    [3:0]   arg_bno = opcode[19:16];
+wire    [3:0]   arg_cno = opcode[15:12];
+wire    [3:0]   arg_dno = opcode[11:8];
+
 
 reg     rocc_inst_flag;
 
-assign  opcode = opc_cnt == 2'b01 ? sram_doutb[31:0] :
-                opc_cnt == 2'b10 ? sram_doutb[63:32] :
-                opc_cnt == 2'b11 ? sram_doutb[95:64] : sram_doutb[127:96];
+assign jmp_byte = rval[15] ? {16'hFFFF, rval} : {16'h0000, rval};
+
+
+assign  opcode = opc_cnt == 2'b01 ? sram_doutb[63:32] :
+                opc_cnt == 2'b10 ? sram_doutb[31:0] :
+                opc_cnt == 2'b11 ? sram_doutb[127:96] : sram_doutb[95:64];
+//assign  opcode = opc_cnt == 2'b01 ? sram_doutb[31:0] :
+//                opc_cnt == 2'b10 ? sram_doutb[63:32] :
+                //                opc_cnt == 2'b11 ? sram_doutb[95:64] : sram_doutb[127:96];
+
+//ila_0 ila_0(
+//.clk(clk),
+//.probe0(state),
+//.probe1(opc_cnt),
+//.probe2(opc_radr),
+//.probe3(localmem_radr),
+//.probe4(localmem_wadr),
+//.probe5(jmp_opc),
+//.probe6(jmp_radr),
+//.probe7(jmp_byte),
+//.probe8(comp_a),
+//.probe9(comp_b),
+//.probe10(int32_a),
+//.probe11(int32_b),
+//.probe12(int32_i),
+//.probe13(a_arg_reg),
+//.probe14(b_arg_reg),
+//.probe15(opcode)
+//); 
+//  ila_0 ila_0(
+//   .clk(clk),
+//   .probe0(state),
+//   .probe1(dma_ready),
+//   .probe2(dma_req),
+//   .probe3(localmem_wren),
+//   .probe4(localmem_wadr),
+//   .probe5(sram_dina_reg),
+//   .probe6(dma_readData),
+//   .probe7(rocc_inst_flag)
+//   );
 
 always @(negedge rstn or posedge clk) begin
 	if(!rstn) begin
@@ -156,6 +219,16 @@ always @(negedge rstn or posedge clk) begin
         bf16_alat   <= 0;
         bf16_blat   <= 0;
         bf16_ylat   <= 0;
+        jmp_opc     <= 0;
+        jmp_radr    <= 0;
+        // jmp_byte    <= 0;
+        comp_a      <= 0;
+        comp_b      <= 0;
+        int32_a     <= 0;
+        int32_b     <= 0;
+        int32_i     <= 0;
+        a_arg_reg   <= 0;
+        b_arg_reg   <= 0;
 		rf[0]		<= 0;
 		rf[1]		<= 0;
 		rf[2]		<= 0;
@@ -188,11 +261,12 @@ always @(negedge rstn or posedge clk) begin
                     opc_radr	<= 0;
                     localmem_rden   <= 1;
                     localmem_radr   <= 0;
+                    rf[14]          <= 0;
                 end else if(rocc_if_funct == 7'd3) begin
                     state <= S_LOAD_REQ;
                     dma_req     <= 1;
                     dma_rwn		<= 1;
-                    dma_localAddr   <= rocc_if_local_mem_offset;
+                    dma_localAddr   <= rocc_if_local_mem_offset[15:4];
                     dma_hostAddr    <= rocc_if_host_mem_offset;
                     dma_transferLength   <= rocc_if_size;
                     rocc_inst_flag      <= 1;
@@ -200,7 +274,7 @@ always @(negedge rstn or posedge clk) begin
                     state <= S_STORE_PRE;
                     dma_req     <= 0;
                     dma_rwn		<= 0;
-                    dma_localAddr   <= rocc_if_local_mem_offset;
+                    dma_localAddr   <= rocc_if_local_mem_offset[15:4];
                     dma_hostAddr    <= rocc_if_host_mem_offset;
                     dma_transferLength   <= rocc_if_size;
                     rocc_inst_flag      <= 1;
@@ -227,11 +301,60 @@ always @(negedge rstn or posedge clk) begin
             localmem_rden   <= 0;
             opc_radr    <= localmem_rden ? (opc_cnt == 2'b11 ? opc_radr + 1 : opc_radr) : opc_radr;
             localmem_radr   <= localmem_rden ? (opc_cnt == 2'b11 ? localmem_radr + 8 : localmem_radr) : localmem_radr;
+// rf[14]          <= rf[14] <= localmem_radr;;
+		end
+        
+        S_INT32_ADD:
+        begin
+            state   <= S_OPC_READ;
+            rf[1]		<= a_arg_reg == 1 ? (int32_a + int32_b + int32_i) : rf[1];
+            rf[2]		<= a_arg_reg == 2 ? (int32_a + int32_b + int32_i) : rf[2];
+            rf[3]		<= a_arg_reg == 3 ? (int32_a + int32_b + int32_i) : rf[3];
+            rf[4]		<= a_arg_reg == 4 ? (int32_a + int32_b + int32_i) : rf[4];
+            rf[5]		<= a_arg_reg == 5 ? (int32_a + int32_b + int32_i) : rf[5];
+            rf[6]		<= a_arg_reg == 6 ? (int32_a + int32_b + int32_i) : rf[6];
+            rf[7]		<= a_arg_reg == 7 ? (int32_a + int32_b + int32_i) : rf[7];		
+            localmem_rden   <= 1;
+			localmem_radr   <= {opc_radr[12:0], 3'b000};
+        end
+        
+        S_INT32_SUB:
+        begin
+            state   <= S_OPC_READ;
+            rf[1]		<= a_arg_reg == 1 ? (int32_a - int32_b - int32_i) : rf[1];
+            rf[2]		<= a_arg_reg == 2 ? (int32_a - int32_b - int32_i) : rf[2];
+            rf[3]		<= a_arg_reg == 3 ? (int32_a - int32_b - int32_i) : rf[3];
+            rf[4]		<= a_arg_reg == 4 ? (int32_a - int32_b - int32_i) : rf[4];
+            rf[5]		<= a_arg_reg == 5 ? (int32_a - int32_b - int32_i) : rf[5];
+            rf[6]		<= a_arg_reg == 6 ? (int32_a - int32_b - int32_i) : rf[6];
+            rf[7]		<= a_arg_reg == 7 ? (int32_a - int32_b - int32_i) : rf[7];		
+            localmem_rden   <= 1;
+			localmem_radr   <= {opc_radr[12:0], 3'b000};
+        end
+
+        S_IFNEQ:
+        begin
+            state <= S_OPC_READ;
+            localmem_rden   <= 1;
+            localmem_radr   <= (comp_a != comp_b) ? (jmp_radr[31] ? localmem_radr : {jmp_radr[16:4], 3'b000}) : {opc_radr[12:0], 3'b000};
+            opc_radr <= jmp_radr[15:4];
+            opc_cnt <= (comp_a != comp_b) ? (jmp_radr[31] ? (opc_cnt - 1) : (jmp_radr[3:0] == 4'h0 ? 2'b00 : 
+                jmp_radr[3:0] == 4'h4 ? 2'b01 : 
+                jmp_radr[3:0] == 4'h8 ? 2'b10 : 
+                jmp_radr[3:0] == 4'hc ? 2'b11 : opc_cnt)) : opc_cnt;
+            rf[14]  <= rf[14] + jmp_byte - 32'd4;
 		end
 
 		S_EXEC:
 		begin
-			state	    <= opc == OPC_LOAD ? S_LOAD_REQ : opc == OPC_STORE ? S_STORE_PRE : opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? S_BF16_1 : opc == OPC_RETURN ? S_RETURN : S_OPC_READ;
+			state	    <= opc == OPC_LOAD ? S_LOAD_REQ : 
+                        opc == OPC_STORE ? S_STORE_PRE : 
+                        opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16 ? S_BF16_1 : 
+                        opc == OPC_IFNEQ ? S_IFNEQ : 
+                        opc == OPC_ADD_INT32 ? S_INT32_ADD : 
+                        opc == OPC_SUB_INT32 ? S_INT32_SUB : 
+                        opc == OPC_RETURN ? S_RETURN : 
+                        S_OPC_READ;
 			rf[1]		<= opc == OPC_SETI && arg_ano == 1 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 1 ? {rval, rf[1][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 1 ? {rf[1][16+:16], rval} : rf[1];
 			rf[2]		<= opc == OPC_SETI && arg_ano == 2 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 2 ? {rval, rf[2][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 2 ? {rf[2][16+:16], rval} : rf[2];
 			rf[3]		<= opc == OPC_SETI && arg_ano == 3 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 3 ? {rval, rf[3][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 3 ? {rf[3][16+:16], rval} : rf[3];
@@ -241,6 +364,47 @@ always @(negedge rstn or posedge clk) begin
 			rf[7]		<= opc == OPC_SETI && arg_ano == 7 ? {12'h000, rval_u20} : opc == OPC_SETI_HIGH && arg_ano == 7 ? {rval, rf[7][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 7 ? {rf[7][16+:16], rval} : rf[7];
 			// rf[14]		<= opc == OPC_SETI_HIGH && arg_ano == 14 ? {rval, rf[14][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 14 ? {rf[14][16+:16], rval} : rf[14];
 			// rf[15]	    <= opc == OPC_SETI_HIGH && arg_ano == 15 ? {rval, rf[15][00+:16]} : opc == OPC_SETI_LOW && arg_ano == 15 ? {rf[15][16+:16], rval} : rf[15];
+
+            rf[14]  <= rf[14] + 32'd4;
+            
+            a_arg_reg <= arg_ano;
+            b_arg_reg <= arg_bno;
+
+            comp_a <= opc == OPC_IFNEQ ? arg_ano == 1 ? rf[1] : 
+                arg_ano == 2 ? rf[2] :
+                arg_ano == 3 ? rf[3] :
+                arg_ano == 4 ? rf[4] :
+                arg_ano == 5 ? rf[5] :
+                arg_ano == 6 ? rf[6] :
+                arg_ano == 7 ? rf[7] : comp_a : comp_a;
+            comp_b <= opc == OPC_IFNEQ ? arg_bno == 1 ? rf[1] : 
+                arg_bno == 2 ? rf[2] :
+                arg_bno == 3 ? rf[3] :
+                arg_bno == 4 ? rf[4] :
+                arg_bno == 5 ? rf[5] :
+                arg_bno == 6 ? rf[6] :
+                arg_bno == 7 ? rf[7] : comp_b : comp_b;
+            
+            jmp_radr <= rf[14] + jmp_byte;
+
+            int32_a <= (opc == OPC_ADD_INT32) || (opc == OPC_SUB_INT32) ? arg_ano == 1 ? rf[1] : 
+                arg_ano == 2 ? rf[2] :
+                arg_ano == 3 ? rf[3] :
+                arg_ano == 4 ? rf[4] :
+                arg_ano == 5 ? rf[5] :
+                arg_ano == 6 ? rf[6] :
+                arg_ano == 7 ? rf[7] : int32_a : int32_a;
+            int32_b <= (opc == OPC_ADD_INT32) || (opc == OPC_SUB_INT32) ? arg_bno == 1 ? rf[1] : 
+                arg_bno == 2 ? rf[2] :
+                arg_bno == 3 ? rf[3] :
+                arg_bno == 4 ? rf[4] :
+                arg_bno == 5 ? rf[5] :
+                arg_bno == 6 ? rf[6] :
+                arg_bno == 7 ? rf[7] : int32_b : int32_b;
+            int32_i <= {16'h00, rval};
+            
+            
+            
 
             bf16_a_addr <= arg_bno == 1 ? rf[1] / 2 : 
                 arg_bno == 2 ? rf[2] / 2 :
@@ -268,21 +432,21 @@ always @(negedge rstn or posedge clk) begin
 			dma_rwn		        <= opc == OPC_LOAD;
 			dma_localAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
                 opc == OPC_LOAD ? 
-                arg_ano == 1 ? rf[1][11:0] : 
-                arg_ano == 2 ? rf[2][11:0] :
-                arg_ano == 3 ? rf[3][11:0] :
-                arg_ano == 4 ? rf[4][11:0] :
-                arg_ano == 5 ? rf[5][11:0] :
-                arg_ano == 6 ? rf[6][11:0] :
-                arg_ano == 7 ? rf[7][11:0] : dma_localAddr :
+                arg_ano == 1 ? rf[1][15:4] : 
+                arg_ano == 2 ? rf[2][15:4] :
+                arg_ano == 3 ? rf[3][15:4] :
+                arg_ano == 4 ? rf[4][15:4] :
+                arg_ano == 5 ? rf[5][15:4] :
+                arg_ano == 6 ? rf[6][15:4] :
+                arg_ano == 7 ? rf[7][15:4] : dma_localAddr :
 
-                arg_bno == 1 ? rf[1][11:0] : 
-                arg_bno == 2 ? rf[2][11:0] :
-                arg_bno == 3 ? rf[3][11:0] :
-                arg_bno == 4 ? rf[4][11:0] :
-                arg_bno == 5 ? rf[5][11:0] :
-                arg_bno == 6 ? rf[6][11:0] :
-                arg_bno == 7 ? rf[7][11:0] : dma_localAddr : dma_localAddr;
+                arg_bno == 1 ? rf[1][15:4] : 
+                arg_bno == 2 ? rf[2][15:4] :
+                arg_bno == 3 ? rf[3][15:4] :
+                arg_bno == 4 ? rf[4][15:4] :
+                arg_bno == 5 ? rf[5][15:4] :
+                arg_bno == 6 ? rf[6][15:4] :
+                arg_bno == 7 ? rf[7][15:4] : dma_localAddr : dma_localAddr;
 
 			dma_hostAddr		<= opc == OPC_LOAD || opc == OPC_STORE ? 
                 opc == OPC_LOAD ? 
@@ -321,6 +485,7 @@ always @(negedge rstn or posedge clk) begin
                 arg_dno == 5 ? rf[5] :
                 arg_dno == 6 ? rf[6] :
                 arg_dno == 7 ? rf[7] : fpu_cnt : fpu_cnt ;
+                
             localmem_rden   <= (opc >= OPC_NOP && opc <= OPC_SETI_HIGH) || (opc >= OPC_VADD_BF16 && opc <= OPC_VDIV_BF16) || (opc == OPC_STORE);
             
 
@@ -339,7 +504,7 @@ always @(negedge rstn or posedge clk) begin
 			state		<= dma_ready ? S_LOAD_DATA : state;
 			dma_req		<= dma_ready ? 0 : 1;
             localmem_rden <= 0;
-            localmem_wadr <= rocc_inst_flag ? dma_localAddr : localmem_wadr;
+            localmem_wadr <= rocc_inst_flag ? {1'b0, dma_localAddr[11:0], 3'b000} : localmem_wadr;
 		end
 
 		S_LOAD_DATA:
@@ -348,7 +513,7 @@ always @(negedge rstn or posedge clk) begin
 			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
             
             localmem_wren <= dma_ack;
-            localmem_wadr <= localmem_wren ? localmem_wadr + 8 : localmem_wadr;
+            localmem_wadr <= {1'b0, dma_readAddr[11:0], 3'b000};
             localmem_rden <= (dma_ack && scnt == dma_transferLength - 1) ? (rocc_inst_flag ? 0 : 1) : 0;
 
             sram_dina_reg <= dma_readData;
@@ -360,7 +525,7 @@ always @(negedge rstn or posedge clk) begin
 			state   <= S_STORE_REQ;
 			dma_req <= 1;
             localmem_rden   <= 0;
-            localmem_radr   <= rocc_inst_flag ? (localmem_rden ? dma_localAddr + 8 : dma_localAddr) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
+            localmem_radr   <= rocc_inst_flag ? (localmem_rden ? {1'b0, dma_localAddr[11:0], 3'b000} + 8 : {1'b0, dma_localAddr[11:0], 3'b000}) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
 		end
 
 		S_STORE_REQ:
@@ -374,7 +539,7 @@ always @(negedge rstn or posedge clk) begin
 			state		<= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? S_IDLE : S_OPC_READ) : state;
 			scnt		<= dma_ack ? (scnt == dma_transferLength - 1 ? 0 : scnt + 1) : scnt;
             localmem_rden   <= (dma_ack && scnt == dma_transferLength - 1) ? (rocc_inst_flag ? 0 : 1) : 1;
-            localmem_radr   <= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? localmem_radr : opc_radr * 8) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
+            localmem_radr   <= dma_ack && scnt == dma_transferLength - 1 ? (rocc_inst_flag ? localmem_radr : {opc_radr[12:0], 3'b000}) : (localmem_rden ? localmem_radr + 8 : localmem_radr);
             rocc_inst_flag <= (dma_ack && scnt == dma_transferLength - 1) ? 0 : 1;
 		end
 
@@ -423,19 +588,19 @@ always @(negedge rstn or posedge clk) begin
 
         S_BF16_OP:
         begin
-			state		<= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? S_FIN : S_BF16_2) : state;
-			scnt		<= (opc_div ? bf16_ov : scnt == 1) ? 0 : scnt + 1;
-			fpu_cnt		<= (opc_div ? bf16_ov : scnt == 1) ? fpu_cnt - 1 : fpu_cnt;
+			state		<= (opc_div ? bf16_ov : 1) ? (fpu_cnt == 1 ? S_FIN : S_BF16_2) : state;
+			scnt		<= (opc_div ? bf16_ov : 1) ? 0 : scnt + 1;
+			fpu_cnt		<= (opc_div ? bf16_ov : 1) ? fpu_cnt - 1 : fpu_cnt;
 
-			localmem_rden   <= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
+			localmem_rden   <= (opc_div ? bf16_ov : 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
 			localmem_wadr   <= localmem_wren ? localmem_wadr + 1 : localmem_wadr;
-			localmem_radr   <= (opc_div ? bf16_ov : scnt == 1) ? bf16_b_addr : localmem_radr;
+			localmem_radr   <= (opc_div ? bf16_ov : 1) ? bf16_b_addr : localmem_radr;
 			localmem_wren   <= 0;
 
-			bf16_a_addr <= (opc_div ? bf16_ov : scnt == 1) ? bf16_a_addr + 1 : bf16_a_addr;
+			bf16_a_addr <= (opc_div ? bf16_ov : 1) ? bf16_a_addr + 1 : bf16_a_addr;
 			bf16_iv		<= opc_div && scnt == 1;
 			bf16_or		<= 1;
-			bf16_alat	<= (opc_div ? bf16_ov : scnt == 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
+			bf16_alat	<= (opc_div ? bf16_ov : 1) ? (fpu_cnt == 1 ? 0 : 1) : 0;
 			bf16_blat	<= 0;
             bf16_b      <= bf16_blat ? ( 
                 bf16_b_addr[2:0] == 3'b001 ? sram_doutb_0 :
@@ -445,7 +610,7 @@ always @(negedge rstn or posedge clk) begin
                 bf16_b_addr[2:0] == 3'b101 ? sram_doutb_4 :
                 bf16_b_addr[2:0] == 3'b110 ? sram_doutb_5 :
                 bf16_b_addr[2:0] == 3'b111 ? sram_doutb_6 : sram_doutb_7) : bf16_b;
-			bf16_ylat	<= (opc_div ? bf16_ov : scnt == 1);
+			bf16_ylat	<= (opc_div ? bf16_ov : 1);
         end
 
         S_FIN:
@@ -466,7 +631,7 @@ always @(negedge rstn or posedge clk) begin
             sram_dina_reg[127:112] <= bf16_ylat ? (localmem_wadr[2:0] == 3'b111 ? bf16_y : sram_dina_reg[127:112]) : sram_dina_reg[127:112];
             
 			localmem_rden   <= 1;
-			localmem_radr   <= opc_radr * 8;
+			localmem_radr   <= {opc_radr[12:0] , 3'b000};
 			bf16_iv         <= 0;
         end
 
@@ -490,10 +655,10 @@ assign		dma_writeData	= sram_doutb;
 
 assign		sram_ena	= localmem_wren;
 assign		sram_wea	= localmem_wren;
-assign		sram_addra	= localmem_wadr / 8;
+assign		sram_addra	= localmem_wadr[14:3];
 assign		sram_dina	= sram_dina_reg;
 assign		sram_enb	= localmem_rden;
-assign		sram_addrb	= localmem_radr / 8;
+assign		sram_addrb	= localmem_radr[14:3];
 
 //----| output mapping |--------------------------------------------------------
 assign		rocc_if_busy		= state != S_IDLE;

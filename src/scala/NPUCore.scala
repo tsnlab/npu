@@ -9,7 +9,7 @@ class NPUCore extends BlackBox with HasBlackBoxResource {
     val rstn = Input(Bool())
     val rocc_if_host_mem_offset = Input(Bits(40.W))
     val rocc_if_size = Input(Bits(16.W))
-    val rocc_if_local_mem_offset = Input(Bits(12.W))
+    val rocc_if_local_mem_offset = Input(Bits(16.W))
     val rocc_if_funct = Input(Bits(7.W))
     val rocc_if_cmd_vld = Input(Bool())
     val rocc_if_fin = Output(Bool())
@@ -34,6 +34,7 @@ class NPUCore extends BlackBox with HasBlackBoxResource {
     val dma_transferLength = Output(Bits(16.W))
     val dma_writeData = Output(Bits(128.W))
     val dma_readData = Input(Bits(128.W))
+    val dma_readAddr = Input(Bits(12.W))
     val dma_ack = Input(Bool())
     
     val sram_ena = Output(Bool())
