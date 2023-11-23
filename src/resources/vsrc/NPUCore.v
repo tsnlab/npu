@@ -176,17 +176,17 @@ assign  opcode = opc_cnt == 2'b01 ? sram_doutb[63:32] :
 //.probe14(b_arg_reg),
 //.probe15(opcode)
 //); 
- ila_0 ila_0(
-  .clk(clk),
-  .probe0(state),
-  .probe1(dma_ready),
-  .probe2(dma_req),
-  .probe3(localmem_wren),
-  .probe4(localmem_wadr),
-  .probe5(sram_dina_reg),
-  .probe6(dma_readData),
-  .probe7(rocc_inst_flag)
-  );
+//  ila_0 ila_0(
+//   .clk(clk),
+//   .probe0(state),
+//   .probe1(dma_ready),
+//   .probe2(dma_req),
+//   .probe3(localmem_wren),
+//   .probe4(localmem_wadr),
+//   .probe5(sram_dina_reg),
+//   .probe6(dma_readData),
+//   .probe7(rocc_inst_flag)
+//   );
 
 always @(negedge rstn or posedge clk) begin
 	if(!rstn) begin
