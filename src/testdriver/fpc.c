@@ -9,17 +9,17 @@
 #define    FREQ        50
 
 // the number of element to be tested
-#define    MAX_ELEMENT_SIZE    64 // 2048
-#define    ELEMENT_SIZE    64
+#define    MAX_ELEMENT_SIZE    2048 // 2048
+#define    ELEMENT_SIZE    512
 
 #define    VARIABLE_ALIGN 128
 
 #define    START_CORE_ID  0
 #define    END_CORE_ID    2
 
-#define    USED_DATA  0 // 0: random, 1: index
+#define    USED_DATA  1 // 0: random, 1: index
 
-#define    PRINT_SUCCESS_RESULT_DATA
+//#define    PRINT_SUCCESS_RESULT_DATA
 
 //#define    LOAD_STORE_TEST
 
@@ -55,21 +55,37 @@
 
 #define SIZE_M  1
 
+#define _USE_VARIABLES_  1
+
 // variables
-__attribute__ ((aligned (VARIABLE_ALIGN))) volatile float a[MAX_ELEMENT_SIZE];
-__attribute__ ((aligned (VARIABLE_ALIGN))) volatile float b[MAX_ELEMENT_SIZE];
-__attribute__ ((aligned (VARIABLE_ALIGN))) volatile float y[MAX_ELEMENT_SIZE];
+#if _USE_VARIABLES_
+//__attribute__ ((aligned (VARIABLE_ALIGN))) volatile static float a[ELEMENT_SIZE];
+__attribute__ ((aligned (VARIABLE_ALIGN))) volatile static float y[ELEMENT_SIZE] __attribute__((section(".nocache")));
 #ifdef LOAD_STORE_TEST
-__attribute__ ((aligned (VARIABLE_ALIGN))) volatile float y1[MAX_ELEMENT_SIZE];
-__attribute__ ((aligned (VARIABLE_ALIGN))) volatile float y2[MAX_ELEMENT_SIZE];
+__attribute__ ((aligned (VARIABLE_ALIGN))) volatile static float y1[ELEMENT_SIZE] __attribute__((section(".nocache")));
+__attribute__ ((aligned (VARIABLE_ALIGN))) volatile static float y2[ELEMENT_SIZE] __attribute__((section(".nocache")));
 #endif
-__attribute__ ((aligned (VARIABLE_ALIGN))) volatile float r[MAX_ELEMENT_SIZE];
+__attribute__ ((aligned (VARIABLE_ALIGN))) volatile static float a[ELEMENT_SIZE];
+__attribute__ ((aligned (VARIABLE_ALIGN))) volatile static float b[ELEMENT_SIZE];
+__attribute__ ((aligned (VARIABLE_ALIGN))) volatile static float r[ELEMENT_SIZE];
+#else
+float *d;
+float *a;
+float *b;
+float *y;
+#ifdef LOAD_STORE_TEST
+float *y1;
+float *y2;
+#endif
+float *r;
+#endif
 __attribute__ ((aligned (VARIABLE_ALIGN))) volatile uint32_t kbuf[1024];
 __attribute__ ((aligned (VARIABLE_ALIGN))) volatile int load_cycle[MAX_FPU][MAX_CORE];
 __attribute__ ((aligned (VARIABLE_ALIGN))) volatile int fpu_cycle[MAX_FPU][MAX_CORE];
 volatile uint32_t klen    = 0;
 
 volatile uint32_t not_ok  = 0;
+volatile uint32_t not_cok  = 0;
 // functions
 void reg_write(uint32_t adr, uint64_t wd)
 {
@@ -350,17 +366,124 @@ int loaf_store_test(void) {
 }
 #endif
 
+#define BUFFER_ALIGNMENT 0
+
+#if !_USE_VARIABLES_
+void release_variables() {
+    if(d != NULL) {
+        free(d);
+    }
+    if(a != NULL) {
+        free(a);
+    }
+    if(b != NULL) {
+        free(b);
+    }
+    if(y != NULL) {
+        free(y);
+    }
+#ifdef LOAD_STORE_TEST
+    if(y1 != NULL) {
+        free(y1);
+    }
+    if(y2 != NULL) {
+        free(y2);
+    }
+#endif
+    if(r != NULL) {
+        free(r);
+    }
+}
+#endif
+
+#if 0
+void non_cacheable()
+{
+   asm volatile("li t0, 0x80000000");     // Base address of the memory region
+   asm volatile("li t1, 0x80001000");     // End address of the memory region
+   asm volatile("li t2, 0x8");            // Set MMU flags to mark the region as non-cacheable
+   asm volatile("csrw pmpaddr0, t0");
+   asm volatile("csrw pmpaddr1, t1");
+   asm volatile("csrw pmpcfg0, t2");
+}
+#endif
+
 int main(void) {
 
+#if !_USE_VARIABLES_
+//    d = malloc(sizeof(float) * ELEMENT_SIZE);
+//    if(d == NULL) {
+//        printf("OOM(d) %u.\n", sizeof(float) * ELEMENT_SIZE + BUFFER_ALIGNMENT);
+//        return -1;
+//    }
+    a = malloc(sizeof(float) * ELEMENT_SIZE);
+    if(a == NULL) {
+        printf("OOM(a) %u.\n", sizeof(float) * ELEMENT_SIZE + BUFFER_ALIGNMENT);
+        release_variables();
+        return -1;
+    }
+    b = malloc(sizeof(float) * ELEMENT_SIZE);
+    if(b == NULL) {
+        printf("OOM(b) %u.\n", sizeof(float) * ELEMENT_SIZE + BUFFER_ALIGNMENT);
+        release_variables();
+        return -1;
+    }
+    y = malloc(sizeof(float) * ELEMENT_SIZE);
+    if(y == NULL) {
+        printf("OOM(y) %u.\n", sizeof(float) * ELEMENT_SIZE + BUFFER_ALIGNMENT);
+        release_variables();
+        return -1;
+    }
 #ifdef LOAD_STORE_TEST
-    return loaf_store_test();
+    y1 = malloc(sizeof(float) * ELEMENT_SIZE);
+    if(y1 == NULL) {
+        printf("OOM(y1) %u.\n", sizeof(float) * ELEMENT_SIZE + BUFFER_ALIGNMENT);
+        release_variables();
+        return -1;
+    }
+    y2 = malloc(sizeof(float) * ELEMENT_SIZE);
+    if(y2 == NULL) {
+        printf("OOM(y2) %u.\n", sizeof(float) * ELEMENT_SIZE + BUFFER_ALIGNMENT);
+        release_variables();
+        return -1;
+    }
+#endif
+    r = malloc(sizeof(float) * ELEMENT_SIZE);
+    if(r == NULL) {
+        printf("OOM(r) %u.\n", sizeof(float) * ELEMENT_SIZE + BUFFER_ALIGNMENT);
+        release_variables();
+        return -1;
+    }
+#endif
+
+    memset(a, 0, sizeof(float) * ELEMENT_SIZE);
+    memset(b, 0, sizeof(float) * ELEMENT_SIZE);
+    memset(y, 0, sizeof(float) * ELEMENT_SIZE);
+#ifdef LOAD_STORE_TEST
+    memset(y1, 0, sizeof(float) * ELEMENT_SIZE);
+    memset(y2, 0, sizeof(float) * ELEMENT_SIZE);
+#endif
+    memset(r, 0, sizeof(float) * ELEMENT_SIZE);
+
+#ifdef LOAD_STORE_TEST
+    int rst;
+
+    rst = loaf_store_test();
+    release_variables();
+    return rst;
 #endif
 
     printf("---- FPU Controller Test (Element size = %d) \n", ELEMENT_SIZE);
-    printf("a: %p, b: %p, y: %p\n", a, b, y);
+    printf("a: %p, b: %p, y: %p, r: %p\n", a, b, y, r);
+
+//    delay_in_usec(1000000);
 
     //---- main test
+    int count = 0;
+//    for(count = 0;count < 2;count++)
+    {
     for(int fpu = 0;fpu < MAX_FPU;fpu++)
+    //for(int fpu = 3;fpu >= 0;fpu--)
     {
         printf("FPU: %s\n", fpu == 0 ? "ADD" : fpu == 1 ? "SUB" : fpu == 2 ? "MUL" : "DIV");
 
@@ -371,8 +494,8 @@ int main(void) {
         for(int i = 0;i < ELEMENT_SIZE;i++)
         {
 #if USED_DATA
-            a[i] = (float)(i + 1);                  // a sources
-            b[i] = (float)(i + 2);            // b sources
+            a[i] = (float)(i + 1 + count);                  // a sources
+            b[i] = (float)(i + 2 + count);            // b sources
 #else
             a[i] = (float)rand() / RAND_MAX * 2000.0 - 1000.0;
             b[i] = (float)rand() / RAND_MAX * 3000.0 - 2500.0;
@@ -408,6 +531,20 @@ int main(void) {
             for(int i = 0;i < ELEMENT_SIZE;i++)
             {
                 int ok = (y[i] >= r[i] ? y[i] - r[i] : r[i] - y[i]) < 0.0000001;
+                volatile float *y_ptr;
+                volatile float y_tmp;
+                uint32_t *ptmp = (uint32_t *)&y_tmp;
+
+                if(!ok) {
+                    not_cok++;
+                    y_ptr = &y[i];
+                    y_tmp = *y_ptr;
+
+                    printf("y_tmp: %08X\n", *ptmp);
+                    ok = (y_tmp >= r[i] ? y_tmp - r[i] : r[i] - y_tmp) < 0.0000001;
+                    // print_value(ok, i, r[i], y_tmp);
+                } 
+
                 print_value(ok, i, r[i], y[i]);
                 if(!ok) {
                     not_ok++;
@@ -415,6 +552,7 @@ int main(void) {
             }
             delay_in_usec(1000);
         }
+    }
     }
 
     // print result
@@ -431,7 +569,10 @@ int main(void) {
         }
     }
 
-    printf("---- FPU Controller Test Finished(not_ok: %d)\n", not_ok);
+#if !_USE_VARIABLES_
+    release_variables();
+#endif
+    printf("---- FPU Controller Test Finished(not_ok: %d, not_cok: %d)\n", not_ok, not_cok);
 
     return 0;
 }
