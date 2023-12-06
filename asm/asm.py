@@ -123,6 +123,8 @@ class Instruction:
             elif kind == 'i20':
                 value = self.parse_int(20, token)
                 write(token, value, 20)
+            elif kind == 'p4':
+                write(token, 0, 4)
             elif kind == 'p8':
                 write(token, 0, 8)
             elif kind == 'p16':

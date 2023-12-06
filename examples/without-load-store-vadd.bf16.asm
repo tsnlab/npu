@@ -38,8 +38,13 @@ seti %a 0x20  # 128 / 4  # A is stored at 128
 seti %b 0x420  # (128 + 4096) / 4  # B is stored at 128 + 4096
 seti %c 0x820  # (128 + 4096 *2) / 4  # C is stored at 128 + 4096 + 4096
 seti %d 2048  # count is 2048
+seti %e 0x400 # 1024
+seti %f 0x0
 
 vadd.bf16 %c %a %b %d
+add.i32 %f %zero 0x1
+#ifneq %e %f 0xc010
+ifneq %e %f -8 
 
 # Interrupt to CPU
 return

@@ -313,12 +313,14 @@ class NPU(threading.Thread):
                 result.append(read(16))
             elif kind == 'i20':
                 result.append(read(20))
+            elif kind == 'p4':
+                read(4)
             elif kind == 'p8':
-                pass
+                read(8)
             elif kind == 'p16':
-                pass
+                read(16)
             elif kind == 'p20':
-                pass
+                read(20)
             else:
                 raise Exception(f'Illegal parameter type: {kind}')
 

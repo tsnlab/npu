@@ -30,13 +30,17 @@ def finalize(host):
 
 # Load 0x200000 into A
 seti %a 0x20  # (128) / 4
-seti %b 0x4000  # 0x200000 / 128
+# seti %b 0x4000  # 0x200000 / 128
+seti_low %b 0x4000 # 0x200000 / 128
+seti_high %b 0x0000 # 0x200000 / 128
 seti %c 1024  # (2048 * 2) / 4
 load %a %b %c
 
 # Load 0x201000 into B
 seti %a 0x420  # (128 + 4096) / 4
-seti %b 0x4020  # 0x201000 / 128
+# seti %b 0x4020  # 0x201000 / 128
+seti_low %b 0x4020 # 0x201000 / 128
+seti_high %b 0x0000 # 0x201000 / 128
 seti %c 1024  # (2048 * 2) / 4
 load %a %b %c
 
@@ -48,8 +52,10 @@ seti %d 2048  # count is 2048
 
 vadd.bf16 %c %a %b %d
 
-# Store C to 0x202000
-seti %a 0x4040  # 0x202000 / 128
+# Store C to 0x202000 0x203000 0x204000 0x205000
+# seti %a 0x4040  # 0x202000 / 128
+seti_low %a 0x4040 # 0x202000 / 128  0x4040 0x4060 0x4080 0x40a0
+seti_high %a 0x0000 # 0x202000 / 128
 seti %b 0x820  # (128 + 4096 + 4096) / 4
 seti %c 1024  # (2048 * 2) / 4
 store %a %b %c
